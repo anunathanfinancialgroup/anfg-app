@@ -592,28 +592,25 @@ export default function Page() {
   useEffect(() => {
     (async () => {
       try {
-        // Navigation-only change: allow cookie auth (set on /auth) OR Supabase session
-        if (!hasAuthCookie()) {
-          const { data } = await supabase.auth.getSession();
-          if (!data.session) {
-            router.replace('/auth?next=/fna');
-            return;
-          }
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) {
+          router.replace("/auth?next=/fna");
+          return;
         }
       } catch {
-        // ignore
+        // ignore; page will show error on subsequent calls
       } finally {
         setAuthChecked(true);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+  }, []);
 
   async function logout() {
     try {
       await supabase.auth.signOut();
     } finally {
-      router.replace("/auth");
+      router.replace("/auth?next=/fna");
     }
   }
 
