@@ -1,35 +1,36 @@
-// middleware.ts
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function middleware(request) {
+  // Skip static files, API routes, images
   const { pathname } = request.nextUrl;
-
-  // Public routes – allow without login
-  const publicPaths = ['/auth', '/_next', '/favicon.ico', '/api/auth'];
-  if (publicPaths.some((p) => pathname.startsWith(p))) {
+  
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname.includes('.png') ||
+    pathname.includes('.jpg') ||
+    pathname === '/favicon.ico'
+  ) {
     return NextResponse.next();
   }
 
-  // Read simple auth cookie
-  const hasSession = request.cookies.get('canfs_auth')?.value === 'true';
-
-  // Protect /dashboard and /prospect and /fna (add any others here)
-  const protectedPrefixes = ['/dashboard', '/prospect', '/fna'];
-
-  const isProtected = protectedPrefixes.some((p) => pathname.startsWith(p));
-
-  if (isProtected && !hasSession) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/auth';
-    url.searchParams.set('redirect', pathname); // optional: remember where they were going
-    return NextResponse.redirect(url);
+  // Your auth logic here
+  const hasAuth = request.cookies.has('canfs_auth');
+  if (!hasAuth && !pathname.startsWith('/auth')) {
+    return NextResponse.redirect(new URL('/auth', request.url));
   }
 
   return NextResponse.next();
 }
 
-// Limit middleware to app routes (you can tighten this if you want)
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    /*
+     * Match all paths except:
+     * - API routes
+     * - Static files (_next/static, public)
+     * - Images
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 };
