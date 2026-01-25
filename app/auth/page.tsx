@@ -1,13 +1,9 @@
+
 // app/auth/page.tsx
 'use client';
 
-// NOTE: This page is written to be safe for Next.js static prerender/export.
-// We avoid useSearchParams during build and instead read window.location.search in useEffect.
-
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-export const dynamic = 'force-dynamic';
 
 const AUTH_COOKIE = 'canfs_auth';
 
@@ -18,7 +14,8 @@ function hasAuthCookie() {
 
 function setAuthCookie() {
   if (typeof document === 'undefined') return;
-  const secure = typeof window !== 'undefined' && window.location?.protocol === 'https:' ? '; secure' : '';
+  const secure =
+    typeof window !== 'undefined' && window.location?.protocol === 'https:' ? '; secure' : '';
   document.cookie = `${AUTH_COOKIE}=true; path=/; max-age=86400; samesite=lax${secure}`;
 }
 
@@ -35,12 +32,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [destination, setDestination] = useState<string>('dashboard');
   const [error, setError] = useState<string | null>(null);
-  const [nextPath, setNextPath] = useState<string | null>(null);
 
-  // Read ?next=/path from the URL only on the client
+  // Read ?next=/... only on client (safe for builds)
+  const [nextPath, setNextPath] = useState<string | null>(null);
   useEffect(() => {
     try {
-      if (typeof window === 'undefined') return;
       const sp = new URLSearchParams(window.location.search);
       const n = sp.get('next');
       setNextPath(n && n.startsWith('/') ? n : null);
@@ -49,13 +45,13 @@ export default function LoginPage() {
     }
   }, []);
 
-  const redirectDefault = useMemo(() => {
+  const selectedPath = useMemo(() => {
     const dest = DESTINATIONS.find((d) => d.value === destination);
     return dest?.path ?? '/dashboard';
   }, [destination]);
 
   useEffect(() => {
-    // If already logged in, route to intended destination (next) if present; otherwise chosen destination or dashboard.
+    // ✅ FIX: If cookie exists, respect next (if provided). Otherwise default to dashboard.
     if (hasAuthCookie()) {
       router.replace(nextPath ?? '/dashboard');
     }
@@ -65,18 +61,16 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
 
-    // Accept any non-empty credentials (placeholder auth)
     if (!email || !password) {
       setError('Please enter email and password');
       return;
     }
 
+    // Set cookie auth
     setAuthCookie();
 
-    // Navigation rule:
-    //  - If user came in with ?next=..., always honor it after sign-in.
-    //  - Otherwise, use the selected destination.
-    router.replace(nextPath ?? redirectDefault);
+    // ✅ FIX: After login, prefer next when present; otherwise go to chosen destination
+    router.replace(nextPath ?? selectedPath);
   };
 
   return (
