@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-  import { getSupabase } from "@/lib/supabaseClient";
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 // Auth cookie utilities
 const AUTH_COOKIE = 'canfs_auth';
