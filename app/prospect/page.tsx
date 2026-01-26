@@ -1,10 +1,9 @@
 // app/prospect/page.tsx
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+  import { getSupabase } from "@/lib/supabaseClient";
 
 // Auth cookie utilities
 const AUTH_COOKIE = 'canfs_auth';
