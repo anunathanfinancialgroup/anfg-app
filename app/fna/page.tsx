@@ -548,6 +548,7 @@ function EditableTable({
 
  export default function Page() {
   const router = useRouter();
+  // Lazily initialize Supabase client on the client runtime only
   const supabaseRef = useRef<ReturnType<typeof getSupabase> | null>(null);
   const supabase = () => {
     if (!supabaseRef.current) supabaseRef.current = getSupabase();
@@ -625,8 +626,7 @@ function EditableTable({
     setClientLoading(true);
     try {
       const needle = sanitizeSearchTerm(term);
-      let q = supabase
-        .from("client_registrations")
+      let q = supabase().from("client_registrations")
         .select("id, first_name, last_name, phone, email")
         .order("created_at", { ascending: false })
         .limit(50);
@@ -651,8 +651,7 @@ function EditableTable({
 
   // ---------- FNA load ----------
   async function ensureHeaderForClient(clientId: UUID): Promise<FnaHeader> {
-    const { data: existing, error: e1 } = await supabase
-      .from("fna_header")
+    const { data: existing, error: e1 } = await supabase().from("fna_header")
       .select("*")
       .eq("client_id", clientId)
       .order("updated_at", { ascending: false })
@@ -664,8 +663,7 @@ function EditableTable({
       return existing[0] as FnaHeader;
     }
 
-    const { data: inserted, error: e2 } = await supabase
-      .from("fna_header")
+    const { data: inserted, error: e2 } = await supabase().from("fna_header")
       .insert({ client_id: clientId })
       .select("*")
       .limit(1);
@@ -776,8 +774,7 @@ function EditableTable({
       }
       cleaned.updated_at = payload.updated_at;
 
-      const { data, error: uErr } = await supabase
-        .from("fna_header")
+      const { data, error: uErr } = await supabase().from("fna_header")
         .update(cleaned)
         .eq("id", fnaHeader.id)
         .select("*")
