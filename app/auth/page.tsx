@@ -9,6 +9,8 @@ const DESTINATIONS = [
   { value: 'prospect', label: 'Prospect List', path: '/prospect' },
 ];
 
+const AUTH_COOKIE = 'canfs_auth';
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,22 +21,25 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
 
-    // TODO: replace with real auth; for now, accept any non-empty credentials
+    // Validate credentials
     if (!email || !password) {
       setError('Please enter email and password');
       return;
     }
 
-    // Set simple auth cookie – checked by middleware
-    document.cookie = `canfs_auth=true; path=/; max-age=86400`; // 1 day
+    // Set auth cookie with secure flag for HTTPS
+    const secure = window.location.protocol === 'https:' ? '; secure' : '';
+    document.cookie = `${AUTH_COOKIE}=true; path=/; max-age=86400; samesite=lax${secure}`;
 
+    // Get the selected destination path
     const dest = DESTINATIONS.find((d) => d.value === destination);
     const redirectTo = dest?.path ?? '/dashboard';
 
+    // Redirect to selected destination
     window.location.href = redirectTo;
   };
 
-   return (
+  return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-200">
         <div className="flex flex-col items-center mb-6">
@@ -42,6 +47,7 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold text-slate-900 mb-1">Admin Login</h1>
           <p className="text-sm text-slate-600">Protecting Your Tomorrow</p>
         </div>
+
         {error && (
           <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
             {error}
