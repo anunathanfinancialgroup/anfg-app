@@ -1048,7 +1048,8 @@ export default function Page() {
               <img src="/can-logo.png" alt="CAN Financial Solutions" className="h-10 w-auto" />
               <div>
                 <div className="text-xl font-bold text-blue-800">{pageTitle}</div>
-                <div className="text-sm text-slate-600">Select a client and complete all six sections of the FNA.</div>
+                <div className="text-sm font-semibold text-yellow-500">Protecting Your Tomorrow</div>
+                <div className="text-sm text-slate-600">Select a client and complete all six sections of the FNA</div>
                 {selectedClient && (
                   <div className="mt-2 text-sm text-slate-700">
                     <span className="font-semibold">Selected:</span> {selectedClientLabel}{" "}
