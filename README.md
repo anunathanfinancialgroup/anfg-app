@@ -14,13 +14,13 @@ This package contains all the necessary files to fix authentication routing, log
 
 ### Step 1: Add Middleware (CRITICAL)
 Copy `middleware.ts` to the root of your Next.js project:
-```
+
 your-project/
 ├── middleware.ts          ← Place file here
 ├── app/
 ├── components/
 └── ...
-```
+ 
 
 This middleware will:
 - Protect routes: `/dashboard`, `/fna`, `/prospect`
@@ -133,7 +133,6 @@ This ensures compatibility with existing Supabase setup while adding fast cookie
 
 ## File Locations Reference
 
-```
 your-project/
 ├── middleware.ts                    ← NEW: Route protection
 ├── app/
