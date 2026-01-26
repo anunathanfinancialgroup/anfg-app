@@ -1,75 +1,165 @@
-# CANFS Reports (Supabase + Next.js)
+# CAN Financial Solutions - Auth Fix Implementation Guide
 
-A clean admin reporting site for the `client_registrations` table:
-- Search by first/last/phone
-- Edit follow-up fields (CalledOn, BOP_Date, BOP_Status, etc.) and save to Supabase
-- Upcoming BOP report (date range)
-- Export filtered upcoming rows to XLSX
-- Weekly **line** trend chart (last 2 months, by week end date)
-- Monthly **bar** chart (current year)
+## Overview
+This package contains all the necessary files to fix authentication routing, logout behavior, and route protection for your CAN Financial Solutions web application.
 
-## 1) Local run
-```bash
-# 1. Replace package.json with above
-# 2. Clean install
-rm -rf node_modules package-lock.json .next
-npm install
+## Files Included
+1. `middleware.ts` - Route protection middleware
+2. `app-auth-page.tsx` - Updated login page
+3. `app-dashboard-page.tsx` - Updated dashboard with auth fixes
+4. `app-fna-page.tsx` - Updated FNA page with auth fixes  
+5. `app-prospect-page.tsx` - Updated prospect page with auth fixes
 
-# 3. Test build
-npm run build
-# 4. Commit & deploy
-# 4. Deploy
-git add package.json package-lock.json
-git commit -m "Fix xlsx version + all Tailwind deps"
-git push origin main
+## Implementation Steps
+
+### Step 1: Add Middleware (CRITICAL)
+Copy `middleware.ts` to the root of your Next.js project:
+```
+your-project/
+├── middleware.ts          ← Place file here
+├── app/
+├── components/
+└── ...
 ```
 
-## 2) Supabase requirements
-### A) Create an admin user
-Supabase → Authentication → Users → Add user (email/password)
+This middleware will:
+- Protect routes: `/dashboard`, `/fna`, `/prospect`
+- Redirect unauthenticated users to `/auth`
+- Run on every request to protected routes
 
-### B) Enable RLS + policies (recommended)
-Supabase → Table Editor → client_registrations → Enable RLS
+### Step 2: Update Auth Page
+Replace `app/auth/page.tsx` with `app-auth-page.tsx`
 
-SQL Editor:
-```sql
-create policy "admin read"
-on public.client_registrations
-for select
-to authenticated
-using (true);
+Changes include:
+- Fixed secure cookie setting based on protocol (HTTP vs HTTPS)
+- Proper redirect after login based on selected destination
+- Clean cookie handling
 
-create policy "admin update"
-on public.client_registrations
-for update
-to authenticated
-using (true)
-with check (true);
+### Step 3: Update Dashboard Page
+Replace `app/dashboard/page.tsx` with `app-dashboard-page.tsx`
+
+Changes include:
+- Cookie-based auth check with Supabase fallback
+- Proper logout function that clears cookies AND Supabase session
+- Consistent redirect to `/auth` after logout
+
+### Step 4: Update FNA Page  
+Replace `app/fna/page.tsx` with `app-fna-page.tsx`
+
+Changes include:
+- Cookie-based auth check with Supabase fallback
+- Proper logout button in header
+- Consistent logout behavior
+
+### Step 5: Update Prospect Page
+Replace `app/prospect/page.tsx` with `app-prospect-page.tsx`
+
+Changes include:
+- Cookie-based auth check at component mount
+- Updated logout button to clear cookies properly
+- Consistent redirect behavior
+
+## Testing Checklist
+
+### ✅ Login Flow
+- [ ] Go to `/auth`
+- [ ] Enter any email/password
+- [ ] Select "Dashboard" destination
+- [ ] Click "Sign In"
+- [ ] Should redirect to `/dashboard`
+
+Repeat for FNA and Prospect destinations.
+
+### ✅ Logout Flow (Dashboard)
+- [ ] Go to `/dashboard` (when logged in)
+- [ ] Click "Logout" button in header
+- [ ] Should redirect to `/auth`
+- [ ] Try accessing `/dashboard` directly
+- [ ] Should redirect to `/auth` (not logged in)
+
+Repeat for `/fna` and `/prospect`.
+
+### ✅ Route Protection
+- [ ] Clear cookies (browser dev tools → Application → Cookies)
+- [ ] Try accessing `/dashboard` directly
+- [ ] Should redirect to `/auth`
+
+Repeat for `/fna` and `/prospect`.
+
+### ✅ Vercel Deployment
+- [ ] Deploy to Vercel
+- [ ] Test all flows above in production
+- [ ] Verify HTTPS cookie works correctly
+- [ ] Check middleware runs on Vercel Edge
+
+## Technical Details
+
+### Authentication Mechanism
+The solution uses a simple cookie-based approach:
+- Cookie name: `canfs_auth`
+- Value: `true` (when authenticated)
+- Max age: 86400 seconds (24 hours)
+- Attributes: `path=/; samesite=lax; secure` (on HTTPS)
+
+### Middleware Configuration
+The middleware runs on:
+- `/dashboard` and all sub-routes (`/dashboard/*`)
+- `/fna` and all sub-routes (`/fna/*`)
+- `/prospect` and all sub-routes (`/prospect/*`)
+
+### Fallback to Supabase
+All pages check for:
+1. Cookie presence FIRST (fast, no network call)
+2. Supabase session as fallback (if cookie missing but session exists)
+
+This ensures compatibility with existing Supabase setup while adding fast cookie-based checks.
+
+## Common Issues & Solutions
+
+### Issue: Redirects not working
+**Solution**: Ensure middleware.ts is in the project root, not in the app directory.
+
+### Issue: Logout not working  
+**Solution**: Check browser console for cookie clearing. Ensure the cookie domain/path matches.
+
+### Issue: Infinite redirect loop
+**Solution**: Check that middleware matcher doesn't include `/auth` route.
+
+### Issue: Works locally but not on Vercel
+**Solution**: 
+- Ensure middleware.ts is committed to git
+- Check Vercel build logs for middleware compilation
+- Verify environment variables are set in Vercel dashboard
+
+## File Locations Reference
+
+```
+your-project/
+├── middleware.ts                    ← NEW: Route protection
+├── app/
+│   ├── auth/
+│   │   └── page.tsx                 ← REPLACE with app-auth-page.tsx
+│   ├── dashboard/
+│   │   └── page.tsx                 ← REPLACE with app-dashboard-page.tsx  
+│   ├── fna/
+│   │   └── page.tsx                 ← REPLACE with app-fna-page.tsx
+│   └── prospect/
+│       └── page.tsx                 ← REPLACE with app-prospect-page.tsx
 ```
 
-## 3) Deploy on Vercel
-1. Upload this project to GitHub (root must include package.json)
-2. Import the repo into Vercel
-3. Set Environment Variables (Production + Preview):
-   - NEXT_PUBLIC_SUPABASE_URL
-   - NEXT_PUBLIC_SUPABASE_ANON_KEY
-4. Deploy
+## Support
 
-## Logo
-Replace `public/can-logo.svg` with your real logo if you want.
+If you encounter issues:
+1. Check browser console for errors
+2. Check Network tab for failed requests
+3. Verify cookies in Application tab
+4. Check Vercel deployment logs (if deployed)
 
+## Security Notes
 
-## Pagination
-The All Records table shows 100 records per page with Previous/Next buttons.
-
-
-## Sorting
-In both tables, click on these headers to sort: Client Name, Created Date, BOP Date, BOP Status, Follow-Up Date, Status.
-
-
-## Latest 500
-There is a Latest 10 Records table with the same scroll + sort + edit behavior.
-
-
-## Jump to Page
-Use the Go to page box in All Records to jump to any page.
+- This uses a simple cookie-based auth for demo purposes
+- For production, consider:
+  - Proper JWT tokens
+  - Server-side session validation
+  - CSRF protection
+  - Rate limiting on auth endpoints
