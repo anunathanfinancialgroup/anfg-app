@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSupabase } from "@/lib/supabaseClient";
+// import { getSupabase } from "@/lib/supabaseClient";
 
 /**
  * Financial Needs Analysis (FNA) — page.tsx
