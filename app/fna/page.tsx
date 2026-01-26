@@ -67,7 +67,7 @@ export default function FNAPage() {
               <img src="/can-logo.png" alt="CAN Financial Solutions" className="h-10 w-auto" />
               <div>
                 <div className="text-xl font-bold text-blue-800">Financial Needs Analysis</div>
-                <div className="text-sm text-slate-600">Select a client and complete all six sections of the FNA.</div>
+                 <div className="text-sm font-semibold text-yellow-500">Protecting Your Tomorrow</div>
               </div>
             </div>
             <button
