@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-// import { getSupabase } from "@/lib/supabaseClient";
+  import { getSupabase } from "@/lib/supabaseClient";
 
 /**
  * Financial Needs Analysis (FNA) — page.tsx
@@ -547,10 +547,10 @@ function EditableTable({
   );
 }
 
-//export default function Page() {
- // const supabaseRef = useRef<ReturnType<typeof getSupabase> | null>(null);
-//  if (!supabaseRef.current) supabaseRef.current = getSupabase();
- // const supabase = supabaseRef.current;
+ export default function Page() {
+ const supabaseRef = useRef<ReturnType<typeof getSupabase> | null>(null);
+  if (!supabaseRef.current) supabaseRef.current = getSupabase();
+      const supabase = supabaseRef.current;
 
   const [authChecked, setAuthChecked] = useState(false);
 
