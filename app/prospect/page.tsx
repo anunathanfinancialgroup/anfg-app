@@ -919,7 +919,7 @@ export default function ProspectListPage() {
           onClick={logout}
         >
           <LogoutIcon className="h-4 w-4" />
-          Logout
+          ←Logout
         </button>
       </div>
 
