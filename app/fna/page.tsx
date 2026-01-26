@@ -1,5 +1,6 @@
 // FNA Page Header - Fixed to match Prospect page styling
 // This component should replace the header section in your FNA page
+'use client';
 
 import { useRouter } from 'next/navigation';
 
@@ -28,8 +29,7 @@ export default function FNAHeader({ onLogout, errorMsg, successMsg }: FNAHeaderP
           <img src="/can-logo.png" alt="CAN Financial Solutions" className="h-10 w-auto" />
           <div>
             <div className="text-xl font-bold text-blue-800">Financial Needs Analysis</div>
-            <div className="text-sm text-slate-600">Select a client and complete all six sections of the FNA.</div>
-          </div>
+            <div className="text-sm font-semibold text-yellow-500">Protecting Your Tomorrow</div>
         </div>
         <button
           type="button"
