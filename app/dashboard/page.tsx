@@ -1092,8 +1092,6 @@ export default function Dashboard() {
     </div> 
   ); 
 }
-
-## Helper Components (add after the main component)
 function ProgressSummaryTable({ rows, sortState, onSortChange }: { rows: Row[]; sortState: { key: ProgressSortKey; dir: SortDir }; onSortChange: (k: ProgressSortKey) => void; }) { 
   const { widths, startResize } = useColumnResizer(); 
   const cols = useMemo(() => [ 
