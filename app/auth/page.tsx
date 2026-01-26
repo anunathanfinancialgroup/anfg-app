@@ -102,7 +102,7 @@ export default function LoginPage() {
             type="submit"
             className="mt-2 w-full rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 text-sm"
           >
-            Sign In → {DESTINATIONS.find((d) => d.value === destination)?.label ?? 'Dashboard'}
+            Sign In📲 → {DESTINATIONS.find((d) => d.value === destination)?.label ?? 'Dashboard'}
           </button>
         </form>
 
