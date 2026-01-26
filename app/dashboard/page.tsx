@@ -303,10 +303,8 @@ export default function Dashboard() {
   useEffect(() => {
     (async () => {
       try {
-        // Check cookie-based auth first
         const cookieOk = hasAuthCookie();
         if (!cookieOk) {
-          // Fallback to Supabase session check
           const supabase = getSupabase();
           const { data } = await supabase.auth.getSession();
           if (!data.session) {
@@ -546,4 +544,637 @@ export default function Dashboard() {
     } 
   } 
   
-  const
+# Complete app/dashboard/page.tsx - Fixed Version
+
+The file was truncated at line 549. Here's the fix - **add this code after line 548** (after the `updateCell` function closes):
+
+## Missing Code Section (add after updateCell function)
+
+```typescript
+  const totalPages = Math.max(1, Math.ceil((total ?? 0) / ALL_PAGE_SIZE)); 
+  const canPrev = page > 0; 
+  const canNext = (page + 1) * ALL_PAGE_SIZE < total; 
+  
+  const exportUpcomingXlsx = () => { 
+    const ws = XLSX.utils.json_to_sheet(upcoming); 
+    const wb = XLSX.utils.book_new(); 
+    XLSX.utils.book_append_sheet(wb, ws, "Upcoming_BOP"); 
+    XLSX.writeFile(wb, `Upcoming_${rangeStart}_to_${rangeEnd}.xlsx`); 
+  }; 
+  
+  const extraClientCol = useMemo(() => [{ label: "Client Name", sortable: "client" as SortKey, render: (r: Row) => clientName(r) }], []); 
+  
+  const progressFilteredSorted = useMemo(() => { 
+    const needle = progressFilter.trim().toLowerCase(); 
+    const filtered = (progressRows ?? []).filter((r) => (!needle ? true : String(r.client_name ?? "").toLowerCase().includes(needle))); 
+    const dirMul = progressSort.dir === "asc" ? 1 : -1; 
+    const asNum = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; }; 
+    const asTime = (v: any) => { if (!v) return 0; const d = new Date(v); const t = d.getTime(); return Number.isFinite(t) ? t : 0; }; 
+    filtered.sort((a, b) => { 
+      const k = progressSort.key; 
+      if (k === "client_name") return String(a.client_name ?? "").localeCompare(String(b.client_name ?? "")) * dirMul; 
+      if (k === "call_attempts" || k === "bop_attempts" || k === "followup_attempts") return (asNum(a[k]) - asNum(b[k])) * dirMul; 
+      return (asTime(a[k]) - asTime(b[k])) * dirMul; 
+    }); 
+    return filtered; 
+  }, [progressRows, progressFilter, progressSort]); 
+  
+  const progressTotalPages = Math.max(1, Math.ceil(progressFilteredSorted.length / PROGRESS_PAGE_SIZE)); 
+  const progressPageSafe = Math.min(progressTotalPages - 1, Math.max(0, progressPage)); 
+  const progressSlice = progressFilteredSorted.slice(progressPageSafe * PROGRESS_PAGE_SIZE, progressPageSafe * PROGRESS_PAGE_SIZE + PROGRESS_PAGE_SIZE); 
+  
+  const allVisible = trendsVisible && upcomingVisible && progressVisible && recordsVisible; 
+  const toggleAllCards = () => { 
+    const target = !allVisible; 
+    setTrendsVisible(target); 
+    setUpcomingVisible(target); 
+    setProgressVisible(target); 
+    setRecordsVisible(target); 
+  }; 
+  
+  const hideZeroFormatter = (val: any) => { const n = Number(val); return Number.isFinite(n) && n === 0 ? "" : val; }; 
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg text-slate-600">Loading...</div>
+      </div>
+    );
+  }
+
+  return ( 
+    <div className="min-h-screen"> 
+      <div className="max-w-[1600px] mx-auto p-4 space-y-4"> 
+        <header className="flex items-center justify-between gap-2"> 
+          <div className="flex items-center gap-2"> 
+            <img src="/can-logo.png" className="h-12 w-auto" alt="CAN Logo" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} /> 
+            <div> 
+              <div className="text-xl font-bold text-blue-800">CAN Financial Solutions Clients Report</div>
+              <div className="text-sm font-semibold text-yellow-500">Protecting Your Tomorrow</div>
+            </div> 
+          </div> 
+          <div className="flex items-center gap-2"> 
+            {(() => {
+              const newClientsCount = records.filter(r => r.status === "New Client").length;
+              const latestIssuedDate = records.map(r => r.Issued).filter(Boolean).map(d => new Date(d)).sort((a,b)=>b.getTime()-a.getTime())[0];
+              
+              const cycleStart = latestIssuedDate ? latestIssuedDate.toLocaleDateString() : "—";
+              const cycleEnd = latestIssuedDate ? new Date(latestIssuedDate.getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString() : "—";
+
+              const cycleDays = latestIssuedDate ? Math.floor((Date.now()-latestIssuedDate.getTime())/(1000*60*60*24)) : 0;
+              const today = new Date().toISOString().split("T")[0];
+              const meetingTodayCount = records.filter(r => r.BOP_Date?.startsWith(today) || r.Followup_Date?.startsWith(today)).length;
+              
+              return (
+                <div className="flex gap-2 mr-4">
+                  <div className="px-3 py-1 bg-gray-200 text-xs font-semibold rounded text-center">
+                    New Clients✏️ {newClientsCount}
+                  </div>
+                  <div className="px-3 py-1 bg-gray-200 text-xs font-semibold rounded text-center">Cycle Start on↪️ {cycleStart}</div>
+                  <div className="px-3 py-1 bg-gray-200 text-xs font-semibold rounded text-center">Cycle End on↩️ {cycleEnd}</div>
+                  <div className="px-3 py-2 bg-gray-200 text-xs font-semibold rounded text-center">Cycle Days🔄 {cycleDays}</div>
+                  <div className="px-3 py-2 bg-gray-200 text-xs font-semibold rounded text-center">Today Meetings📣 {meetingTodayCount}</div>
+                </div>
+              );
+            })()}
+            <Button variant="secondary" onClick={toggleAllCards}>{allVisible ? "Hide Cards📦" : "Show Cards🗃️"}</Button> 
+            <Button variant="secondary" onClick={logout}> 
+              <span className="inline-flex items-center gap-2"> 
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"> 
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 002 2h3a2 2 0 002-2v-1m-6-10V5a2 2 0 012-2h3a2 2 0 012 2v1" /> 
+                </svg> 
+                Logout 
+              </span> 
+            </Button> 
+          </div> 
+        </header> 
+        {error && (<div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{error}</div>)} 
+        
+        <Card title="Trends 📊"> 
+          <div className="mb-2">
+            <Button variant="secondary" onClick={() => setTrendsVisible(v => !v)}>
+              {trendsVisible ? "Hide 📊" : "Show 📊"}
+            </Button>
+          </div>
+          {trendsVisible ? ( 
+            <> 
+              <div className="text-xs font-semibold text-black mb-2">Rolling 12 Months</div> 
+              <div className="h-64"> 
+                <ResponsiveContainer width="100%" height="100%"> 
+                  <BarChart data={monthly12}> 
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} /> 
+                    <YAxis allowDecimals={false} /> 
+                    <Tooltip /> 
+                    <Bar dataKey="calls" fill="#2563eb"> 
+                      <LabelList dataKey="calls" position="top" fill="#0f172a" formatter={hideZeroFormatter} /> 
+                    </Bar> 
+                    <Bar dataKey="bops" fill="#f97316"> 
+                      <LabelList dataKey="bops" position="top" fill="#0f172a" formatter={hideZeroFormatter} /> 
+                    </Bar> 
+                    <Bar dataKey="followups" fill="#10b981"> 
+                      <LabelList dataKey="followups" position="top" fill="#0f172a" formatter={hideZeroFormatter} /> 
+                    </Bar> 
+                  </BarChart> 
+                </ResponsiveContainer> 
+              </div> 
+              {trendLoading && <div className="mt-2 text-xs text-black">Loading…</div>} 
+            </> 
+          ) : ( 
+            <div className="text-sm text-black">Results are hidden.</div> 
+          )} 
+        </Card> 
+        
+        <Card title="Upcoming Meetings📣"> 
+          <div className="grid md:grid-cols-5 gap-3 items-end"> 
+            <label className="block md:col-span-1"> 
+              <div className="text-xs font-semibold text-black mb-1">Start</div> 
+              <input type="date" className="w-32 border border-slate-300 px-2 py-1" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} /> 
+            </label> 
+            <label className="block md:col-span-1"> 
+              <div className="text-xs font-semibold text-black mb-1">End</div> 
+              <input type="date" className="w-32 border border-slate-300 px-2 py-1" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} /> 
+            </label> 
+            <div className="flex gap-2 md:col-span-3"> 
+              <Button variant="secondary" onClick={() => fetchUpcoming()}><b>➡️</b></Button> 
+              <Button 
+                variant="secondary" 
+                onClick={() => { 
+                  const today = new Date(); 
+                  const start = format(today, "yyyy-MM-dd"); 
+                  const end = format(addDays(today, 30), "yyyy-MM-dd"); 
+                  setRangeStart(start); 
+                  setRangeEnd(end); 
+                  fetchUpcoming(); 
+                }} 
+                disabled={upcomingLoading} 
+              > 
+                {upcomingLoading ? "Refreshing…" : "🔄"} 
+              </Button> 
+              <Button variant="secondary" onClick={exportUpcomingXlsx} disabled={upcoming.length === 0}>📤</Button> 
+              <Button variant="secondary" onClick={() => setUpcomingVisible((v) => !v)}> 
+                <span className={upcomingVisible ? "text-black" : undefined}> 
+                  {upcomingVisible ? "Hide🗂️" : "Show🗂️"} 
+                </span> 
+              </Button> 
+            </div> 
+          </div> 
+          <div className="flex items-center justify-between mb-2 mt-3"> 
+            <div className="text-sm text-black">Table supports vertical + horizontal scrolling.</div> 
+            <div className="text-xs text-black"> 
+              Click headers to sort: <b>Client Name</b>, <b>Created Date</b>, <b>BOP Date</b>, <b>BOP Status</b>, <b>Follow-Up Date</b>, <b>Status</b>. 
+            </div> 
+          </div> 
+          {upcomingVisible && ( 
+            <ExcelTableEditable 
+              rows={upcoming} 
+              savingId={savingId} 
+              onUpdate={updateCell} 
+              preferredOrder={[ 
+                "created_at", "status", "first_name", "last_name", "interest_type", "business_opportunities", "wealth_solutions", 
+                "CalledOn", "BOP_Date", "BOP_Status", "Followup_Date", "FollowUp_Status", "Product", "Comment", "Remark", 
+                "client_status", "phone", "email", 
+                "spouse_name", "date_of_birth", "children", "city", "state", "profession", "work_details", "immigration_status", 
+                "referred_by", "preferred_days", "preferred_time", 
+              ]} 
+              extraLeftCols={[{ label: "Client Name", sortable: "client", render: (r) => clientName(r) }]} 
+              maxHeightClass="max-h-[420px]" 
+              sortState={sortUpcoming} 
+              onSortChange={(k) => setSortUpcoming((cur) => toggleSort(cur, k))} 
+              stickyLeftCount={1} 
+              nonEditableKeys={new Set(["spouse_name", "date_of_birth", "children", "city", "work_details"])} 
+              viewOnlyPopupKeys={new Set(["work_details"])} 
+            /> 
+          )} 
+        </Card> 
+        
+        <Card title="Client Progress Summary🔑"> 
+          <div className="flex flex-col md:flex-row md:items-center gap-2 mb-2"> 
+            <input className="w-72 border border-slate-300 px-3 py-2" placeholder="Filter by client name..." value={progressFilter} onChange={(e) => { setProgressFilter(e.target.value); setProgressPage(0); }} /> 
+            <Button variant="secondary" onClick={() => setProgressVisible(true)}>➡️</Button> 
+            <Button variant="secondary" onClick={() => { setProgressFilter(""); fetchProgressSummary().then(() => setProgressVisible(true)); }} disabled={progressLoading}>{progressLoading ? "Loading…" : "🔄"}</Button> 
+            <Button variant="secondary" onClick={() => setProgressVisible((v) => !v)}>{progressVisible ? "Hide🗂️" : "Show🗂️"}</Button> 
+            <div className="md:ml-auto flex items-center gap-2"> 
+              <Button variant="secondary" onClick={() => setProgressPage((p) => Math.max(0, p - 1))} disabled={!progressVisible || progressPageSafe <= 0}>◀️</Button> 
+              <Button variant="secondary" onClick={() => setProgressPage((p) => Math.min(progressTotalPages - 1, p + 1))} disabled={!progressVisible || progressPageSafe >= progressTotalPages - 1}>▶️</Button> 
+            </div> 
+          </div> 
+          <div className="text-xs text-black mb-2">Click headers to sort.</div> 
+          {progressVisible && (<ProgressSummaryTable rows={progressSlice} sortState={progressSort} onSortChange={(k) => setProgressSort((cur) => toggleProgressSort(cur, k))} />)} 
+          {progressVisible && (<div className="mt-2 text-xs text-black">Page <b>{progressPageSafe + 1}</b> of <b>{progressTotalPages}</b> • showing {PROGRESS_PAGE_SIZE} per page</div>)} 
+        </Card> 
+        
+        <Card title="Clients List 🧑🏻‍🤝‍🧑🏻"> 
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-2"> 
+            <div className="flex flex-col md:flex-row md:items-center gap-2 w-full"> 
+              <input className="w-80 border border-slate-300 px-3 py-2" placeholder="Search by first name, last name, or phone" value={q} onChange={(e) => setQ(e.target.value)} /> 
+              <Button variant="secondary" onClick={() => loadPage(0)}>➡️</Button> 
+              <Button variant="secondary" onClick={() => { setQ(""); loadPage(0); setRecordsVisible(true); }}>🔄</Button> 
+              <Button variant="secondary" onClick={() => setRecordsVisible((v) => !v)}>{recordsVisible ? "Hide🗂️" : "Show🗂️"}</Button> 
+            </div> 
+            <div className="flex items-center gap-2"> 
+              <div className="flex items-center gap-2 border border-slate-300 px-4 py-3 bg-white"> 
+                <span className="text-xs font-semibold text-black">Go Page</span>
+                <input type="number" min={1} max={totalPages} className="w-20 border border-slate-300 px-3 py-2 text-sm" value={pageJump} onChange={(e) => setPageJump(e.target.value)} /> 
+                <Button variant="secondary" onClick={() => { const n = Number(pageJump); if (!Number.isFinite(n)) return; const p = Math.min(totalPages, Math.max(1, Math.floor(n))); loadPage(p - 1); }} disabled={loading || totalPages <= 1}>➡️</Button> 
+              </div> 
+              <Button variant="secondary" onClick={() => loadPage(Math.max(0, page - 1))} disabled={!canPrev || loading}>◀️</Button> 
+              <Button variant="secondary" onClick={() => loadPage(page + 1)} disabled={!canNext || loading}>▶️</Button> 
+            </div> 
+          </div> 
+          <div className="text-sm text-black mb-2">{total.toLocaleString()} records • showing {ALL_PAGE_SIZE} per page</div> 
+    
+          <div className="flex gap-4 mb-2 text-xs font-semibold text-black">
+            <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#B1FB17] rounded"></span>New Client</div>
+            <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#728FCE] rounded"></span>Interested</div>
+            <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#ADDFFF] rounded"></span>In-Progress</div>
+            <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#C9BE62] rounded"></span>On Hold</div>
+            <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#E6BF83] rounded"></span>Closed</div>
+            <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#3CB371] rounded"></span>Completed</div>
+          </div>
+
+          {recordsVisible && ( 
+            <> 
+              {loading ? ( 
+                <div className="text-black">Loading…</div> 
+              ) : ( 
+                <ExcelTableEditable 
+                  rows={records} 
+                  savingId={savingId} 
+                  onUpdate={updateCell} 
+                  extraLeftCols={[{ label: "Client Name", sortable: "client", render: (r) => clientName(r) }]} 
+                  maxHeightClass="max-h-[560px]" 
+                  sortState={sortAll} 
+                  onSortChange={(k) => setSortAll((cur) => toggleSort(cur, k))} 
+                  stickyLeftCount={1} 
+                  viewOnlyPopupKeys={new Set()} 
+                /> 
+              )} 
+            </> 
+          )} 
+        </Card> 
+      </div> 
+    </div> 
+  ); 
+}
+ 
+
+## Helper Components (add after the main component)
+
+# Complete app/dashboard/page.tsx - Fixed Version
+
+The file was truncated at line 549. Here's the fix - **add this code after line 548** (after the `updateCell` function closes):
+
+## Missing Code Section (add after updateCell function)
+
+```typescript
+  const totalPages = Math.max(1, Math.ceil((total ?? 0) / ALL_PAGE_SIZE)); 
+  const canPrev = page > 0; 
+  const canNext = (page + 1) * ALL_PAGE_SIZE < total; 
+  
+  const exportUpcomingXlsx = () => { 
+    const ws = XLSX.utils.json_to_sheet(upcoming); 
+    const wb = XLSX.utils.book_new(); 
+    XLSX.utils.book_append_sheet(wb, ws, "Upcoming_BOP"); 
+    XLSX.writeFile(wb, `Upcoming_${rangeStart}_to_${rangeEnd}.xlsx`); 
+  }; 
+  
+  const extraClientCol = useMemo(() => [{ label: "Client Name", sortable: "client" as SortKey, render: (r: Row) => clientName(r) }], []); 
+  
+  const progressFilteredSorted = useMemo(() => { 
+    const needle = progressFilter.trim().toLowerCase(); 
+    const filtered = (progressRows ?? []).filter((r) => (!needle ? true : String(r.client_name ?? "").toLowerCase().includes(needle))); 
+    const dirMul = progressSort.dir === "asc" ? 1 : -1; 
+    const asNum = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; }; 
+    const asTime = (v: any) => { if (!v) return 0; const d = new Date(v); const t = d.getTime(); return Number.isFinite(t) ? t : 0; }; 
+    filtered.sort((a, b) => { 
+      const k = progressSort.key; 
+      if (k === "client_name") return String(a.client_name ?? "").localeCompare(String(b.client_name ?? "")) * dirMul; 
+      if (k === "call_attempts" || k === "bop_attempts" || k === "followup_attempts") return (asNum(a[k]) - asNum(b[k])) * dirMul; 
+      return (asTime(a[k]) - asTime(b[k])) * dirMul; 
+    }); 
+    return filtered; 
+  }, [progressRows, progressFilter, progressSort]); 
+  
+  const progressTotalPages = Math.max(1, Math.ceil(progressFilteredSorted.length / PROGRESS_PAGE_SIZE)); 
+  const progressPageSafe = Math.min(progressTotalPages - 1, Math.max(0, progressPage)); 
+  const progressSlice = progressFilteredSorted.slice(progressPageSafe * PROGRESS_PAGE_SIZE, progressPageSafe * PROGRESS_PAGE_SIZE + PROGRESS_PAGE_SIZE); 
+  
+  const allVisible = trendsVisible && upcomingVisible && progressVisible && recordsVisible; 
+  const toggleAllCards = () => { 
+    const target = !allVisible; 
+    setTrendsVisible(target); 
+    setUpcomingVisible(target); 
+    setProgressVisible(target); 
+    setRecordsVisible(target); 
+  }; 
+  
+  const hideZeroFormatter = (val: any) => { const n = Number(val); return Number.isFinite(n) && n === 0 ? "" : val; }; 
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg text-slate-600">Loading...</div>
+      </div>
+    );
+  }
+
+  return ( 
+    <div className="min-h-screen"> 
+      <div className="max-w-[1600px] mx-auto p-4 space-y-4"> 
+        <header className="flex items-center justify-between gap-2"> 
+          <div className="flex items-center gap-2"> 
+            <img src="/can-logo.png" className="h-12 w-auto" alt="CAN Logo" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} /> 
+            <div> 
+              <div className="text-xl font-bold text-blue-800">CAN Financial Solutions Clients Report</div>
+              <div className="text-sm font-semibold text-yellow-500">Protecting Your Tomorrow</div>
+            </div> 
+          </div> 
+          <div className="flex items-center gap-2"> 
+            {(() => {
+              const newClientsCount = records.filter(r => r.status === "New Client").length;
+              const latestIssuedDate = records.map(r => r.Issued).filter(Boolean).map(d => new Date(d)).sort((a,b)=>b.getTime()-a.getTime())[0];
+              
+              const cycleStart = latestIssuedDate ? latestIssuedDate.toLocaleDateString() : "—";
+              const cycleEnd = latestIssuedDate ? new Date(latestIssuedDate.getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString() : "—";
+
+              const cycleDays = latestIssuedDate ? Math.floor((Date.now()-latestIssuedDate.getTime())/(1000*60*60*24)) : 0;
+              const today = new Date().toISOString().split("T")[0];
+              const meetingTodayCount = records.filter(r => r.BOP_Date?.startsWith(today) || r.Followup_Date?.startsWith(today)).length;
+              
+              return (
+                <div className="flex gap-2 mr-4">
+                  <div className="px-3 py-1 bg-gray-200 text-xs font-semibold rounded text-center">
+                    New Clients✏️ {newClientsCount}
+                  </div>
+                  <div className="px-3 py-1 bg-gray-200 text-xs font-semibold rounded text-center">Cycle Start on↪️ {cycleStart}</div>
+                  <div className="px-3 py-1 bg-gray-200 text-xs font-semibold rounded text-center">Cycle End on↩️ {cycleEnd}</div>
+                  <div className="px-3 py-2 bg-gray-200 text-xs font-semibold rounded text-center">Cycle Days🔄 {cycleDays}</div>
+                  <div className="px-3 py-2 bg-gray-200 text-xs font-semibold rounded text-center">Today Meetings📣 {meetingTodayCount}</div>
+                </div>
+              );
+            })()}
+            <Button variant="secondary" onClick={toggleAllCards}>{allVisible ? "Hide Cards📦" : "Show Cards🗃️"}</Button> 
+            <Button variant="secondary" onClick={logout}> 
+              <span className="inline-flex items-center gap-2"> 
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"> 
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 002 2h3a2 2 0 002-2v-1m-6-10V5a2 2 0 012-2h3a2 2 0 012 2v1" /> 
+                </svg> 
+                Logout 
+              </span> 
+            </Button> 
+          </div> 
+        </header> 
+        {error && (<div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{error}</div>)} 
+        
+        <Card title="Trends 📊"> 
+          <div className="mb-2">
+            <Button variant="secondary" onClick={() => setTrendsVisible(v => !v)}>
+              {trendsVisible ? "Hide 📊" : "Show 📊"}
+            </Button>
+          </div>
+          {trendsVisible ? ( 
+            <> 
+              <div className="text-xs font-semibold text-black mb-2">Rolling 12 Months</div> 
+              <div className="h-64"> 
+                <ResponsiveContainer width="100%" height="100%"> 
+                  <BarChart data={monthly12}> 
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} /> 
+                    <YAxis allowDecimals={false} /> 
+                    <Tooltip /> 
+                    <Bar dataKey="calls" fill="#2563eb"> 
+                      <LabelList dataKey="calls" position="top" fill="#0f172a" formatter={hideZeroFormatter} /> 
+                    </Bar> 
+                    <Bar dataKey="bops" fill="#f97316"> 
+                      <LabelList dataKey="bops" position="top" fill="#0f172a" formatter={hideZeroFormatter} /> 
+                    </Bar> 
+                    <Bar dataKey="followups" fill="#10b981"> 
+                      <LabelList dataKey="followups" position="top" fill="#0f172a" formatter={hideZeroFormatter} /> 
+                    </Bar> 
+                  </BarChart> 
+                </ResponsiveContainer> 
+              </div> 
+              {trendLoading && <div className="mt-2 text-xs text-black">Loading…</div>} 
+            </> 
+          ) : ( 
+            <div className="text-sm text-black">Results are hidden.</div> 
+          )} 
+        </Card> 
+        
+        <Card title="Upcoming Meetings📣"> 
+          <div className="grid md:grid-cols-5 gap-3 items-end"> 
+            <label className="block md:col-span-1"> 
+              <div className="text-xs font-semibold text-black mb-1">Start</div> 
+              <input type="date" className="w-32 border border-slate-300 px-2 py-1" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} /> 
+            </label> 
+            <label className="block md:col-span-1"> 
+              <div className="text-xs font-semibold text-black mb-1">End</div> 
+              <input type="date" className="w-32 border border-slate-300 px-2 py-1" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} /> 
+            </label> 
+            <div className="flex gap-2 md:col-span-3"> 
+              <Button variant="secondary" onClick={() => fetchUpcoming()}><b>➡️</b></Button> 
+              <Button 
+                variant="secondary" 
+                onClick={() => { 
+                  const today = new Date(); 
+                  const start = format(today, "yyyy-MM-dd"); 
+                  const end = format(addDays(today, 30), "yyyy-MM-dd"); 
+                  setRangeStart(start); 
+                  setRangeEnd(end); 
+                  fetchUpcoming(); 
+                }} 
+                disabled={upcomingLoading} 
+              > 
+                {upcomingLoading ? "Refreshing…" : "🔄"} 
+              </Button> 
+              <Button variant="secondary" onClick={exportUpcomingXlsx} disabled={upcoming.length === 0}>📤</Button> 
+              <Button variant="secondary" onClick={() => setUpcomingVisible((v) => !v)}> 
+                <span className={upcomingVisible ? "text-black" : undefined}> 
+                  {upcomingVisible ? "Hide🗂️" : "Show🗂️"} 
+                </span> 
+              </Button> 
+            </div> 
+          </div> 
+          <div className="flex items-center justify-between mb-2 mt-3"> 
+            <div className="text-sm text-black">Table supports vertical + horizontal scrolling.</div> 
+            <div className="text-xs text-black"> 
+              Click headers to sort: <b>Client Name</b>, <b>Created Date</b>, <b>BOP Date</b>, <b>BOP Status</b>, <b>Follow-Up Date</b>, <b>Status</b>. 
+            </div> 
+          </div> 
+          {upcomingVisible && ( 
+            <ExcelTableEditable 
+              rows={upcoming} 
+              savingId={savingId} 
+              onUpdate={updateCell} 
+              preferredOrder={[ 
+                "created_at", "status", "first_name", "last_name", "interest_type", "business_opportunities", "wealth_solutions", 
+                "CalledOn", "BOP_Date", "BOP_Status", "Followup_Date", "FollowUp_Status", "Product", "Comment", "Remark", 
+                "client_status", "phone", "email", 
+                "spouse_name", "date_of_birth", "children", "city", "state", "profession", "work_details", "immigration_status", 
+                "referred_by", "preferred_days", "preferred_time", 
+              ]} 
+              extraLeftCols={[{ label: "Client Name", sortable: "client", render: (r) => clientName(r) }]} 
+              maxHeightClass="max-h-[420px]" 
+              sortState={sortUpcoming} 
+              onSortChange={(k) => setSortUpcoming((cur) => toggleSort(cur, k))} 
+              stickyLeftCount={1} 
+              nonEditableKeys={new Set(["spouse_name", "date_of_birth", "children", "city", "work_details"])} 
+              viewOnlyPopupKeys={new Set(["work_details"])} 
+            /> 
+          )} 
+        </Card> 
+        
+        <Card title="Client Progress Summary🔑"> 
+          <div className="flex flex-col md:flex-row md:items-center gap-2 mb-2"> 
+            <input className="w-72 border border-slate-300 px-3 py-2" placeholder="Filter by client name..." value={progressFilter} onChange={(e) => { setProgressFilter(e.target.value); setProgressPage(0); }} /> 
+            <Button variant="secondary" onClick={() => setProgressVisible(true)}>➡️</Button> 
+            <Button variant="secondary" onClick={() => { setProgressFilter(""); fetchProgressSummary().then(() => setProgressVisible(true)); }} disabled={progressLoading}>{progressLoading ? "Loading…" : "🔄"}</Button> 
+            <Button variant="secondary" onClick={() => setProgressVisible((v) => !v)}>{progressVisible ? "Hide🗂️" : "Show🗂️"}</Button> 
+            <div className="md:ml-auto flex items-center gap-2"> 
+              <Button variant="secondary" onClick={() => setProgressPage((p) => Math.max(0, p - 1))} disabled={!progressVisible || progressPageSafe <= 0}>◀️</Button> 
+              <Button variant="secondary" onClick={() => setProgressPage((p) => Math.min(progressTotalPages - 1, p + 1))} disabled={!progressVisible || progressPageSafe >= progressTotalPages - 1}>▶️</Button> 
+            </div> 
+          </div> 
+          <div className="text-xs text-black mb-2">Click headers to sort.</div> 
+          {progressVisible && (<ProgressSummaryTable rows={progressSlice} sortState={progressSort} onSortChange={(k) => setProgressSort((cur) => toggleProgressSort(cur, k))} />)} 
+          {progressVisible && (<div className="mt-2 text-xs text-black">Page <b>{progressPageSafe + 1}</b> of <b>{progressTotalPages}</b> • showing {PROGRESS_PAGE_SIZE} per page</div>)} 
+        </Card> 
+        
+        <Card title="Clients List 🧑🏻‍🤝‍🧑🏻"> 
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-2"> 
+            <div className="flex flex-col md:flex-row md:items-center gap-2 w-full"> 
+              <input className="w-80 border border-slate-300 px-3 py-2" placeholder="Search by first name, last name, or phone" value={q} onChange={(e) => setQ(e.target.value)} /> 
+              <Button variant="secondary" onClick={() => loadPage(0)}>➡️</Button> 
+              <Button variant="secondary" onClick={() => { setQ(""); loadPage(0); setRecordsVisible(true); }}>🔄</Button> 
+              <Button variant="secondary" onClick={() => setRecordsVisible((v) => !v)}>{recordsVisible ? "Hide🗂️" : "Show🗂️"}</Button> 
+            </div> 
+            <div className="flex items-center gap-2"> 
+              <div className="flex items-center gap-2 border border-slate-300 px-4 py-3 bg-white"> 
+                <span className="text-xs font-semibold text-black">Go Page</span>
+                <input type="number" min={1} max={totalPages} className="w-20 border border-slate-300 px-3 py-2 text-sm" value={pageJump} onChange={(e) => setPageJump(e.target.value)} /> 
+                <Button variant="secondary" onClick={() => { const n = Number(pageJump); if (!Number.isFinite(n)) return; const p = Math.min(totalPages, Math.max(1, Math.floor(n))); loadPage(p - 1); }} disabled={loading || totalPages <= 1}>➡️</Button> 
+              </div> 
+              <Button variant="secondary" onClick={() => loadPage(Math.max(0, page - 1))} disabled={!canPrev || loading}>◀️</Button> 
+              <Button variant="secondary" onClick={() => loadPage(page + 1)} disabled={!canNext || loading}>▶️</Button> 
+            </div> 
+          </div> 
+          <div className="text-sm text-black mb-2">{total.toLocaleString()} records • showing {ALL_PAGE_SIZE} per page</div> 
+    
+          <div className="flex gap-4 mb-2 text-xs font-semibold text-black">
+            <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#B1FB17] rounded"></span>New Client</div>
+            <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#728FCE] rounded"></span>Interested</div>
+            <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#ADDFFF] rounded"></span>In-Progress</div>
+            <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#C9BE62] rounded"></span>On Hold</div>
+            <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#E6BF83] rounded"></span>Closed</div>
+            <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#3CB371] rounded"></span>Completed</div>
+          </div>
+
+          {recordsVisible && ( 
+            <> 
+              {loading ? ( 
+                <div className="text-black">Loading…</div> 
+              ) : ( 
+                <ExcelTableEditable 
+                  rows={records} 
+                  savingId={savingId} 
+                  onUpdate={updateCell} 
+                  extraLeftCols={[{ label: "Client Name", sortable: "client", render: (r) => clientName(r) }]} 
+                  maxHeightClass="max-h-[560px]" 
+                  sortState={sortAll} 
+                  onSortChange={(k) => setSortAll((cur) => toggleSort(cur, k))} 
+                  stickyLeftCount={1} 
+                  viewOnlyPopupKeys={new Set()} 
+                /> 
+              )} 
+            </> 
+          )} 
+        </Card> 
+      </div> 
+    </div> 
+  ); 
+}
+```
+
+## Helper Components (add after the main component)
+
+```typescript
+function ProgressSummaryTable({ rows, sortState, onSortChange }: { rows: Row[]; sortState: { key: ProgressSortKey; dir: SortDir }; onSortChange: (k: ProgressSortKey) => void; }) { 
+  const { widths, startResize } = useColumnResizer(); 
+  const cols = useMemo(() => [ 
+    { id: "client_name", label: "Client Name", key: "client_name" as ProgressSortKey, defaultW: 170 }, 
+    { id: "first_name", label: "First Name", defaultW: 95 }, 
+    { id: "last_name", label: "Last Name", defaultW: 90 }, 
+    { id: "phone", label: "Phone", defaultW: 105 }, 
+    { id: "email", label: "Email", defaultW: 220 }, 
+    { id: "last_call_date", label: "Called On", key: "last_call_date" as ProgressSortKey, defaultW: 190 }, 
+    { id: "call_attempts", label: "No of Calls", key: "call_attempts" as ProgressSortKey, defaultW: 90 }, 
+    { id: "last_bop_date", label: "Last/Next BOP Call On", key: "last_bop_date" as ProgressSortKey, defaultW: 200 }, 
+    { id: "bop_attempts", label: "No of BOP Calls", key: "bop_attempts" as ProgressSortKey, defaultW: 110 }, 
+    { id: "last_followup_date", label: "Last/Next FollowUp On", key: "last_followup_date" as ProgressSortKey, defaultW: 200 }, 
+    { id: "followup_attempts", label: "No of FollowUp Calls", key: "followup_attempts" as ProgressSortKey, defaultW: 140 }, 
+  ], []); 
+  const getW = (id: string, def: number) => widths[id] ?? def; 
+  const stickyLeftPx = (colIndex: number) => (colIndex <= 0 ? 0 : 0); 
+  const sortIcon = (k?: ProgressSortKey) => { if (!k) return null; if (sortState.key !== k) return <span className="ml-1 text-black">↕</span>; return <span className="ml-1 text-black">{sortState.dir === "asc" ? "↑" : "↓"}</span>; }; 
+  const minWidth = cols.reduce((sum, c) => sum + getW(c.id, c.defaultW), 0); 
+  const fmtDate = (v: any) => { if (!v) return "—"; const d = new Date(v); const t = d.getTime(); if (!Number.isFinite(t)) return "—"; return d.toLocaleString(); }; 
+  const fmtCount = (v: any) => { const n = Number(v); if (!Number.isFinite(n)) return "—"; return String(n); }; 
+  return ( 
+    <div className="overflow-auto border border-slate-500 bg-white max-h-[520px]"> 
+      <table className="w-full table-fixed border-collapse" style={{ minWidth }}> 
+        <thead className="sticky top-0 bg-slate-100 z-20"> 
+          <tr className="text-left text-xs font-semibold text-black"> 
+            {cols.map((c, idx) => { 
+              const w = getW(c.id, c.defaultW); 
+              const isSticky = idx === 0; 
+              const style: React.CSSProperties = { 
+                width: w, minWidth: w, maxWidth: w, position: isSticky ? "sticky" : undefined, left: isSticky ? stickyLeftPx(idx) : undefined, top: 0, zIndex: isSticky ? 40 : 20, background: isSticky ? "#f1f5f9" : undefined, 
+              }; 
+              return ( 
+                <th key={c.id} className="border border-slate-500 px-2 py-2 whitespace-nowrap relative" style={style}> 
+                  {"key" in c ? ( 
+                    <button className="inline-flex items-center hover:underline" onClick={() => onSortChange((c as any).key!)} type="button"> 
+                      {c.label} 
+                      {sortIcon((c as any).key)} 
+                    </button> 
+                  ) : ( 
+                    c.label 
+                  )} 
+                  <div className="absolute top-0 right-0 h-full w-2 cursor-col-resize select-none" onMouseDown={(e) => startResize(e, c.id, w)}> 
+                    <div className="mx-auto h-full w-px bg-slate-300" /> 
+                  </div> 
+                </th> 
+              ); 
+            })} 
+          </tr> 
+        </thead> 
+        <tbody> 
+          {rows.map((r, ridx) => ( 
+            <tr key={String((r as any).clientid ?? ridx)} className="hover:bg-slate-50"> 
+              {cols.map((c, idx) => { 
+                const w = getW(c.id, c.defaultW); 
+                const isSticky = idx === 0; 
+                const style: React.CSSProperties = { 
+                  width: w, minWidth: w, maxWidth: w, position: isSticky ? "sticky" : undefined, left: isSticky ? stickyLeftPx(idx) : undefined, zIndex: isSticky ? 10 : 1, background: isSticky ? "#ffffff" : undefined, verticalAlign: "middle", 
+                }; 
+                let v = "—"; 
+                let tdClass = "border border-slate-300 px-2 py-2 whitespace-nowrap"; 
+                if (c.id === "client_name") v = String(r.client_name ?? "—"); 
+                else if (c.id === "first_name") v = String(r.first_name ?? "—"); 
+                else if (c.id === "last_name") v = String(r.last_name ?? "—"); 
+                else if (c.id === "phone") v = String(r.phone ?? "—"); 
+                else if (c.id === "email") v = String(r.email ?? "—"); 
+                else if (c.id === "last_call_date") v = fmtDate(r.last_call_date); 
+                else if (c.id === "call_attempts") { v = fmtCount(r.call_attempts); tdClass += " text-center align-middle"; } 
+                else if (c.id === "last_bop_date") v = fmtDate(r.last_bop_date); 
+                else if (c.id === "bop_attempts") { v = fmtCount(r.bop_attempts); tdClass += " text-center align-middle"; } 
+                else if (c.id === "last_followup_date") v = fmtDate(r.last_followup_date); 
+                else if (c.id === "followup_attempts") { v = fmtCount(r.followup_attempts); tdClass += " text-center align-middle"; } 
+                return (<td key={c.id} className={`${tdClass} ${isSticky ? "font-semibold text-black" : ""}`} style={style}>{v}</td>); 
+              })} 
+            </tr> 
+          ))} 
+        </tbody> 
+      </table> 
+    </div> 
+  ); 
+}
