@@ -1012,7 +1012,10 @@ export default function Page() {
   const selectedClientLabel = selectedClient
     ? `${selectedClient.first_name ?? ""} ${selectedClient.last_name ?? ""}`.trim()
     : "";
-   const handleTabClick = (k: TabKey) => {
+const selectedEmail = selectedEmail
+    ? `${selectedClient.email ?? ""}`.trim()
+    : "";
+  const handleTabClick = (k: TabKey) => {
     if (!canUseTabs) return;
     setActiveTab(k);
   };
