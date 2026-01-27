@@ -178,10 +178,10 @@ const US_STATES = [
 
 const ASSET_TAX_TYPES = ["TAX_ADVANTAGED", "TAXABLE", "TAX_DEFERRED"];
 const LIABILITY_TYPES = ["CREDIT_CARD", "AUTO_LOAN", "STUDENT_LOAN", "PERSONAL_LOAN", "OTHER"];
-const INSURED_ROLES = ["CLIENT", "SPOUSE"];
+const INSURED_ROLES = ["", "SPOUSE"];
 const INSURANCE_TYPES = ["LIFE", "HEALTH"];
 
-const INCOME_ROLES = ["CLIENT", "SPOUSE"];
+const INCOME_ROLES = ["", "SPOUSE"];
 const INCOME_TYPES = [
   "ANNUAL_SALARY",
   "BONUS_COMMISSIONS",
@@ -563,7 +563,7 @@ function EditableTable({
 
 export default function Page() {
   const router = useRouter();
-  // Lazily initialize Supabase client on the client runtime only
+  // Lazily initialize Supabase  on the  runtime only
   const supabaseRef = useRef<ReturnType<typeof getSupabase> | null>(null);
   const supabase = () => {
     if (!supabaseRef.current) supabaseRef.current = getSupabase();
@@ -572,7 +572,7 @@ export default function Page() {
 
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Client search
+  //  search
   const [search, setSearch] = useState("");
   const [clientRows, setClientRows] = useState<ClientRow[]>([]);
   const [clientLoading, setClientLoading] = useState(false);
@@ -1012,7 +1012,7 @@ export default function Page() {
   const selectedClientLabel = selectedClient
     ? `${selectedClient.first_name ?? ""} ${selectedClient.last_name ?? ""}`.trim()
     : "";
-const selectedClientEmail = selectedClientEmail
+const selectedEmail = selectedEmail
     ? `${selectedClient.email ?? ""}`.trim()
     : "";
   const handleTabClick = (k: TabKey) => {
@@ -1080,11 +1080,13 @@ const selectedClientEmail = selectedClientEmail
             </div>
           }
           right={
-            <div className="text-xs text-slate-500">
-               <span className="font-semibold">Selected:</span> {selectedClientLabel}{" "}
-              <span className="font-semibold">Selected:</span> {selectedClientEmail}{" "} 
-              {clientLoading ? "Searching¦" : `${clientRows.length} result(s)`}
-            </div>
+            {selectedClient && (
+                  <div className="mt-2 text-sm text-slate-700">
+                    <span className="font-semibold">Selected:</span> {selectedClientLabel}{" "}
+                    <span className="text-slate-500">({selectedClient.email})</span>
+                  </div>
+                              )
+            }
           }
         >
           <div className="space-y-3">
