@@ -1039,7 +1039,7 @@ const selectedEmail = selectedEmail
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fnaId]);
   // ---------- UI ----------
-  return (
+ return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-[1400px] mx-auto p-6 space-y-6">
         {/* Header */}
@@ -1048,13 +1048,19 @@ const selectedEmail = selectedEmail
             <div className="flex items-center gap-3">
               <img src="/can-logo.png" alt="CAN Financial Solutions" className="h-10 w-auto" />
               <div>
-                <div className="text-xl font-bold text-blue-800">{pageTitle}</div>
+                <div className="text-1x2 font-bold text-blue-800">{pageTitle}</div>
                 <div className="text-sm font-semibold text-yellow-500">Protecting Your Tomorrow</div>
+                {selectedClient && (
+                  <div className="mt-2 text-sm text-slate-700">
+                    <span className="font-semibold">Selected:</span> {selectedClientLabel}{" "}
+                    <span className="text-slate-500">({selectedClient.email})</span>
+                  </div>
+                )}
               </div>
             </div>
             <button
               type="button"
-              className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition-colors border border-slate-300 bg-transparent text-slate-700"
+              className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition-colors border border-slate-300 bg-transparent hover:bg-slate-50 text-slate-700"
               onClick={logout}
             >
               Logout ➜]
