@@ -1005,11 +1005,15 @@ export default function Page() {
   );
 
   // ---------- Render helpers ----------
-  const pageTitle = "Financial Needs Analysis";
- 
-  const canUseTabs = !!selectedClient && !!fnaHeader && !!fnaId;
-
-  const selectedClientLabel = selectedClient
+  const pageTitle =
+    title={
+            <div>
+              <div className="text-lg font-bold text-slate-900">Financial Needs Analysis</div>
+              <div className="text-sm font-semibold text-yellow-500">Protecting Your Tomorrow</div>
+             </div>
+          }
+ const canUseTabs = !!selectedClient && !!fnaHeader && !!fnaId;
+ const selectedClientLabel = selectedClient
     ? `${selectedClient.first_name ?? ""} ${selectedClient.last_name ?? ""}`.trim()
     : "";
 
@@ -1048,7 +1052,6 @@ export default function Page() {
               <img src="/can-logo.png" alt="CAN Financial Solutions" className="h-10 w-auto" />
               <div>
                 <div className="text-xl font-bold text-blue-800">{pageTitle}</div>
-                <div className="text-sm text-slate-600">Select a client and complete all six sections of the FNA.</div>
                 {selectedClient && (
                   <div className="mt-2 text-sm text-slate-700">
                     <span className="font-semibold">Selected:</span> {selectedClientLabel}{" "}
