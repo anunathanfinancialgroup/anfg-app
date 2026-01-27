@@ -1036,7 +1036,6 @@ export default function Page() {
     if (taxRefundRow) setTaxRefundRow((r) => (r ? { ...r, fna_id: fnaId } : r));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fnaId]);
-
   // ---------- UI ----------
   return (
     <div className="min-h-screen bg-slate-50">
@@ -1080,8 +1079,6 @@ export default function Page() {
           }
           right={
             <div className="text-xs text-slate-500">
-                <span className="font-semibold">Selected:</span> {selectedClientLabel}{" "}
-                <span className="text-slate-500">({selectedClient.email})</span>
               {clientLoading ? "Searching¦" : `${clientRows.length} result(s)`}
             </div>
           }
