@@ -1038,8 +1038,9 @@ const selectedEmail = selectedEmail
     if (taxRefundRow) setTaxRefundRow((r) => (r ? { ...r, fna_id: fnaId } : r));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fnaId]);
+
   // ---------- UI ----------
- return (
+  return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-[1400px] mx-auto p-6 space-y-6">
         {/* Header */}
@@ -1082,17 +1083,13 @@ const selectedEmail = selectedEmail
           title={
             <div>
               <div className="text-lg font-bold text-slate-900">1. Choose Client 👨🏻‍💼</div>
-               <div className="text-sm font-normal text-slate-600 mt-1">Select a client and complete all six sections of the FNA</div>
+              <div className="text-sm font-normal text-slate-600 mt-1">Select a client and complete all six sections of the FNA</div>
             </div>
           }
           right={
-            {selectedClient && (
-                  <div className="mt-2 text-sm text-slate-700">
-                    <span className="font-semibold">Selected:</span> {selectedClientLabel}{" "}
-                    <span className="text-slate-500">({selectedClient.email})</span>
-                  </div>
-                              )
-            }
+            <div className="text-xs text-slate-500">
+              {clientLoading ? "Searching¦" : `${clientRows.length} result(s)`}
+            </div>
           }
         >
           <div className="space-y-3">
