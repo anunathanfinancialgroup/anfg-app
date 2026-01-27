@@ -1091,12 +1091,7 @@ export default function Page() {
               </div>
             </div>
           }
-         left={
-            <div className="text-xs text-slate-600">
-              <div className="text-slate-500 mt-1"> 👇 Select a client and complete all six sections of the FNA</div>
-            </div>
-          }
-        >
+         >
           <div className="space-y-3">
             <div className="flex gap-2 items-center">
               <input
@@ -1105,6 +1100,7 @@ export default function Page() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+         <div className="text-slate-500 mt-1"> 👇 Select a client and complete all six sections of the FNA</div>
               <button
                 type="button"
                 onClick={() => {
@@ -1121,7 +1117,7 @@ export default function Page() {
                   setIncomeRows([]);
                   setTaxRefundRow(null);
                 }}
-                className="inline-flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition-colors border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 whitespace-nowrap"
+                className="inline-flex items-left justify-center rounded-lg px-4 py-3 text-sm font-semibold transition-colors border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 whitespace-nowrap"
               >
                 Refresh
               </button>
