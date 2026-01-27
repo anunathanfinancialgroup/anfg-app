@@ -1100,7 +1100,9 @@ export default function Page() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <div className="font-normal"> 👇 Select a client and complete all six sections of the FNA</div>
+               <br>
+                 <div className="font-normal"> 👇 Select a client and complete all six sections of the FNA</div>
+                </br>
               <button
                 type="button"
                 onClick={() => {
@@ -1122,6 +1124,7 @@ export default function Page() {
                 Refresh
               </button>
             </div>
+           
             <div className="overflow-auto rounded-lg border border-slate-300">
               <table className="w-full text-sm min-w-[760px]" style={{ borderCollapse: 'collapse' }}>
                 <thead className="bg-slate-50">
