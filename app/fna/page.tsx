@@ -107,6 +107,12 @@ type FnaHeader = {
 
 type RowBase = { id: UUID; fna_id: UUID } & Record<string, any>;
 
+type SortConfig = {
+  key: string | null;
+  direction: 'asc' | 'desc';
+};
+
+
 type TabKey =
   | "client_family"
   | "goals_properties"
@@ -440,15 +446,15 @@ function EditableTable({
       </div>
 
       <div className="overflow-auto border border-slate-200 rounded-xl">
-        <table className="w-full text-sm border-collapse" style={{ minWidth }}>
+        <table className="w-full text-sm border-collapse border border-slate-300" style={{ minWidth }}>
           <thead className="bg-slate-50 sticky top-0 z-10">
             <tr className="text-left text-xs font-semibold text-slate-700">
               {columns.map((c) => (
-                <th key={c.key} className="px-3 py-2 border-b border-slate-200 whitespace-nowrap">
+                <th key={c.key} className="px-3 py-2 border border-slate-300 bg-slate-100 whitespace-nowrap">
                   {c.label}
                 </th>
               ))}
-              <th className="px-3 py-2 border-b border-slate-200 whitespace-nowrap">Actions</th>
+              <th className="px-3 py-2 border border-slate-300 bg-slate-100 whitespace-nowrap">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -462,7 +468,7 @@ function EditableTable({
               rows.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   {columns.map((c) => (
-                    <td key={c.key} className="px-3 py-2 border-b border-slate-100 align-top">
+                    <td key={c.key} className="px-3 py-2 border border-slate-300 align-top">
                       {c.type === "textarea" ? (
                         <textarea
                           className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm min-h-[60px]"
@@ -520,7 +526,7 @@ function EditableTable({
                       )}
                     </td>
                   ))}
-                  <td className="px-3 py-2 border-b border-slate-100 whitespace-nowrap">
+                  <td className="px-3 py-2 border border-slate-300 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <TopButton
                         variant="primary"
@@ -1124,13 +1130,13 @@ export default function Page() {
             </div>
            
             <div className="overflow-auto rounded-lg border border-slate-300">
-              <table className="w-full text-sm min-w-[760px]" style={{ borderCollapse: 'collapse' }}>
+              <table className="w-full text-sm min-w-[760px] border-collapse border border-slate-300">
                 <thead className="bg-slate-50">
                   <tr className="text-left text-xs font-semibold text-slate-700">
                     <th className="px-4 py-3 border border-slate-300">First</th>
-                    <th className="px-4 py-3 border border-slate-300">Last</th>
-                    <th className="px-4 py-3 border border-slate-300">Phone</th>
-                    <th className="px-4 py-3 border border-slate-300">Email</th>
+                    <th className="border border-slate-300 bg-slate-100 px-4 py-3 border border-slate-300">Last</th>
+                    <th className="border border-slate-300 bg-slate-100 px-4 py-3 border border-slate-300">Phone</th>
+                    <th className="border border-slate-300 bg-slate-100 px-4 py-3 border border-slate-300">Email</th>
                   </tr>
                 </thead>
                 <tbody>
