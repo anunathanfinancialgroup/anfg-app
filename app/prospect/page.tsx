@@ -72,6 +72,11 @@ type ProspectForm = {
   comments: string;
 };
 
+type SortConfig = {
+  key: keyof Prospect | null;
+  direction: 'asc' | 'desc';
+};
+
 const PAGE_SIZE = 10;
 
 const RELATION_OPTIONS = ['', 'Friend', 'Relative', 'Acquaintance', 'Referral/Others'] as const;
@@ -237,165 +242,233 @@ const toProspectForm = (p: Prospect): ProspectForm => ({
   comments: p.comments ?? '',
 });
 
-// -----------------------------------------------------------------------------
-// Supabase Setup
-// -----------------------------------------------------------------------------
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// -----------------------------------------------------------------------------
-// Component: LogoutIcon (simple SVG icon)
-// -----------------------------------------------------------------------------
-
-const LogoutIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-  </svg>
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// -----------------------------------------------------------------------------
-// Subcomponents
-// -----------------------------------------------------------------------------
+// Column configuration for resizing
+type ColumnConfig = {
+  key: string;
+  label: string;
+  defaultWidth: number;
+};
 
+const COLUMNS: ColumnConfig[] = [
+  { key: 'first_name', label: 'First Name', defaultWidth: 120 },
+  { key: 'last_name', label: 'Last Name', defaultWidth: 120 },
+  { key: 'spouse_name', label: 'Spouse Name', defaultWidth: 120 },
+  { key: 'relation_type', label: 'Relation Type', defaultWidth: 130 },
+  { key: 'phone', label: 'Phone', defaultWidth: 130 },
+  { key: 'city', label: 'City', defaultWidth: 100 },
+  { key: 'state', label: 'State', defaultWidth: 100 },
+  { key: 'top25', label: 'Top 25', defaultWidth: 80 },
+  { key: 'immigration', label: 'Immigration', defaultWidth: 150 },
+  { key: 'age25plus', label: 'Age 25+', defaultWidth: 80 },
+  { key: 'married', label: 'Married', defaultWidth: 80 },
+  { key: 'children', label: 'Children', defaultWidth: 80 },
+  { key: 'homeowner', label: 'Homeowner', defaultWidth: 100 },
+  { key: 'good_career', label: 'Good Career', defaultWidth: 110 },
+  { key: 'income_60k', label: 'Income 60K', defaultWidth: 100 },
+  { key: 'dissatisfied', label: 'Dissatisfied', defaultWidth: 100 },
+  { key: 'ambitious', label: 'Ambitious', defaultWidth: 90 },
+  { key: 'contact_date', label: 'Contact Date', defaultWidth: 120 },
+  { key: 'result', label: 'Result', defaultWidth: 130 },
+  { key: 'next_steps', label: 'Next Steps', defaultWidth: 150 },
+];
+
+// Simple UI components
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div>
-      <label className="mb-1 block text-xs font-medium text-slate-700">{label}</label>
+    <div className="flex flex-col">
+      <label className="mb-1 text-xs font-semibold text-slate-700">{label}</label>
       {children}
     </div>
   );
 }
 
-interface TextInputProps {
+function TextInput({
+  compact,
+  placeholder,
+  value,
+  onChange,
+  disabled,
+}: {
   compact?: boolean;
   placeholder?: string;
-  value?: string;
-  onChange?: (value: string) => void;
+  value: string;
+  onChange: (v: string) => void;
   disabled?: boolean;
-}
-
-function TextInput({ compact = false, placeholder = '', value = '', onChange, disabled = false }: TextInputProps) {
-  const cn = compact ? 'h-9' : 'h-10';
+}) {
+  const h = compact ? 'h-9' : 'h-10';
   return (
     <input
       type="text"
-      className={`${cn} w-full rounded-lg border border-slate-200 px-2 text-xs text-slate-900 placeholder-slate-400`}
+      className={`${h} w-full rounded-lg border border-slate-200 px-2 text-xs`}
       placeholder={placeholder}
       value={value}
-      onChange={(e) => onChange?.(e.target.value)}
+      onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
     />
   );
 }
 
-interface DateInputProps {
+function DateInput({
+  compact,
+  value,
+  onChange,
+  disabled,
+}: {
   compact?: boolean;
-  value?: string;
-  onChange?: (value: string) => void;
+  value: string;
+  onChange: (v: string) => void;
   disabled?: boolean;
-}
-
-function DateInput({ compact = false, value = '', onChange, disabled = false }: DateInputProps) {
-  const cn = compact ? 'h-9' : 'h-10';
+}) {
+  const h = compact ? 'h-9' : 'h-10';
   return (
     <input
       type="date"
-      className={`${cn} w-full rounded-lg border border-slate-200 px-2 text-xs text-slate-900`}
+      className={`${h} w-full rounded-lg border border-slate-200 px-2 text-xs`}
       value={value}
-      onChange={(e) => onChange?.(e.target.value)}
+      onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
     />
   );
 }
 
-interface YesNoCheckboxProps {
+function YesNoCheckbox({
+  compact,
+  value,
+  onChange,
+  disabled,
+}: {
   compact?: boolean;
-  value?: string;
-  onChange?: (value: string) => void;
+  value: string;
+  onChange: (v: string) => void;
   disabled?: boolean;
-}
-
-function YesNoCheckbox({ compact = false, value = '', onChange, disabled = false }: YesNoCheckboxProps) {
-  const checked = value === 'Yes';
-  const handleToggle = () => {
-    if (disabled) return;
-    onChange?.(checked ? 'No' : 'Yes');
-  };
-  const cn = compact ? 'h-9' : 'h-10';
+}) {
+  const h = compact ? 'h-9' : 'h-10';
   return (
-    <div
-      className={`${cn} flex w-full cursor-pointer items-center justify-center rounded-lg border ${
-        checked ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200 bg-white'
-      } text-xs font-semibold ${disabled ? 'opacity-50' : ''}`}
-      onClick={handleToggle}
+    <select
+      className={`${h} w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900`}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
     >
-      {checked ? 'Yes' : 'No'}
-    </div>
+      <option value=""></option>
+      <option value="Yes">Yes</option>
+      <option value="No">No</option>
+    </select>
   );
 }
 
-interface CommentsEditorProps {
-  value?: string;
-  onChange?: (value: string) => void;
+function CommentsEditor({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
   disabled?: boolean;
-}
-
-function CommentsEditor({ value = '', onChange, disabled = false }: CommentsEditorProps) {
+}) {
   return (
     <textarea
-      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder-slate-400"
-      rows={3}
-      placeholder="Comments..."
+      className="min-h-[80px] w-full resize-y rounded-lg border border-slate-200 px-2 py-2 text-xs"
       value={value}
-      onChange={(e) => onChange?.(e.target.value)}
+      onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
     />
   );
 }
 
 function SubCard({ children }: { children: ReactNode }) {
-  return <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">{children}</div>;
+  return <div className="rounded-xl border border-slate-200 bg-white p-4">{children}</div>;
 }
-
-// -----------------------------------------------------------------------------
-// Main Page Component
-// -----------------------------------------------------------------------------
 
 export default function ProspectPage() {
   const router = useRouter();
-
-  // State
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const [mode, setMode] = useState<'new' | 'edit'>('new');
   const [showCard, setShowCard] = useState(false);
-  const [form, setForm] = useState<ProspectForm>(emptyForm());
+  const [activeId, setActiveId] = useState<number | null>(null);
   const [original, setOriginal] = useState<Prospect | null>(null);
+  const [form, setForm] = useState<ProspectForm>(emptyForm());
 
   const [search, setSearch] = useState('');
   const [resultFilter, setResultFilter] = useState('ALL');
   const [page, setPage] = useState(1);
-  const [activeId, setActiveId] = useState<number | null>(null);
 
-  const dismissTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const setToast = (type: 'error' | 'success', message: string) => {
+  // NEW: Sorting state
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'asc' });
+
+  // NEW: Column widths state
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {};
+    COLUMNS.forEach(col => {
+      initial[col.key] = col.defaultWidth;
+    });
+    return initial;
+  });
+
+  // NEW: Column resize functionality
+  const [resizing, setResizing] = useState<{ key: string; startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    if (!resizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizing) return;
+      const diff = e.clientX - resizing.startX;
+      const newWidth = Math.max(50, resizing.startWidth + diff);
+      setColumnWidths(prev => ({ ...prev, [resizing.key]: newWidth }));
+    };
+
+    const handleMouseUp = () => {
+      setResizing(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizing]);
+
+  const startResize = (e: React.MouseEvent, key: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizing({
+      key,
+      startX: e.clientX,
+      startWidth: columnWidths[key],
+    });
+  };
+
+  // NEW: Sort handler
+  const handleSort = (key: keyof Prospect) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  };
+
+  const setToast = (type: 'success' | 'error', msg: string) => {
     if (type === 'error') {
-      setErrorMsg(message);
+      setErrorMsg(msg);
       setSuccessMsg(null);
     } else {
-      setSuccessMsg(message);
+      setSuccessMsg(msg);
       setErrorMsg(null);
     }
-
-    if (dismissTimeout.current) clearTimeout(dismissTimeout.current);
-    dismissTimeout.current = setTimeout(() => {
+    setTimeout(() => {
       setErrorMsg(null);
       setSuccessMsg(null);
     }, 5000);
@@ -446,7 +519,7 @@ export default function ProspectPage() {
     setLoading(false);
   };
 
-  // Filter prospects
+  // Filter and sort prospects
   const filtered = useMemo(() => {
     let arr = prospects.slice();
 
@@ -470,11 +543,37 @@ export default function ProspectPage() {
       });
     }
 
-    // Sort by ID descending (newest first)
-    arr.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+    // NEW: Apply sorting
+    if (sortConfig.key) {
+      arr.sort((a, b) => {
+        const aVal = a[sortConfig.key!];
+        const bVal = b[sortConfig.key!];
+        
+        // Handle null/undefined
+        if (aVal === null || aVal === undefined) return sortConfig.direction === 'asc' ? 1 : -1;
+        if (bVal === null || bVal === undefined) return sortConfig.direction === 'asc' ? -1 : 1;
+        
+        // Compare values
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          const comparison = aVal.localeCompare(bVal);
+          return sortConfig.direction === 'asc' ? comparison : -comparison;
+        }
+        
+        if (typeof aVal === 'number' && typeof bVal === 'number') {
+          return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+        }
+        
+        // Default string comparison
+        const comparison = String(aVal).localeCompare(String(bVal));
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
+      });
+    } else {
+      // Default: Sort by ID descending (newest first)
+      arr.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+    }
 
     return arr;
-  }, [prospects, search, resultFilter]);
+  }, [prospects, search, resultFilter, sortConfig]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -598,6 +697,7 @@ export default function ProspectPage() {
     setToast('success', 'Saved.');
     setShowCard(false);
     setMode('new');
+    setActiveId(null);
     setOriginal(null);
     setForm(emptyForm());
     await loadProspects();
@@ -605,14 +705,11 @@ export default function ProspectPage() {
 
   const saveEdit = async () => {
     if (saving) return;
-    if (!original) {
-      setToast('error', 'No record selected for editing.');
-      return;
-    }
     if (!requiredFilled) {
-      setToast('error', 'Missing required fields.');
+      setToast('error', 'Missing required fields (First Name, Last Name, Phone).');
       return;
     }
+    if (!activeId) return;
 
     setSaving(true);
     setErrorMsg(null);
@@ -641,9 +738,8 @@ export default function ProspectPage() {
         result: toNull(form.result),
         next_steps: toNull(form.next_steps),
         comments: toNull(form.comments),
-        updated_at: new Date().toISOString(),
       })
-      .eq('id', original.id);
+      .eq('id', activeId);
 
     setSaving(false);
 
@@ -653,50 +749,50 @@ export default function ProspectPage() {
     }
 
     setToast('success', 'Updated.');
+    await loadProspects();
     setShowCard(false);
-    setMode('new');
+  };
+
+  const handleCloseEdit = () => {
+    if (saving) return;
+    setShowCard(false);
+    setActiveId(null);
+    setOriginal(null);
+    setForm(emptyForm());
+  };
+
+  const handleDelete = async () => {
+    if (saving) return;
+    if (!activeId) {
+      setToast('error', 'Select a row first.');
+      return;
+    }
+
+    const confirmed = confirm('Delete this prospect?');
+    if (!confirmed) return;
+
+    setSaving(true);
+    setErrorMsg(null);
+
+    const { error } = await supabase.from('prospects').delete().eq('id', activeId);
+
+    setSaving(false);
+
+    if (error) {
+      setToast('error', `Error deleting: ${error.message}`);
+      return;
+    }
+
+    setToast('success', 'Deleted.');
+    setShowCard(false);
+    setActiveId(null);
     setOriginal(null);
     setForm(emptyForm());
     await loadProspects();
   };
 
-  const handleBottomAction = () => {
-    if (saving) return;
-
-    if (!showCard) {
-      beginNewProspect();
-      return;
-    }
-
-    if (mode === 'new') {
-      void saveNew();
-    }
-  };
-
-  const handleCancelNew = () => {
-    if (saving) return;
-    setForm(emptyForm());
-    setOriginal(null);
-    setMode('new');
-    setShowCard(true);
-  };
-
-  const handleCloseEdit = () => {
-    if (saving) return;
-    if (mode === 'edit' && dirty) {
-      setToast('error', 'You have unsaved changes. Please Save before closing.');
-      return;
-    }
-    setShowCard(false);
-    setMode('new');
-    setOriginal(null);
-    setForm(emptyForm());
-  };
-
   const handleRefresh = async () => {
     if (saving) return;
-
-    // Hide card, clear filters, and reload table
     setSearch('');
     setResultFilter('ALL');
     setPage(1);
@@ -716,6 +812,14 @@ export default function ProspectPage() {
 
   const selected = prospects.find((p) => p.id === activeId);
 
+  // NEW: Sort indicator component
+  const SortIndicator = ({ columnKey }: { columnKey: string }) => {
+    if (sortConfig.key !== columnKey) {
+      return <span className="ml-1 text-slate-400">⇅</span>;
+    }
+    return <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-[1400px] mx-auto p-6 space-y-6">
@@ -723,7 +827,7 @@ export default function ProspectPage() {
         <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <img src="/can-logo.png" alt="CAN Care & Advancement Network" className="h-10 w-auto" />
+              <img src="/CAN_TTN.png" alt="CAN Care & Advancement Network" className="h-10 w-auto" />
               <div>
                 <div className="text-1x3 font-bold text-blue-800">Prospect List Tracking</div>
                  <div className="text-sm font-semibold text-yellow-500">Caring today, advancing tomorrow</div>
@@ -734,7 +838,7 @@ export default function ProspectPage() {
               className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition-colors border border-slate-300 bg-transparent text-slate-700"
               onClick={logout}
             >
-              Logout ➜]
+              Logout ➜
             </button>
           </div>
 
@@ -811,44 +915,43 @@ export default function ProspectPage() {
               </div>
             </div>
 
-            {/* Table */}
-            <div className="rounded-xl border border-slate-200">
+            {/* Table with Excel-like features */}
+            <div className="rounded-xl border border-slate-300 overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-[1200px] w-full text-sm">
+                <table className="min-w-full w-full text-sm border-collapse" style={{ tableLayout: 'fixed' }}>
                   <thead className="bg-slate-100 text-slate-700">
-                    <tr className="[&>th]:whitespace-nowrap [&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-semibold">
-                      <th>First Name</th>
-                      <th>Last Name</th>
-                      <th>Spouse Name</th>
-                      <th>Relation Type</th>
-                      <th>Phone</th>
-                      <th>City</th>
-                      <th>State</th>
-                      <th>Top 25</th>
-                      <th>Immigration</th>
-                      <th>Age 25+</th>
-                      <th>Married</th>
-                      <th>Children</th>
-                      <th>Homeowner</th>
-                      <th>Good Career</th>
-                      <th>Income 60K</th>
-                      <th>Dissatisfied</th>
-                      <th>Ambitious</th>
-                      <th>Contact Date</th>
-                      <th>Result</th>
-                      <th>Next Steps</th>
+                    <tr>
+                      {COLUMNS.map((col) => (
+                        <th
+                          key={col.key}
+                          className="border border-slate-300 px-2 py-2 text-left font-semibold cursor-pointer hover:bg-slate-200 relative select-none"
+                          style={{ width: `${columnWidths[col.key]}px`, minWidth: `${columnWidths[col.key]}px` }}
+                          onClick={() => handleSort(col.key as keyof Prospect)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="truncate">{col.label}</span>
+                            <SortIndicator columnKey={col.key} />
+                          </div>
+                          {/* Resize handle */}
+                          <div
+                            className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 bg-slate-400"
+                            onMouseDown={(e) => startResize(e, col.key)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       <tr>
-                        <td colSpan={20} className="px-3 py-6 text-center text-slate-500">
+                        <td colSpan={COLUMNS.length} className="border border-slate-300 px-3 py-6 text-center text-slate-500">
                           Loading...
                         </td>
                       </tr>
                     ) : pageRows.length === 0 ? (
                       <tr>
-                        <td colSpan={20} className="px-3 py-6 text-center text-slate-500">
+                        <td colSpan={COLUMNS.length} className="border border-slate-300 px-3 py-6 text-center text-slate-500">
                           No prospects found.
                         </td>
                       </tr>
@@ -859,30 +962,30 @@ export default function ProspectPage() {
                           <tr
                             key={p.id}
                             onClick={() => handleSelectRow(p)}
-                            className={`cursor-pointer border-t ${
+                            className={`cursor-pointer ${
                               isActive ? 'bg-emerald-50' : 'hover:bg-slate-50'
-                            } [&>td]:px-3 [&>td]:py-2 [&>td]:text-xs [&>td]:text-slate-700`}
+                            }`}
                           >
-                            <td className="font-semibold text-slate-900">{p.first_name}</td>
-                            <td>{p.last_name}</td>
-                            <td>{p.spouse_name}</td>
-                            <td>{p.relation_type}</td>
-                            <td>{p.phone}</td>
-                            <td>{p.city}</td>
-                            <td>{p.state}</td>
-                            <td className={p.top25 === 'Yes' || p.top25 === 'Y' ? 'text-emerald-700 font-semibold' : ''}>{yesNoNormalize(p.top25)}</td>
-                            <td className="text-slate-600">{p.immigration}</td>
-                            <td className={p.age25plus === 'Yes' || p.age25plus === 'Y' ? 'text-emerald-700 font-semibold' : ''}>{yesNoNormalize(p.age25plus)}</td>
-                            <td className={p.married === 'Yes' || p.married === 'Y' ? 'text-emerald-700 font-semibold' : ''}>{yesNoNormalize(p.married)}</td>
-                            <td className={p.children === 'Yes' || p.children === 'Y' ? 'text-emerald-700 font-semibold' : ''}>{yesNoNormalize(p.children)}</td>
-                            <td className={p.homeowner === 'Yes' || p.homeowner === 'Y' ? 'text-emerald-700 font-semibold' : ''}>{yesNoNormalize(p.homeowner)}</td>
-                            <td className={p.good_career === 'Yes' || p.good_career === 'Y' ? 'text-emerald-700 font-semibold' : ''}>{yesNoNormalize(p.good_career)}</td>
-                            <td className={p.income_60k === 'Yes' || p.income_60k === 'Y' ? 'text-emerald-700 font-semibold' : ''}>{yesNoNormalize(p.income_60k)}</td>
-                            <td className={p.dissatisfied === 'Yes' || p.dissatisfied === 'Y' ? 'text-emerald-700 font-semibold' : ''}>{yesNoNormalize(p.dissatisfied)}</td>
-                            <td className={p.ambitious === 'Yes' || p.ambitious === 'Y' ? 'text-emerald-700 font-semibold' : ''}>{yesNoNormalize(p.ambitious)}</td>
-                            <td className="text-slate-600">{p.contact_date}</td>
-                            <td className="text-slate-900 font-medium">{p.result}</td>
-                            <td>{p.next_steps}</td>
+                            <td className="border border-slate-300 px-2 py-2 text-xs text-slate-900 font-semibold truncate" style={{ width: `${columnWidths['first_name']}px` }}>{p.first_name}</td>
+                            <td className="border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['last_name']}px` }}>{p.last_name}</td>
+                            <td className="border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['spouse_name']}px` }}>{p.spouse_name}</td>
+                            <td className="border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['relation_type']}px` }}>{p.relation_type}</td>
+                            <td className="border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['phone']}px` }}>{p.phone}</td>
+                            <td className="border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['city']}px` }}>{p.city}</td>
+                            <td className="border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['state']}px` }}>{p.state}</td>
+                            <td className={`border border-slate-300 px-2 py-2 text-xs truncate ${p.top25 === 'Yes' || p.top25 === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['top25']}px` }}>{yesNoNormalize(p.top25)}</td>
+                            <td className="border border-slate-300 px-2 py-2 text-xs text-slate-600 truncate" style={{ width: `${columnWidths['immigration']}px` }}>{p.immigration}</td>
+                            <td className={`border border-slate-300 px-2 py-2 text-xs truncate ${p.age25plus === 'Yes' || p.age25plus === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['age25plus']}px` }}>{yesNoNormalize(p.age25plus)}</td>
+                            <td className={`border border-slate-300 px-2 py-2 text-xs truncate ${p.married === 'Yes' || p.married === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['married']}px` }}>{yesNoNormalize(p.married)}</td>
+                            <td className={`border border-slate-300 px-2 py-2 text-xs truncate ${p.children === 'Yes' || p.children === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['children']}px` }}>{yesNoNormalize(p.children)}</td>
+                            <td className={`border border-slate-300 px-2 py-2 text-xs truncate ${p.homeowner === 'Yes' || p.homeowner === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['homeowner']}px` }}>{yesNoNormalize(p.homeowner)}</td>
+                            <td className={`border border-slate-300 px-2 py-2 text-xs truncate ${p.good_career === 'Yes' || p.good_career === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['good_career']}px` }}>{yesNoNormalize(p.good_career)}</td>
+                            <td className={`border border-slate-300 px-2 py-2 text-xs truncate ${p.income_60k === 'Yes' || p.income_60k === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['income_60k']}px` }}>{yesNoNormalize(p.income_60k)}</td>
+                            <td className={`border border-slate-300 px-2 py-2 text-xs truncate ${p.dissatisfied === 'Yes' || p.dissatisfied === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['dissatisfied']}px` }}>{yesNoNormalize(p.dissatisfied)}</td>
+                            <td className={`border border-slate-300 px-2 py-2 text-xs truncate ${p.ambitious === 'Yes' || p.ambitious === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['ambitious']}px` }}>{yesNoNormalize(p.ambitious)}</td>
+                            <td className="border border-slate-300 px-2 py-2 text-xs text-slate-600 truncate" style={{ width: `${columnWidths['contact_date']}px` }}>{p.contact_date}</td>
+                            <td className="border border-slate-300 px-2 py-2 text-xs text-slate-900 font-medium truncate" style={{ width: `${columnWidths['result']}px` }}>{p.result}</td>
+                            <td className="border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['next_steps']}px` }}>{p.next_steps}</td>
                           </tr>
                         );
                       })
@@ -898,284 +1001,274 @@ export default function ProspectPage() {
                 type="button"
                 className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-50"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
+                disabled={safePage === 1 || saving}
               >
                 Previous
               </button>
-
               <div className="text-sm text-slate-600">
                 Page {safePage} of {totalPages}
               </div>
-
               <button
                 type="button"
                 className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-50"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
+                disabled={safePage === totalPages || saving}
               >
                 Next
               </button>
             </div>
 
-            {/* Bottom action buttons */}
-            <div className="flex flex-wrap items-center justify-center gap-2">
+            {/* Actions */}
+            <div className="flex items-center gap-2 border-t border-slate-200 pt-4">
               <button
                 type="button"
-                className={`inline-flex h-10 items-center justify-center rounded-lg px-6 text-sm font-semibold ${
-                  canBottomAction
-                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                    : 'border border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
-                } ${!canBottomAction ? 'opacity-60' : ''}`}
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                onClick={!showCard ? beginNewProspect : saveNew}
                 disabled={!canBottomAction}
-                onClick={handleBottomAction}
               >
-                {saving && showCard && mode === 'new' ? 'Saving...' : bottomPrimaryLabel}
+                {bottomPrimaryLabel}
               </button>
 
-              {showCard && mode === 'new' && (
-                <button
-                  type="button"
-                  className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-900 hover:bg-slate-50"
-                  onClick={handleCancelNew}
-                  disabled={saving}
-                >
-                  Cancel
-                </button>
-              )}
+              <button
+                type="button"
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-50"
+                onClick={handleTopAction}
+                disabled={!canTopAction}
+              >
+                {topActionLabel}
+              </button>
+
+              <button
+                type="button"
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-red-200 bg-white px-4 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                onClick={handleDelete}
+                disabled={!activeId || saving}
+              >
+                Delete
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* Form Card */}
-        {showCard && (
-          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">{mode === 'edit' ? 'Selected Prospect🧑🏻‍🤝‍🧑🏻' : 'New Prospect🧑🏻‍🤝‍🧑🏻'}</h2>
-                <p className="text-sm text-slate-600">
-                  {mode === 'edit' && selected
-                    ? `Editing✍🏻: ${selected.first_name}${selected.last_name ? ' ' + selected.last_name : ''}`
-                    : 'Enter details below, then use the button under the table to save.'}
-                </p>
-              </div>
-
-              {mode === 'edit' && (
-                <div className="flex gap-2">
-                  {/* Save button - only shows when data is edited (dirty) */}
-                  {dirty && (
-                    <button
-                      type="button"
-                      className="inline-flex h-10 items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-                      onClick={saveEdit}
-                      disabled={saving || !requiredFilled}
-                    >
-                      {saving ? 'Saving...' : 'Save'}
-                    </button>
-                  )}
+          {/* Edit/New Form Card */}
+          {showCard && (
+            <div className="border-t border-slate-200 bg-slate-50 px-6 py-5">
+              <div className="flex items-start justify-between gap-2 mb-4">
+                <div className="text-base font-bold text-slate-900">
+                  {mode === 'edit' && selected ? `Editing: ${selected.first_name} ${selected.last_name ?? ''}`.trim() : 'New Prospect'}
+                </div>
+                {mode === 'edit' && (
                   <button
                     type="button"
-                    className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-50"
-                    onClick={handleCloseEdit}
-                    disabled={saving}
+                    className="inline-flex h-10 items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                    onClick={saveEdit}
+                    disabled={saving || !requiredFilled}
                   >
-                    Close
+                    {saving ? 'Saving...' : 'Save'}
                   </button>
-                </div>
-              )}
+                )}
+                <button
+                  type="button"
+                  className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-50"
+                  onClick={handleCloseEdit}
+                  disabled={saving}
+                >
+                  Close
+                </button>
+              </div>
+
+              {/* Form layout */}
+              <div className="space-y-3">
+                <SubCard>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+                    <Field label="First Name *">
+                      <TextInput
+                        compact
+                        placeholder="First Name"
+                        value={form.first_name}
+                        onChange={(v: string) => setForm((p) => ({ ...p, first_name: v }))}
+                        disabled={saving}
+                      />
+                    </Field>
+
+                    <Field label="Last Name *">
+                      <TextInput
+                        compact
+                        placeholder="Last Name"
+                        value={form.last_name}
+                        onChange={(v: string) => setForm((p) => ({ ...p, last_name: v }))}
+                        disabled={saving}
+                      />
+                    </Field>
+
+                    <Field label="Spouse Name">
+                      <TextInput
+                        compact
+                        placeholder="Spouse Name"
+                        value={form.spouse_name}
+                        onChange={(v: string) => setForm((p) => ({ ...p, spouse_name: v }))}
+                        disabled={saving}
+                      />
+                    </Field>
+
+                    <Field label="Relation Type">
+                      <select
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900"
+                        value={form.relation_type}
+                        onChange={(e) => setForm((p) => ({ ...p, relation_type: e.target.value }))}
+                        disabled={saving}
+                      >
+                        {RELATION_OPTIONS.map((o) => (
+                          <option key={o} value={o}>
+                            {o || 'Select...'}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+                </SubCard>
+
+                <SubCard>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+                    <Field label="Phone *">
+                      <TextInput
+                        compact
+                        placeholder="Phone"
+                        value={form.phone}
+                        onChange={(v: string) => setForm((p) => ({ ...p, phone: v }))}
+                        disabled={saving}
+                      />
+                    </Field>
+
+                    <Field label="City">
+                      <TextInput
+                        compact
+                        placeholder="City"
+                        value={form.city}
+                        onChange={(v: string) => setForm((p) => ({ ...p, city: v }))}
+                        disabled={saving}
+                      />
+                    </Field>
+
+                    <Field label="State">
+                      <select
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900"
+                        value={form.state}
+                        onChange={(e) => setForm((p) => ({ ...p, state: e.target.value }))}
+                        disabled={saving}
+                      >
+                        <option value=""></option>
+                        {STATE_NAME_OPTIONS.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+
+                    <Field label="Immigration">
+                      <select
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900"
+                        value={form.immigration}
+                        onChange={(e) => setForm((p) => ({ ...p, immigration: e.target.value }))}
+                        disabled={saving}
+                      >
+                        {IMMIGRATION_STATUS_OPTIONS.map((o) => (
+                          <option key={o} value={o}>
+                            {o || 'Select...'}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+                </SubCard>
+
+                <SubCard>
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9">
+                    <Field label="Top 25">
+                      <YesNoCheckbox compact value={form.top25} onChange={(v: string) => setForm((p) => ({ ...p, top25: v }))} disabled={saving} />
+                    </Field>
+
+                    <Field label="Age 25+">
+                      <YesNoCheckbox compact value={form.age25plus} onChange={(v: string) => setForm((p) => ({ ...p, age25plus: v }))} disabled={saving} />
+                    </Field>
+
+                    <Field label="Married">
+                      <YesNoCheckbox compact value={form.married} onChange={(v: string) => setForm((p) => ({ ...p, married: v }))} disabled={saving} />
+                    </Field>
+
+                    <Field label="Children">
+                      <YesNoCheckbox compact value={form.children} onChange={(v: string) => setForm((p) => ({ ...p, children: v }))} disabled={saving} />
+                    </Field>
+
+                    <Field label="Homeowner">
+                      <YesNoCheckbox compact value={form.homeowner} onChange={(v: string) => setForm((p) => ({ ...p, homeowner: v }))} disabled={saving} />
+                    </Field>
+
+                    <Field label="Good Career">
+                      <YesNoCheckbox compact value={form.good_career} onChange={(v: string) => setForm((p) => ({ ...p, good_career: v }))} disabled={saving} />
+                    </Field>
+
+                    <Field label="Income 60K">
+                      <YesNoCheckbox compact value={form.income_60k} onChange={(v: string) => setForm((p) => ({ ...p, income_60k: v }))} disabled={saving} />
+                    </Field>
+
+                    <Field label="Dissatisfied">
+                      <YesNoCheckbox compact value={form.dissatisfied} onChange={(v: string) => setForm((p) => ({ ...p, dissatisfied: v }))} disabled={saving} />
+                    </Field>
+
+                    <Field label="Ambitious">
+                      <YesNoCheckbox compact value={form.ambitious} onChange={(v: string) => setForm((p) => ({ ...p, ambitious: v }))} disabled={saving} />
+                    </Field>
+                  </div>
+                </SubCard>
+
+                <SubCard>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <Field label="Contact Date">
+                      <DateInput
+                        compact
+                        value={form.contact_date}
+                        onChange={(v: string) => setForm((p) => ({ ...p, contact_date: v }))}
+                        disabled={saving}
+                      />
+                    </Field>
+
+                    <Field label="Result">
+                      <select
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900"
+                        value={form.result}
+                        onChange={(e) => setForm((p) => ({ ...p, result: e.target.value }))}
+                        disabled={saving}
+                      >
+                        {RESULT_OPTIONS.map((o) => (
+                          <option key={o} value={o}>
+                            {o || 'Select...'}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+
+                    <Field label="Next Steps">
+                      <TextInput
+                        compact
+                        placeholder="Next Steps"
+                        value={form.next_steps}
+                        onChange={(v: string) => setForm((p) => ({ ...p, next_steps: v }))}
+                        disabled={saving}
+                      />
+                    </Field>
+                  </div>
+                </SubCard>
+
+                <SubCard>
+                  <Field label="Comments">
+                    <CommentsEditor value={form.comments} onChange={(v: string) => setForm((p) => ({ ...p, comments: v }))} disabled={saving} />
+                  </Field>
+                </SubCard>
+              </div>
             </div>
-
-            {/* Form layout */}
-            <div className="space-y-3">
-              <SubCard>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-                  <Field label="First Name *">
-                    <TextInput
-                      compact
-                      placeholder="First Name"
-                      value={form.first_name}
-                      onChange={(v: string) => setForm((p) => ({ ...p, first_name: v }))}
-                      disabled={saving}
-                    />
-                  </Field>
-
-                  <Field label="Last Name *">
-                    <TextInput
-                      compact
-                      placeholder="Last Name"
-                      value={form.last_name}
-                      onChange={(v: string) => setForm((p) => ({ ...p, last_name: v }))}
-                      disabled={saving}
-                    />
-                  </Field>
-
-                  <Field label="Spouse Name">
-                    <TextInput
-                      compact
-                      placeholder="Spouse Name"
-                      value={form.spouse_name}
-                      onChange={(v: string) => setForm((p) => ({ ...p, spouse_name: v }))}
-                      disabled={saving}
-                    />
-                  </Field>
-
-                  <Field label="Relation Type">
-                    <select
-                      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900"
-                      value={form.relation_type}
-                      onChange={(e) => setForm((p) => ({ ...p, relation_type: e.target.value }))}
-                      disabled={saving}
-                    >
-                      {RELATION_OPTIONS.map((o) => (
-                        <option key={o} value={o}>
-                          {o || 'Select...'}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                </div>
-              </SubCard>
-
-              <SubCard>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-                  <Field label="Phone *">
-                    <TextInput
-                      compact
-                      placeholder="Phone"
-                      value={form.phone}
-                      onChange={(v: string) => setForm((p) => ({ ...p, phone: v }))}
-                      disabled={saving}
-                    />
-                  </Field>
-
-                  <Field label="City">
-                    <TextInput
-                      compact
-                      placeholder="City"
-                      value={form.city}
-                      onChange={(v: string) => setForm((p) => ({ ...p, city: v }))}
-                      disabled={saving}
-                    />
-                  </Field>
-
-                  <Field label="State">
-                    <select
-                      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900"
-                      value={form.state}
-                      onChange={(e) => setForm((p) => ({ ...p, state: e.target.value }))}
-                      disabled={saving}
-                    >
-                      <option value=""></option>
-                      {STATE_NAME_OPTIONS.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-
-                  <Field label="Immigration">
-                    <select
-                      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900"
-                      value={form.immigration}
-                      onChange={(e) => setForm((p) => ({ ...p, immigration: e.target.value }))}
-                      disabled={saving}
-                    >
-                      {IMMIGRATION_STATUS_OPTIONS.map((o) => (
-                        <option key={o} value={o}>
-                          {o || 'Select...'}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                </div>
-              </SubCard>
-
-              <SubCard>
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9">
-                  <Field label="Top 25">
-                    <YesNoCheckbox compact value={form.top25} onChange={(v: string) => setForm((p) => ({ ...p, top25: v }))} disabled={saving} />
-                  </Field>
-
-                  <Field label="Age 25+">
-                    <YesNoCheckbox compact value={form.age25plus} onChange={(v: string) => setForm((p) => ({ ...p, age25plus: v }))} disabled={saving} />
-                  </Field>
-
-                  <Field label="Married">
-                    <YesNoCheckbox compact value={form.married} onChange={(v: string) => setForm((p) => ({ ...p, married: v }))} disabled={saving} />
-                  </Field>
-
-                  <Field label="Children">
-                    <YesNoCheckbox compact value={form.children} onChange={(v: string) => setForm((p) => ({ ...p, children: v }))} disabled={saving} />
-                  </Field>
-
-                  <Field label="Homeowner">
-                    <YesNoCheckbox compact value={form.homeowner} onChange={(v: string) => setForm((p) => ({ ...p, homeowner: v }))} disabled={saving} />
-                  </Field>
-
-                  <Field label="Good Career">
-                    <YesNoCheckbox compact value={form.good_career} onChange={(v: string) => setForm((p) => ({ ...p, good_career: v }))} disabled={saving} />
-                  </Field>
-
-                  <Field label="Income 60K">
-                    <YesNoCheckbox compact value={form.income_60k} onChange={(v: string) => setForm((p) => ({ ...p, income_60k: v }))} disabled={saving} />
-                  </Field>
-
-                  <Field label="Dissatisfied">
-                    <YesNoCheckbox compact value={form.dissatisfied} onChange={(v: string) => setForm((p) => ({ ...p, dissatisfied: v }))} disabled={saving} />
-                  </Field>
-
-                  <Field label="Ambitious">
-                    <YesNoCheckbox compact value={form.ambitious} onChange={(v: string) => setForm((p) => ({ ...p, ambitious: v }))} disabled={saving} />
-                  </Field>
-                </div>
-              </SubCard>
-
-              <SubCard>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <Field label="Contact Date">
-                    <DateInput
-                      compact
-                      value={form.contact_date}
-                      onChange={(v: string) => setForm((p) => ({ ...p, contact_date: v }))}
-                      disabled={saving}
-                    />
-                  </Field>
-
-                  <Field label="Result">
-                    <select
-                      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900"
-                      value={form.result}
-                      onChange={(e) => setForm((p) => ({ ...p, result: e.target.value }))}
-                      disabled={saving}
-                    >
-                      {RESULT_OPTIONS.map((o) => (
-                        <option key={o} value={o}>
-                          {o || 'Select...'}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-
-                  <Field label="Next Steps">
-                    <TextInput
-                      compact
-                      placeholder="Next Steps"
-                      value={form.next_steps}
-                      onChange={(v: string) => setForm((p) => ({ ...p, next_steps: v }))}
-                      disabled={saving}
-                    />
-                  </Field>
-                </div>
-              </SubCard>
-
-              <SubCard>
-                <Field label="Comments">
-                  <CommentsEditor value={form.comments} onChange={(v: string) => setForm((p) => ({ ...p, comments: v }))} disabled={saving} />
-                </Field>
-              </SubCard>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
