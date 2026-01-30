@@ -48,11 +48,11 @@ export default function LoginPage() {
                 className="h-16 md:h-20 lg:h-24 w-auto mx-auto mb-3 object-contain max-w-full" 
                 style={{ maxHeight: '96px' }}
               />
-            <div className="text-center mb-6">
-              <h2 className="text-xl font-bold text-blue-800 mb-1">CAN Care & Advancement Network</h2>
-              <p className="text-sm font-semibold text-yellow-500 mb-3">Caring today, advancing tomorrow</p>
-              <h1 className="text-2xl font-bold text-slate-900">Admin Login</h1>
-              </div>
+<div className="text-center mb-6">
+  <h2 className="text-xl text-blue-700 mb-0 leading-none">CAN Care & Advancement Network</h2>
+  <p className="text-sm text-yellow-600 mb-0 mt-1 leading-none">Caring today, advancing tomorrow</p>
+  <h1 className="text-2xl font-bold text-slate-900 mt-2">Admin Login</h1>
+</div>
         </div>
 
         {error && (
