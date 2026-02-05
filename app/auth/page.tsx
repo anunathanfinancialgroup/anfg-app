@@ -50,7 +50,7 @@ export default function LoginPage() {
               />
 <div className="text-center mb-6">
   <h2 className="text-xl color-#1E5AA8 mb-0 leading-none"><b>Advancement & Care Network</b></h2>
-  <p className="text-sm text-yellow-500 mb-0 mt-1 leading-none"><b>Advancing Careers, Caring for Families</b></p>
+  <p className="text-sm color-#0f172a mb-0 mt-1 leading-none"><b>Advancing Careers, Caring for Families</b></p>
   <h1 className="text-2xl font-semibold text-slate-900 mt-2">Admin Login</h1>
 </div>
         </div>
