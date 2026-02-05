@@ -704,7 +704,7 @@ export default function Dashboard() {
             <img src="/acn-logo.png" className="h-12 w-auto" alt="CAN Logo" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} /> 
             <div> 
                <div className="text-1x2 font-bold" style={{ color: "#1E5AA8" }}>Dashboard - Clients Report</div>
-               <div className="text-sm font-semibold" style={{ color: "#0f172a" }}>Advancing Careers, Caring for Families</div>
+               <div className="text-sm font-semibold" style={{ color: "#FFD700" }}>Advancing Careers, Caring for Families</div>
             </div> 
           </div> 
           <div className="flex items-center gap-2"> 
