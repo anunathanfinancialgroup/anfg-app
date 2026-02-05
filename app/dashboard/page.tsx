@@ -3,7 +3,7 @@
 "use client";
 
 /** 
- * ACN Advancement & Care Network — Dashboard (page_0 (2).tsx) 
+ * Advancement & Care Network — Dashboard (page_0 (2).tsx) 
  * 
  * Minimal, scoped UI-layer changes only: 
  * - Added/kept new columns: spouse_name, date_of_birth, children, city, state, immigration_status, work_details. 
@@ -703,8 +703,8 @@ export default function Dashboard() {
           <div className="flex items-center gap-2"> 
             <img src="/acn-logo.png" className="h-12 w-auto" alt="CAN Logo" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} /> 
             <div> 
-               <div className="text-1x2 font-bold text-blue-800">Dashboard - Clients Report</div>
-               <div className="text-sm font-semibold text-yellow-500">Advancing Careers, Caring for Families</div>
+               <div className="text-1x2 font-bold color-#1E5AA8">Dashboard - Clients Report</div>
+               <div className="text-sm font-semibold color-#0f172a">Advancing Careers, Caring for Families</div>
             </div> 
           </div> 
           <div className="flex items-center gap-2"> 
