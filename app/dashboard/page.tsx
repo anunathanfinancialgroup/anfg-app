@@ -721,9 +721,7 @@ export default function Dashboard() {
     const meetingTomorrowCount = records.filter(r => r.BOP_Date?.startsWith(today+1) || r.Followup_Date?.startsWith(today+1)).length;
      
     return (<div className="flex gap-2 mr-4">
-       <div className="px-3 py-1 bg-gray-200 text-xs font-bold rounded text-center">
-       Client Status: 
-    </div>
+       
     <div className="px-3 py-1 bg-gray-200 text-xs font-semibold rounded text-center">
       Successful Client👍{successfulClientsCount}
     </div>
@@ -878,6 +876,7 @@ export default function Dashboard() {
           <div className="text-sm text-black mb-2">{total.toLocaleString()} records • showing {ALL_PAGE_SIZE} per page</div> 
    
 <div className="flex gap-4 mb-2 text-xs font-semibold text-black">
+  <div className="px-3 py-1 bg-gray-200 text-xs font-bold rounded text-center">Client Status: </div>
   <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#B1FB17] rounded"></span>New Client {records.filter(r => r.client_status === "New Client").length}</div>
   <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#728FCE] rounded"></span>Interested {records.filter(r => r.client_status === "Interested").length}</div>
   <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#ADDFFF] rounded"></span>In-Progress {records.filter(r => r.client_status === "In-Progress").length}</div>
