@@ -882,7 +882,7 @@ export default function Dashboard() {
   <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#ADDFFF] rounded"></span>In-Progress {records.filter(r => r.client_status === "In-Progress").length}</div>
   <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#C9BE62] rounded"></span>On Hold {records.filter(r => r.client_status === "On Hold").length}</div>
   <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#E6BF83] rounded"></span>Closed {records.filter(r => r.client_status === "Closed").length}</div>
-  <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#3CB371] rounded"></span>Completed {records.filter(r => r.client_status === "Completed").length}</div>
+  <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#3CB371] rounded"></span>Policy Issued {records.filter(r => r.client_status === "Policy Issued").length}</div>
 </div>
 
 {recordsVisible && ( 
