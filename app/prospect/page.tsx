@@ -958,7 +958,10 @@ export default function ProspectPage() {
                             style={{ 
                               width: `${columnWidths[col.key]}px`, 
                               minWidth: `${columnWidths[col.key]}px`,
-                              border: '1px solid rgb(203 213 225)',
+                              borderTop: '1px solid #cbd5e1',
+                              borderBottom: '1px solid #cbd5e1',
+                              borderLeft: '1px solid #cbd5e1',
+                              borderRight: '1px solid #cbd5e1',
                               ...(isSticky ? { left: `${leftOffset}px`, boxShadow: idx === 2 ? '2px 0 5px -2px rgba(0,0,0,0.1)' : 'none' } : {})
                             }}
                             onClick={() => handleSort(col.key as keyof Prospect)}
@@ -981,13 +984,13 @@ export default function ProspectPage() {
                   <tbody>
                     {loading ? (
                       <tr>
-                        <td colSpan={COLUMNS.length} className="px-3 py-6 text-center text-slate-500" style={{ border: '1px solid rgb(203 213 225)' }}>
+                        <td colSpan={COLUMNS.length} className="px-3 py-6 text-center text-slate-500" style={{ borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>
                           Loading...
                         </td>
                       </tr>
                     ) : pageRows.length === 0 ? (
                       <tr>
-                        <td colSpan={COLUMNS.length} className="px-3 py-6 text-center text-slate-500" style={{ border: '1px solid rgb(203 213 225)' }}>
+                        <td colSpan={COLUMNS.length} className="px-3 py-6 text-center text-slate-500" style={{ borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>
                           No prospects found.
                         </td>
                       </tr>
@@ -1004,13 +1007,13 @@ export default function ProspectPage() {
                         let titleText = '';
                         
                         if (isProspect) {
-                          bgClass = 'bg-[#43C6DB]';
-                          solidBg = 'bg-[#43C6DB]';
+                          bgClass = 'bg-[#CCFFFF]';
+                          solidBg = 'bg-[#CCFFFF]';
                           cursorClass = 'cursor-help';
                           titleText = 'Prospect Client 🏆';
                         } else if (isClosed) {
-                          bgClass = 'bg-[#737CA1]';
-                          solidBg = 'bg-[#737CA1]';
+                          bgClass = 'bg-[#F5F5F5]';
+                          solidBg = 'bg-[#F5F5F5]';
                           titleText = 'Prospect Closed';
                         } else if (isActive) {
                           bgClass = 'bg-emerald-50';
@@ -1027,26 +1030,26 @@ export default function ProspectPage() {
                             className={`${cursorClass} ${bgClass}`}
                             title={titleText}
                           >
-                            <td className={`px-2 py-2 text-xs text-slate-900 font-semibold truncate sticky left-0 z-10 ${solidBg}`} style={{ width: `${columnWidths['first_name']}px`, border: '1px solid rgb(203 213 225)' }}>{p.first_name}</td>
-                            <td className={`px-2 py-2 text-xs text-slate-700 truncate sticky z-10 ${solidBg}`} style={{ width: `${columnWidths['last_name']}px`, left: `${columnWidths['first_name']}px`, border: '1px solid rgb(203 213 225)' }}>{p.last_name}</td>
-                            <td className={`px-2 py-2 text-xs text-slate-700 truncate sticky z-10 ${solidBg}`} style={{ width: `${columnWidths['spouse_name']}px`, left: `${columnWidths['first_name'] + columnWidths['last_name']}px`, border: '1px solid rgb(203 213 225)', boxShadow: '2px 0 5px -2px rgba(0,0,0,0.1)' }}>{p.spouse_name}</td>
-                            <td className="px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['relation_type']}px`, border: '1px solid rgb(203 213 225)' }}>{p.relation_type}</td>
-                            <td className="px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['phone']}px`, border: '1px solid rgb(203 213 225)' }}>{p.phone}</td>
-                            <td className="px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['city']}px`, border: '1px solid rgb(203 213 225)' }}>{p.city}</td>
-                            <td className="px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['state']}px`, border: '1px solid rgb(203 213 225)' }}>{p.state}</td>
-                            <td className={`px-2 py-2 text-xs truncate ${p.top25 === 'Yes' || p.top25 === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['top25']}px`, border: '1px solid rgb(203 213 225)' }}>{yesNoNormalize(p.top25)}</td>
-                            <td className="px-2 py-2 text-xs text-slate-600 truncate" style={{ width: `${columnWidths['immigration']}px`, border: '1px solid rgb(203 213 225)' }}>{p.immigration}</td>
-                            <td className={`px-2 py-2 text-xs truncate ${p.age25plus === 'Yes' || p.age25plus === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['age25plus']}px`, border: '1px solid rgb(203 213 225)' }}>{yesNoNormalize(p.age25plus)}</td>
-                            <td className={`px-2 py-2 text-xs truncate ${p.married === 'Yes' || p.married === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['married']}px`, border: '1px solid rgb(203 213 225)' }}>{yesNoNormalize(p.married)}</td>
-                            <td className={`px-2 py-2 text-xs truncate ${p.children === 'Yes' || p.children === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['children']}px`, border: '1px solid rgb(203 213 225)' }}>{yesNoNormalize(p.children)}</td>
-                            <td className={`px-2 py-2 text-xs truncate ${p.homeowner === 'Yes' || p.homeowner === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['homeowner']}px`, border: '1px solid rgb(203 213 225)' }}>{yesNoNormalize(p.homeowner)}</td>
-                            <td className={`px-2 py-2 text-xs truncate ${p.good_career === 'Yes' || p.good_career === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['good_career']}px`, border: '1px solid rgb(203 213 225)' }}>{yesNoNormalize(p.good_career)}</td>
-                            <td className={`px-2 py-2 text-xs truncate ${p.income_60k === 'Yes' || p.income_60k === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['income_60k']}px`, border: '1px solid rgb(203 213 225)' }}>{yesNoNormalize(p.income_60k)}</td>
-                            <td className={`px-2 py-2 text-xs truncate ${p.dissatisfied === 'Yes' || p.dissatisfied === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['dissatisfied']}px`, border: '1px solid rgb(203 213 225)' }}>{yesNoNormalize(p.dissatisfied)}</td>
-                            <td className={`px-2 py-2 text-xs truncate ${p.ambitious === 'Yes' || p.ambitious === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['ambitious']}px`, border: '1px solid rgb(203 213 225)' }}>{yesNoNormalize(p.ambitious)}</td>
-                            <td className="px-2 py-2 text-xs text-slate-600 truncate" style={{ width: `${columnWidths['contact_date']}px`, border: '1px solid rgb(203 213 225)' }}>{p.contact_date}</td>
-                            <td className="px-2 py-2 text-xs text-slate-900 font-medium truncate" style={{ width: `${columnWidths['result']}px`, border: '1px solid rgb(203 213 225)' }}>{p.result}</td>
-                            <td className="px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['next_steps']}px`, border: '1px solid rgb(203 213 225)' }}>{p.next_steps}</td>
+                            <td className={`px-2 py-2 text-xs text-slate-900 font-semibold truncate sticky left-0 z-10 ${solidBg}`} style={{ width: `${columnWidths['first_name']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{p.first_name}</td>
+                            <td className={`px-2 py-2 text-xs text-slate-700 truncate sticky z-10 ${solidBg}`} style={{ width: `${columnWidths['last_name']}px`, left: `${columnWidths['first_name']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{p.last_name}</td>
+                            <td className={`px-2 py-2 text-xs text-slate-700 truncate sticky z-10 ${solidBg}`} style={{ width: `${columnWidths['spouse_name']}px`, left: `${columnWidths['first_name'] + columnWidths['last_name']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', boxShadow: '2px 0 5px -2px rgba(0,0,0,0.1)' }}>{p.spouse_name}</td>
+                            <td className="px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['relation_type']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{p.relation_type}</td>
+                            <td className="px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['phone']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{p.phone}</td>
+                            <td className="px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['city']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{p.city}</td>
+                            <td className="px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['state']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{p.state}</td>
+                            <td className={`px-2 py-2 text-xs truncate ${p.top25 === 'Yes' || p.top25 === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['top25']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{yesNoNormalize(p.top25)}</td>
+                            <td className="px-2 py-2 text-xs text-slate-600 truncate" style={{ width: `${columnWidths['immigration']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{p.immigration}</td>
+                            <td className={`px-2 py-2 text-xs truncate ${p.age25plus === 'Yes' || p.age25plus === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['age25plus']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{yesNoNormalize(p.age25plus)}</td>
+                            <td className={`px-2 py-2 text-xs truncate ${p.married === 'Yes' || p.married === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['married']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{yesNoNormalize(p.married)}</td>
+                            <td className={`px-2 py-2 text-xs truncate ${p.children === 'Yes' || p.children === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['children']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{yesNoNormalize(p.children)}</td>
+                            <td className={`px-2 py-2 text-xs truncate ${p.homeowner === 'Yes' || p.homeowner === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['homeowner']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{yesNoNormalize(p.homeowner)}</td>
+                            <td className={`px-2 py-2 text-xs truncate ${p.good_career === 'Yes' || p.good_career === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['good_career']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{yesNoNormalize(p.good_career)}</td>
+                            <td className={`px-2 py-2 text-xs truncate ${p.income_60k === 'Yes' || p.income_60k === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['income_60k']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{yesNoNormalize(p.income_60k)}</td>
+                            <td className={`px-2 py-2 text-xs truncate ${p.dissatisfied === 'Yes' || p.dissatisfied === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['dissatisfied']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{yesNoNormalize(p.dissatisfied)}</td>
+                            <td className={`px-2 py-2 text-xs truncate ${p.ambitious === 'Yes' || p.ambitious === 'Y' ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`} style={{ width: `${columnWidths['ambitious']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{yesNoNormalize(p.ambitious)}</td>
+                            <td className="px-2 py-2 text-xs text-slate-600 truncate" style={{ width: `${columnWidths['contact_date']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{p.contact_date}</td>
+                            <td className="px-2 py-2 text-xs text-slate-900 font-medium truncate" style={{ width: `${columnWidths['result']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{p.result}</td>
+                            <td className="px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['next_steps']}px`, borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1' }}>{p.next_steps}</td>
                           </tr>
                         );
                       })
