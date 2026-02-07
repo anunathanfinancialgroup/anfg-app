@@ -1018,8 +1018,8 @@ export default function ProspectPage() {
                         let titleText = '';
                         
                         if (isProspect) {
-                          bgClass = 'bg-[#AFEEEE]';
-                          solidBg = 'bg-[#AFEEEE]';
+                          bgClass = 'bg-[#FFF9E3]';
+                          solidBg = 'bg-[#FFF9E3]';
                           cursorClass = 'cursor-help';
                           titleText = 'Prospect Client 🏆';
                         } else if (isClosed) {
