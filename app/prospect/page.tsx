@@ -998,20 +998,25 @@ export default function ProspectPage() {
                         
                         // Determine background color: Prospect > Closed > Active
                         let bgClass = '';
+                        let solidBg = ''; // Solid background for sticky cells
                         let cursorClass = 'cursor-pointer';
                         let titleText = '';
                         
                         if (isProspect) {
                           bgClass = 'bg-green-100';
+                          solidBg = 'bg-green-100';
                           cursorClass = 'cursor-help';
                           titleText = 'Prospect Client 🏆';
                         } else if (isClosed) {
                           bgClass = 'bg-gray-300';
+                          solidBg = 'bg-gray-300';
                           titleText = 'Prospect Closed';
                         } else if (isActive) {
                           bgClass = 'bg-emerald-50';
+                          solidBg = 'bg-emerald-50';
                         } else {
                           bgClass = 'hover:bg-slate-50';
+                          solidBg = 'bg-white'; // Default white background for sticky cells
                         }
                         
                         return (
@@ -1021,9 +1026,9 @@ export default function ProspectPage() {
                             className={`${cursorClass} ${bgClass}`}
                             title={titleText}
                           >
-                            <td className={`border border-slate-300 px-2 py-2 text-xs text-slate-900 font-semibold truncate sticky left-0 z-10 ${bgClass}`} style={{ width: `${columnWidths['first_name']}px` }}>{p.first_name}</td>
-                            <td className={`border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate sticky z-10 ${bgClass}`} style={{ width: `${columnWidths['last_name']}px`, left: `${columnWidths['first_name']}px` }}>{p.last_name}</td>
-                            <td className={`border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate sticky z-10 ${bgClass}`} style={{ width: `${columnWidths['spouse_name']}px`, left: `${columnWidths['first_name'] + columnWidths['last_name']}px` }}>{p.spouse_name}</td>
+                            <td className={`border border-slate-300 px-2 py-2 text-xs text-slate-900 font-semibold truncate sticky left-0 z-10 ${solidBg}`} style={{ width: `${columnWidths['first_name']}px` }}>{p.first_name}</td>
+                            <td className={`border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate sticky z-10 ${solidBg}`} style={{ width: `${columnWidths['last_name']}px`, left: `${columnWidths['first_name']}px` }}>{p.last_name}</td>
+                            <td className={`border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate sticky z-10 ${solidBg}`} style={{ width: `${columnWidths['spouse_name']}px`, left: `${columnWidths['first_name'] + columnWidths['last_name']}px` }}>{p.spouse_name}</td>
                             <td className="border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['relation_type']}px` }}>{p.relation_type}</td>
                             <td className="border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['phone']}px` }}>{p.phone}</td>
                             <td className="border border-slate-300 px-2 py-2 text-xs text-slate-700 truncate" style={{ width: `${columnWidths['city']}px` }}>{p.city}</td>
