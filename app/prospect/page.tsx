@@ -1023,8 +1023,8 @@ export default function ProspectPage() {
                           cursorClass = 'cursor-help';
                           titleText = 'Prospect Client 🏆';
                         } else if (isClosed) {
-                          bgClass = 'bg-[#737CA1]';
-                          solidBg = 'bg-[#737CA1]';
+                          bgClass = 'bg-[#F5F5F5]';
+                          solidBg = 'bg-[#F5F5F5]';
                           titleText = 'Prospect Closed';
                         } else if (isActive) {
                           bgClass = 'bg-emerald-50';
