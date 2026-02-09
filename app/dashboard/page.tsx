@@ -934,16 +934,16 @@ export default function Dashboard() {
 function ProgressSummaryTable({ rows, sortState, onSortChange }: { rows: Row[]; sortState: { key: ProgressSortKey; dir: SortDir }; onSortChange: (k: ProgressSortKey) => void; }) { 
   const { widths, startResize } = useColumnResizer(); 
   const cols = useMemo(() => [ 
-    { id: "client_name", label: "Client Name", key: "client_name" as ProgressSortKey, defaultW: 170 }, 
-    { id: "first_name", label: "First Name", defaultW: 95 }, 
-    { id: "last_name", label: "Last Name", defaultW: 90 }, 
-    { id: "phone", label: "Phone", defaultW: 105 }, 
-    { id: "email", label: "Email", defaultW: 220 }, 
-    { id: "last_call_date", label: "Called On", key: "last_call_date" as ProgressSortKey, defaultW: 190 }, 
+    { id: "client_name", label: "Client Name", key: "client_name" as ProgressSortKey, defaultW: 200 }, 
+    { id: "first_name", label: "First Name", defaultW: 120 }, 
+    { id: "last_name", label: "Last Name", defaultW: 130 }, 
+    { id: "phone", label: "Phone", defaultW: 140 }, 
+    { id: "email", label: "Email", defaultW: 280 }, 
+    { id: "last_call_date", label: "Called On", key: "last_call_date" as ProgressSortKey, defaultW: 120 }, 
     { id: "call_attempts", label: "No of Calls", key: "call_attempts" as ProgressSortKey, defaultW: 90 }, 
-    { id: "last_bop_date", label: "Last/Next BOP Call On", key: "last_bop_date" as ProgressSortKey, defaultW: 200 }, 
+    { id: "last_bop_date", label: "Last/Next BOP Call On", key: "last_bop_date" as ProgressSortKey, defaultW: 135 }, 
     { id: "bop_attempts", label: "No of BOP Calls", key: "bop_attempts" as ProgressSortKey, defaultW: 110 }, 
-    { id: "last_followup_date", label: "Last/Next FollowUp On", key: "last_followup_date" as ProgressSortKey, defaultW: 200 }, 
+    { id: "last_followup_date", label: "Last/Next FollowUp On", key: "last_followup_date" as ProgressSortKey, defaultW: 135 }, 
     { id: "followup_attempts", label: "No of FollowUp Calls", key: "followup_attempts" as ProgressSortKey, defaultW: 140 }, 
   ], []); 
   const getW = (id: string, def: number) => widths[id] ?? def; 
@@ -1084,12 +1084,12 @@ function ExcelTableEditable({
   const WRAP_KEYS = new Set(["referred_by", "Product", "Comment", "Remark", "product", "comment", "remark", "immigration_status", "work_details"]); 
   const SAVE_KEY_NORMALIZE: Record<string, string> = { comment: "Comment", remark: "Remark", product: "Product", Comment: "Comment", Remark: "Remark", Product: "Product", ReferredBy: "referred_by", referredby: "referred_by" }; 
   const columns = useMemo(() => { 
-    const extra = extraLeftCols.map((c, i) => ({ id: `extra:${i}`, label: c.label, sortable: c.sortable, kind: "extra" as const, defaultW: c.label.toLowerCase().includes("client") ? 180 : 150 })); 
+    const extra = extraLeftCols.map((c, i) => ({ id: `extra:${i}`, label: c.label, sortable: c.sortable, kind: "extra" as const, defaultW: c.label.toLowerCase().includes("client") ? 220 : 180 })); 
     const main = keys.map((k) => { 
       const label = labelFor(k); 
       const isDateTime = DATE_TIME_KEYS.has(k); 
       const isDateOnly = DATE_ONLY_KEYS.has(k); 
-      const defaultW = k === "created_at" ? 120 : isDateTime ? 220 : isDateOnly ? 180 : k.toLowerCase().includes("email") ? 240 : WRAP_KEYS.has(k) || READONLY_LIST_COLS.has(k) ? 260 : 160; 
+      const defaultW = k === "created_at" ? 120 : isDateTime ? 180 : isDateOnly ? 130 : k.toLowerCase().includes("email") ? 280 : k.toLowerCase().includes("phone") ? 140 : k.toLowerCase().includes("name") ? 150 : WRAP_KEYS.has(k) || READONLY_LIST_COLS.has(k) ? 260 : 160; 
       const sortable = k === "created_at" ? ("created_at" as SortKey) : k === "BOP_Date" ? ("BOP_Date" as SortKey) : k === "BOP_Status" ? ("BOP_Status" as SortKey) : k === "Followup_Date" ? ("Followup_Date" as SortKey) : k === "status" ? ("status" as SortKey) : k === "CalledOn" ? ("CalledOn" as SortKey) : k === "Issued" ? ("Issued" as SortKey) : undefined; 
       return { id: `col:${k}`, key: k, label, sortable, kind: "data" as const, defaultW }; 
     }); 
