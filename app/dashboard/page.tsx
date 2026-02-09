@@ -445,7 +445,8 @@ export default function Dashboard() {
       (callsY ?? []).forEach((r: any) => bumpMonth(r.CalledOn, callsMonth)); 
       (bopsY ?? []).forEach((r: any) => bumpMonth(r.BOP_Date, bopsMonth)); 
       (fuY ?? []).forEach((r: any) => bumpMonth(r.Followup_Date, fuMonth)); 
-      setMonthly12(months.map((month) => ({ month, calls: nz(callsMonth.get(month) ?? 0), bops: nz(bopsMonth.get(month) ?? 0), followups: nz(fuMonth.get(month) ?? 0) }))); 
+      // Don't filter out zero values - show all months including zeros for proper chart display
+      setMonthly12(months.map((month) => ({ month, calls: callsMonth.get(month) ?? 0, bops: bopsMonth.get(month) ?? 0, followups: fuMonth.get(month) ?? 0 }))); 
     } catch (e: any) { 
       setError(e?.message ?? "Failed to load trends"); 
     } finally { 
@@ -949,7 +950,28 @@ function ProgressSummaryTable({ rows, sortState, onSortChange }: { rows: Row[]; 
   const stickyLeftPx = (colIndex: number) => (colIndex <= 0 ? 0 : 0); 
   const sortIcon = (k?: ProgressSortKey) => { if (!k) return null; if (sortState.key !== k) return <span className="ml-1 text-black">↕</span>; return <span className="ml-1 text-black">{sortState.dir === "asc" ? "↑" : "↓"}</span>; }; 
   const minWidth = cols.reduce((sum, c) => sum + getW(c.id, c.defaultW), 0); 
-  const fmtDate = (v: any) => { if (!v) return "—"; const d = new Date(v); const t = d.getTime(); if (!Number.isFinite(t)) return "—"; return d.toLocaleString(); }; 
+  
+  // Format date as dd/mm/yyyy
+  const fmtDate = (v: any) => { 
+    if (!v) return "—"; 
+    const d = new Date(v); 
+    const t = d.getTime(); 
+    if (!Number.isFinite(t)) return "—"; 
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`; 
+  }; 
+  
+  // Check if date is in current month
+  const isCurrentMonth = (v: any) => {
+    if (!v) return false;
+    const d = new Date(v);
+    if (!Number.isFinite(d.getTime())) return false;
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  };
+  
   const fmtCount = (v: any) => { const n = Number(v); if (!Number.isFinite(n)) return "—"; return String(n); }; 
   return ( 
     <div className="overflow-auto border border-slate-500 bg-white max-h-[520px]"> 
@@ -991,17 +1013,33 @@ function ProgressSummaryTable({ rows, sortState, onSortChange }: { rows: Row[]; 
                 }; 
                 let v = "—"; 
                 let tdClass = "border border-slate-300 px-2 py-2 whitespace-nowrap"; 
+                let highlightCurrentMonth = false;
+                
                 if (c.id === "client_name") v = String(r.client_name ?? "—"); 
                 else if (c.id === "first_name") v = String(r.first_name ?? "—"); 
                 else if (c.id === "last_name") v = String(r.last_name ?? "—"); 
                 else if (c.id === "phone") v = String(r.phone ?? "—"); 
                 else if (c.id === "email") v = String(r.email ?? "—"); 
-                else if (c.id === "last_call_date") v = fmtDate(r.last_call_date); 
+                else if (c.id === "last_call_date") { 
+                  v = fmtDate(r.last_call_date); 
+                  highlightCurrentMonth = isCurrentMonth(r.last_call_date);
+                } 
                 else if (c.id === "call_attempts") { v = fmtCount(r.call_attempts); tdClass += " text-center align-middle"; } 
-                else if (c.id === "last_bop_date") v = fmtDate(r.last_bop_date); 
+                else if (c.id === "last_bop_date") { 
+                  v = fmtDate(r.last_bop_date); 
+                  highlightCurrentMonth = isCurrentMonth(r.last_bop_date);
+                } 
                 else if (c.id === "bop_attempts") { v = fmtCount(r.bop_attempts); tdClass += " text-center align-middle"; } 
-                else if (c.id === "last_followup_date") v = fmtDate(r.last_followup_date); 
+                else if (c.id === "last_followup_date") { 
+                  v = fmtDate(r.last_followup_date); 
+                  highlightCurrentMonth = isCurrentMonth(r.last_followup_date);
+                } 
                 else if (c.id === "followup_attempts") { v = fmtCount(r.followup_attempts); tdClass += " text-center align-middle"; } 
+                
+                if (highlightCurrentMonth) {
+                  tdClass += " bg-yellow-100";
+                }
+                
                 return (<td key={c.id} className={`${tdClass} ${isSticky ? "font-semibold text-black" : ""}`} style={style}>{v}</td>); 
               })} 
             </tr> 
