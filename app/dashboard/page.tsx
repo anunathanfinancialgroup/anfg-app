@@ -138,7 +138,7 @@ const LABEL_OVERRIDES: Record<string, string> = {
   immigration_status: "Immigration Status", 
   work_details: "Work Details", 
   status: "Record Status", 
-  client_status: "Client Status", 
+  client_status: "Status", 
   FNA_Status: "FNA Status", 
   FNA_Date: "FNA Date", 
 }; 
@@ -737,7 +737,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-2"> 
   {(() => {
     const successfulClientsCount = statusCounts["status_Successful Client"] || 0;
-    const newClientsCount = statusCounts["status_New Client"] || 0;
+    const newClientsCount = statusCounts["client_status_New Client"] || 0;
     const latestIssuedDate = records.map(r => r.Issued).filter(Boolean).map(d => new Date(d)).sort((a,b)=>b.getTime()-a.getTime())[0];
      
     const cycleStart = latestIssuedDate ? latestIssuedDate.toLocaleDateString() : "—";
