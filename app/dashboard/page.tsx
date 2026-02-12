@@ -92,6 +92,7 @@ const DATE_TIME_KEYS = new Set([
   "Followup_Date", 
   "FollowUp_Date", 
   "Issued", 
+  "FNA_Date", 
 ]); 
 const DATE_ONLY_KEYS = new Set(["date_of_birth"]); // calendar date without time 
 /** ------- Yellow highlight helper (ignore timestamp) ------- */ 
@@ -137,7 +138,9 @@ const LABEL_OVERRIDES: Record<string, string> = {
   immigration_status: "Immigration Status", 
   work_details: "Work Details", 
   status: "Record Status", 
-  client_status: "Status", 
+  client_status: "Client Status", 
+  FNA_Status: "FNA Status", 
+  FNA_Date: "FNA Date", 
 }; 
 function labelFor(key: string) { 
   if (LABEL_OVERRIDES[key]) return LABEL_OVERRIDES[key]; 
@@ -282,6 +285,7 @@ const STATUS_OPTIONS: Record<string, string[]> = {
   "follow-up_status": ["", "Open", "In-Progress", "Follow-Up", "Follow-Up 2", "On Hold", "Completed"], 
   client_status: ["", "Policy Issued", "New Client", "Initiated", "Interested", "Not-Interested", "In-Progress", "Closed", "On Hold", "Purchased", "Re-Opened", "Completed"],
   bop_status: ["", "Presented", "Business", "Client", "In-Progress", "On-Hold", "Clarification", "Not Interested", "Completed", "Closed"], 
+  fna_status: ["", "In-Progress", "Completed", "Not Interested", "Solution Provided", "Skipped"], 
   state: US_STATE_OPTIONS, 
   immigration_status: IMMIGRATION_STATUS_OPTIONS, 
 }; 
@@ -848,7 +852,7 @@ export default function Dashboard() {
               onUpdate={updateCell} 
               preferredOrder={[ 
                 "created_at", "client_status", "first_name", "last_name", "interest_type", "business_opportunities", "wealth_solutions", 
-                "CalledOn", "BOP_Date", "BOP_Status", "Followup_Date", "FollowUp_Status", "Product", "Comment", "Remark", 
+                "CalledOn", "BOP_Date", "BOP_Status", "Followup_Date", "FollowUp_Status", "FNA_Date", "FNA_Status", "Product", "Comment", "Remark", 
                 "status", "phone", "email", 
                 "spouse_name", "date_of_birth", "children", "city", "state", "profession", "work_details", "immigration_status", 
                 "referred_by", "preferred_days", "preferred_time", 
@@ -920,7 +924,7 @@ export default function Dashboard() {
                   onUpdate={updateCell} 
                   preferredOrder={[ 
                     "created_at", "client_status", "first_name", "last_name", "interest_type", "business_opportunities", "wealth_solutions", 
-                    "CalledOn", "BOP_Date", "BOP_Status", "Followup_Date", "FollowUp_Status", "Product", "Comment", "Remark", 
+                    "CalledOn", "BOP_Date", "BOP_Status", "Followup_Date", "FollowUp_Status", "FNA_Date", "FNA_Status", "Product", "Comment", "Remark", 
                     "status", "phone", "email", 
                     "spouse_name", "date_of_birth", "children", "city", "state", "profession", "work_details", "immigration_status", 
                     "referred_by", "preferred_days", "preferred_time", 
