@@ -136,6 +136,8 @@ const LABEL_OVERRIDES: Record<string, string> = {
   state: "State", 
   immigration_status: "Immigration Status", 
   work_details: "Work Details", 
+  status: "Record Status", 
+  client_status: "Status", 
 }; 
 function labelFor(key: string) { 
   if (LABEL_OVERRIDES[key]) return LABEL_OVERRIDES[key]; 
@@ -845,9 +847,9 @@ export default function Dashboard() {
               savingId={savingId} 
               onUpdate={updateCell} 
               preferredOrder={[ 
-                "created_at", "status", "first_name", "last_name", "interest_type", "business_opportunities", "wealth_solutions", 
+                "created_at", "client_status", "first_name", "last_name", "interest_type", "business_opportunities", "wealth_solutions", 
                 "CalledOn", "BOP_Date", "BOP_Status", "Followup_Date", "FollowUp_Status", "Product", "Comment", "Remark", 
-                "client_status", "phone", "email", 
+                "status", "phone", "email", 
                 "spouse_name", "date_of_birth", "children", "city", "state", "profession", "work_details", "immigration_status", 
                 "referred_by", "preferred_days", "preferred_time", 
               ]} 
@@ -916,6 +918,13 @@ export default function Dashboard() {
                   rows={records} 
                   savingId={savingId} 
                   onUpdate={updateCell} 
+                  preferredOrder={[ 
+                    "created_at", "client_status", "first_name", "last_name", "interest_type", "business_opportunities", "wealth_solutions", 
+                    "CalledOn", "BOP_Date", "BOP_Status", "Followup_Date", "FollowUp_Status", "Product", "Comment", "Remark", 
+                    "status", "phone", "email", 
+                    "spouse_name", "date_of_birth", "children", "city", "state", "profession", "work_details", "immigration_status", 
+                    "referred_by", "preferred_days", "preferred_time", 
+                  ]} 
                   extraLeftCols={[{ label: "Client Name", sortable: "client", render: (r) => clientName(r) }]} 
                   maxHeightClass="max-h-[560px]" 
                   sortState={sortAll} 
