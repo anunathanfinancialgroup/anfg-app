@@ -13,7 +13,7 @@ export default function NotFound() {
           <div className="flex items-center gap-2 min-w-[520px] pointer-events-none select-none">
             <div className="relative flex-none w-[120px] h-12">
               <div className="absolute inset-0" aria-hidden="true" />
-              <Image src="/acn-logo.png" alt="ACN Logo" width={120} height={48} priority className="absolute inset-0 h-12 w-[120px] object-contain" />
+              <Image src="/anunathan-logo.png" alt="AnuNathan Logo" width={120} height={48} priority className="absolute inset-0 h-12 w-[120px] object-contain" />
             </div>
             <div className="h-12 overflow-hidden flex flex-col justify-center">
               <div className="text-2xl font-bold text-blue-800 whitespace-nowrap">Clients Report</div>
