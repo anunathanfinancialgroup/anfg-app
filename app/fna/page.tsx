@@ -1138,7 +1138,7 @@ export default function Page() {
               <img src="/anunathan-logo.png" alt="AnuNathan Financial Group" className="h-10 w-auto" />
               <div>
                 <div className="text-1x2 font-bold text-[#1E5AA8]">{pageTitle}</div>
-                <div className="text-sm font-semibold text-[#FFD700]">Build your career. Protect their future</div>
+                <div className="text-sm font-semibold text-[#C9A227]">Build your career. Protect their future</div>
                </div>
             </div>
             <button
