@@ -3,7 +3,7 @@
 "use client";
 
 /** 
- * AnuNathan Financial Group — Dashboard (page_0 (2).tsx) 
+ * Advancement & Care Network — Dashboard (page_0 (2).tsx) 
  * 
  * Minimal, scoped UI-layer changes only: 
  * - Added/kept new columns: spouse_name, date_of_birth, children, city, state, immigration_status, work_details. 
@@ -736,10 +736,10 @@ export default function Dashboard() {
       <div className="max-w-[1600px] mx-auto p-4 space-y-4"> 
         <header className="flex items-center justify-between gap-2"> 
           <div className="flex items-center gap-2"> 
-            <img src="/anunathan-logo.png" className="h-12 w-auto" alt="CAN Logo" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} /> 
+            <img src="/acn-logo.png" className="h-12 w-auto" alt="CAN Logo" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} /> 
             <div> 
                <div className="text-1x2 font-bold" style={{ color: "#1E5AA8" }}>Dashboard - Clients Report</div>
-               <div className="text-sm font-semibold" style={{ color: "#C9A227" }}>Build your career. Protect their future</div>
+               <div className="text-sm font-semibold" style={{ color: "#FFD700" }}>Advancing Careers, Caring for Families</div>
             </div> 
           </div> 
           <div className="flex items-center gap-2"> 
