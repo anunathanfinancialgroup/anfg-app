@@ -865,7 +865,7 @@ export default function ProspectPage() {
               <img src="/anunathan-logo.png" alt="AnuNathan Financial Group" className="h-10 w-auto" />
               <div>
                 <div className="text-1x3 font-bold text-[#1E5AA8]">Prospect List Tracking</div>
-                 <div className="text-sm font-semibold text-[#FFD700]">Build your career. Protect their future</div>
+                 <div className="text-sm font-semibold text-[#C9A227]">Build your career. Protect their future</div>
               </div>
             </div>
             <button
