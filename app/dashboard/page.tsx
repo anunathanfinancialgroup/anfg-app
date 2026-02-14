@@ -734,16 +734,17 @@ export default function Dashboard() {
   return ( 
     <div className="min-h-screen"> 
       <div className="max-w-[1600px] mx-auto p-4 space-y-4"> 
-        <header className="flex items-center justify-between gap-2"> 
-          <div className="flex items-center gap-2"> 
-            <img src="/anunathan-logo.png" className="h-16 w-auto" alt="Logo" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} /> 
-            <div> 
-              <div className="text-lg text-blue-700 whitespace-nowrap">Dashboard - Clients Report</div>
-              <div className="text-sm font-bold" style={{ color: "#808000" }}>Building careers, protecting families</div>
+        <header className="bg-white rounded-lg shadow-sm border border-gray-200 p-3"> 
+          <div className="flex items-center justify-between gap-2"> 
+            <div className="flex items-center gap-2"> 
+              <img src="/anunathan-logo.png" className="h-16 w-auto" alt="Logo" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} /> 
+              <div> 
+                <div className="text-lg text-blue-700 whitespace-nowrap">Dashboard - Clients Report</div>
+                <div className="text-sm font-bold" style={{ color: "#808000" }}>Building careers, protecting families</div>
+              </div> 
             </div> 
-          </div> 
-          
-          <div className="flex items-center gap-2"> 
+            
+            <div className="flex items-center gap-2"> 
   {(() => {
     const successfulClientsCount = statusCounts["status_Successful Client"] || 0;
     const newClientsCount = statusCounts["client_status_New Client"] || 0;
@@ -758,34 +759,35 @@ export default function Dashboard() {
      
     return (
       <>
-        <div className="px-3 py-2 bg-gray-200 text-sm rounded text-center h-10 flex flex-col justify-center">
+        <div className="px-3 py-2 bg-gray-200 text-xs rounded text-center h-10 flex flex-col justify-center">
           <div>Successful Client👍 {successfulClientsCount}</div>
         </div>
-        <div className="px-3 py-2 bg-gray-200 text-sm rounded text-center h-10 flex flex-col justify-center">
+        <div className="px-3 py-2 bg-gray-200 text-xs rounded text-center h-10 flex flex-col justify-center">
           <div>New Clients✏️ {newClientsCount}</div>
         </div>
-        <div className="px-3 py-2 bg-gray-200 text-sm rounded text-center h-10 flex flex-col justify-center">
+        <div className="px-3 py-2 bg-gray-200 text-xs rounded text-center h-10 flex flex-col justify-center">
           <div>Cycle Start on↪️ {cycleStart}</div>
         </div>
-        <div className="px-3 py-2 bg-gray-200 text-sm rounded text-center h-10 flex flex-col justify-center">
+        <div className="px-3 py-2 bg-gray-200 text-xs rounded text-center h-10 flex flex-col justify-center">
           <div>Cycle End on↩️ {cycleEnd}</div>
         </div>
-        <div className="px-3 py-2 bg-gray-200 text-sm rounded text-center h-10 flex flex-col justify-center">
+        <div className="px-3 py-2 bg-gray-200 text-xs rounded text-center h-10 flex flex-col justify-center">
           <div>Cycle Days🔄 {cycleDays}</div>
         </div>
-        <div className="px-3 py-2 bg-gray-200 text-sm rounded text-center h-10 flex flex-col justify-center">
+        <div className="px-3 py-2 bg-gray-200 text-xs rounded text-center h-10 flex flex-col justify-center">
           <div>Today Meetings📣 {meetingTodayCount}</div>
         </div>
       </>
     );
   })()}
-            <Button variant="secondary" onClick={toggleAllCards}>{allVisible ? "Hide Cards📦" : "Show Cards🗃️"}</Button> 
-            <Button variant="secondary" onClick={logout}> 
-              <span className="inline-flex items-center gap-2"> 
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 002 2h3a2 2 0 002-2v-1m-6-10V5a2 2 0 012-2h3a2 2 0 012 2v1" /> 
-                 Logout ➜]
-              </span> 
-            </Button> 
+              <Button variant="secondary" onClick={toggleAllCards}>{allVisible ? "Hide Cards📦" : "Show Cards🗃️"}</Button> 
+              <Button variant="secondary" onClick={logout}> 
+                <span className="inline-flex items-center gap-2"> 
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 002 2h3a2 2 0 002-2v-1m-6-10V5a2 2 0 012-2h3a2 2 0 012 2v1" /> 
+                   Logout ➜]
+                </span> 
+              </Button> 
+            </div> 
           </div> 
         </header> 
         {error && (<div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{error}</div>)} 
