@@ -739,7 +739,7 @@ export default function Dashboard() {
             <img src="/anunathan-logo.png" className="h-16 w-auto" alt="Logo" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} /> 
             <div> 
               <div className="text-lg text-blue-700 whitespace-nowrap">Dashboard - Clients Report</div>
-              <div className="text-sm" style={{ color: "#808000" }}>Building careers, protecting families</div>
+              <div className="text-sm font-bold" style={{ color: "#808000" }}>Building careers, protecting families</div>
             </div> 
           </div> 
           
@@ -758,29 +758,23 @@ export default function Dashboard() {
      
     return (
       <>
-        <div className="px-3 py-2 bg-gray-200 text-xs rounded text-center">
-          <div>Successful Client👍</div>
-          <div className="text-lg">{successfulClientsCount}</div>
+        <div className="px-3 py-2 bg-gray-200 text-sm rounded text-center h-10 flex flex-col justify-center">
+          <div>Successful Client👍 {successfulClientsCount}</div>
         </div>
-        <div className="px-3 py-2 bg-gray-200 text-xs rounded text-center">
-          <div>New Clients✏️</div>
-          <div className="text-lg">{newClientsCount}</div>
+        <div className="px-3 py-2 bg-gray-200 text-sm rounded text-center h-10 flex flex-col justify-center">
+          <div>New Clients✏️ {newClientsCount}</div>
         </div>
-        <div className="px-3 py-2 bg-gray-200 text-xs rounded text-center">
-          <div>Cycle Start on↪️</div>
-          <div className="text-lg">{cycleStart}</div>
+        <div className="px-3 py-2 bg-gray-200 text-sm rounded text-center h-10 flex flex-col justify-center">
+          <div>Cycle Start on↪️ {cycleStart}</div>
         </div>
-        <div className="px-3 py-2 bg-gray-200 text-xs rounded text-center">
-          <div>Cycle End on↩️</div>
-          <div className="text-lg">{cycleEnd}</div>
+        <div className="px-3 py-2 bg-gray-200 text-sm rounded text-center h-10 flex flex-col justify-center">
+          <div>Cycle End on↩️ {cycleEnd}</div>
         </div>
-        <div className="px-3 py-2 bg-gray-200 text-xs rounded text-center">
-          <div>Cycle Days🔄</div>
-          <div className="text-lg">{cycleDays}</div>
+        <div className="px-3 py-2 bg-gray-200 text-sm rounded text-center h-10 flex flex-col justify-center">
+          <div>Cycle Days🔄 {cycleDays}</div>
         </div>
-        <div className="px-3 py-2 bg-gray-200 text-xs rounded text-center">
-          <div>Today Meetings📣</div>
-          <div className="text-lg">{meetingTodayCount}</div>
+        <div className="px-3 py-2 bg-gray-200 text-sm rounded text-center h-10 flex flex-col justify-center">
+          <div>Today Meetings📣 {meetingTodayCount}</div>
         </div>
       </>
     );
