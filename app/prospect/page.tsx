@@ -865,7 +865,7 @@ export default function ProspectPage() {
                   <img src="/anunathan-logo.png" className="h-16 w-auto" alt="Logo" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} /> 
                 <div>
                 <div className="text-1x3 font-bold text-[#1E5AA8]">Prospect List Tracking</div>
-                 <div className="text-sm font-semibold text-[#808000]">Building careers, protecting families</div>
+                 <div className="text-sm font-semibold text-[#808000]">Build your career. Protect their future</div>
               </div>
             </div>
             <button
