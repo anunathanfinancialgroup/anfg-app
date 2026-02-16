@@ -179,10 +179,20 @@ function toLocalDateInput(value: any) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; 
 } 
 function fromLocalInput(value: string) { 
-  if (!value?.trim()) return null; 
+  if (!value?.trim()) return null;
+  
+  // datetime-local format should be: YYYY-MM-DDTHH:MM
+  // Example: 2026-02-21T19:00
   const d = new Date(value); 
-  if (Number.isNaN(d.getTime())) return null; 
-  return d.toISOString(); 
+  if (Number.isNaN(d.getTime())) {
+    console.error('Invalid datetime-local value:', value);
+    return null;
+  }
+  
+  // Convert to ISO string (UTC)
+  const isoString = d.toISOString();
+  console.log('fromLocalInput:', value, '→', isoString);
+  return isoString; 
 } 
 function fromLocalDate(value: string) { 
   if (!value?.trim()) return null; 
@@ -660,14 +670,18 @@ export default function Dashboard() {
       for (const [key, rawValue] of Object.entries(edits)) {
         const isDateOnly = DATE_ONLY_KEYS.has(key);
         const isDateTime = DATE_TIME_KEYS.has(key);
-        payload[key] = isDateTime
-          ? fromLocalInput(String(rawValue ?? ''))
-          : isDateOnly
-          ? fromLocalDate(String(rawValue ?? ''))
-          : String(rawValue ?? '').trim()
-          ? String(rawValue)
-          : null;
+        
+        if (isDateTime) {
+          // rawValue should be in format: YYYY-MM-DDTHH:MM (datetime-local format)
+          const converted = fromLocalInput(String(rawValue ?? ''));
+          payload[key] = converted;
+        } else if (isDateOnly) {
+          payload[key] = fromLocalDate(String(rawValue ?? ''));
+        } else {
+          payload[key] = String(rawValue ?? '').trim() ? String(rawValue) : null;
+        }
       }
+      
       const { error } = await supabase
         .from('client_registrations')
         .update(payload)
@@ -680,6 +694,15 @@ export default function Dashboard() {
         );
       setRecords(patch);
       setUpcoming(patch);
+      
+      // Refresh Client Progress Summary if date fields were updated
+      const hasDateUpdates = Object.keys(edits).some(key => 
+        key === 'CalledOn' || key === 'BOP_Date' || key === 'Followup_Date'
+      );
+      if (hasDateUpdates) {
+        await fetchProgressSummary();
+      }
+      
       setPendingEdits((prev) => {
         const next = { ...prev };
         delete next[selectedRecordId];
