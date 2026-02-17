@@ -534,8 +534,7 @@ export default function Dashboard() {
       const { data, error } = await supabase 
         .from("v_client_progress_summary") 
         .select("clientid, first_name, last_name, phone, email, last_call_date, call_attempts, last_bop_date, bop_attempts, last_followup_date, followup_attempts") 
-        .order("clientid", { ascending: false }) 
-        .limit(10000); 
+        .order("clientid", { ascending: false }); 
       if (error) throw error; 
       const rows = (data ?? []).map((r: any) => ({ 
         clientid: r.clientid, 
@@ -551,6 +550,7 @@ export default function Dashboard() {
         last_followup_date: r.last_followup_date, 
         followup_attempts: r.followup_attempts, 
       })); 
+      console.log('Progress Summary loaded:', rows.length, 'records'); 
       setProgressRows(rows); 
       setProgressPage(0); 
     } catch (e: any) { 
@@ -773,6 +773,17 @@ export default function Dashboard() {
   const progressTotalPages = Math.max(1, Math.ceil(progressFilteredSorted.length / PROGRESS_PAGE_SIZE)); 
   const progressPageSafe = Math.min(progressTotalPages - 1, Math.max(0, progressPage)); 
   const progressSlice = progressFilteredSorted.slice(progressPageSafe * PROGRESS_PAGE_SIZE, progressPageSafe * PROGRESS_PAGE_SIZE + PROGRESS_PAGE_SIZE); 
+  
+  // Debug logging
+  if (progressFilteredSorted.length > 0) {
+    console.log('Progress Pagination:', {
+      totalRecords: progressFilteredSorted.length,
+      pageSize: PROGRESS_PAGE_SIZE,
+      totalPages: progressTotalPages,
+      currentPage: progressPageSafe + 1,
+      sliceSize: progressSlice.length
+    });
+  } 
   
   // Pagination for Upcoming Meetings
   const upcomingTotalPages = Math.max(1, Math.ceil(upcoming.length / UPCOMING_PAGE_SIZE));
@@ -1073,13 +1084,32 @@ export default function Dashboard() {
   <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 bg-[#3CB371] rounded"></span>Policy Issued {records.filter(r => r.client_status === "Policy Issued").length} / {statusCounts["client_status_Policy Issued"] || 0}</div>
 </div>
 
+  // Apply column filters to Clients List records
+  const filteredRecords = useMemo(() => {
+    if (Object.keys(recordsColumnFilters).length === 0) return records;
+    
+    return records.filter(record => {
+      // Check each column filter
+      for (const [columnKey, selectedValues] of Object.entries(recordsColumnFilters)) {
+        if (selectedValues.size === 0) continue; // No filter for this column
+        
+        const recordValue = String(record[columnKey] ?? '');
+        if (!selectedValues.has(recordValue)) {
+          return false; // Record doesn't match this column's filter
+        }
+      }
+      return true; // Record passes all filters
+    });
+  }, [records, recordsColumnFilters]);
+
 {recordsVisible && ( 
             <> 
               {loading ? ( 
                 <div className="text-black">Loading…</div> 
               ) : ( 
                 <ExcelTableEditable 
-                  rows={records} 
+                  rows={filteredRecords} 
+                  allRows={records}
                   savingId={savingId} 
                   onUpdate={updateCell} 
                   preferredOrder={[ 
@@ -1099,6 +1129,18 @@ export default function Dashboard() {
                   onRowSelect={handleRowSelect} 
                   onPendingChange={handlePendingChange} 
                   resetDraftsToken={resetDraftsToken} 
+                  columnFilters={recordsColumnFilters}
+                  onColumnFilterChange={(key, values) => {
+                    setRecordsColumnFilters(prev => {
+                      const next = { ...prev };
+                      if (values.size === 0) {
+                        delete next[key];
+                      } else {
+                        next[key] = values;
+                      }
+                      return next;
+                    });
+                  }}
                 /> 
               )} 
             </> 
@@ -1236,21 +1278,36 @@ function ProgressSummaryTable({ rows, sortState, onSortChange }: { rows: Row[]; 
   ); 
 } 
 function ExcelTableEditable({ 
-  rows, savingId, onUpdate, extraLeftCols, maxHeightClass, sortState, onSortChange, preferredOrder, stickyLeftCount = 1, nonEditableKeys = new Set<string>(), viewOnlyPopupKeys = new Set<string>(), 
-  deferSave = false, onRowSelect, onPendingChange, resetDraftsToken, 
+  rows, allRows, savingId, onUpdate, extraLeftCols, maxHeightClass, sortState, onSortChange, preferredOrder, stickyLeftCount = 1, nonEditableKeys = new Set<string>(), viewOnlyPopupKeys = new Set<string>(), 
+  deferSave = false, onRowSelect, onPendingChange, resetDraftsToken, columnFilters, onColumnFilterChange,
 }: { 
-  rows: Row[]; savingId: string | null; onUpdate: (id: string, key: string, value: string) => Promise<void>; 
+  rows: Row[]; allRows?: Row[]; savingId: string | null; onUpdate: (id: string, key: string, value: string) => Promise<void>; 
   extraLeftCols: { label: string; render: (r: Row) => string; sortable?: SortKey }[]; maxHeightClass: string; 
   sortState: { key: SortKey; dir: SortDir }; onSortChange: (key: SortKey) => void; preferredOrder?: string[]; stickyLeftCount?: number; 
   nonEditableKeys?: Set<string>; viewOnlyPopupKeys?: Set<string>;
   deferSave?: boolean;
   onRowSelect?: (id: string) => void;
   onPendingChange?: (id: string, key: string, value: string) => void;
-  resetDraftsToken?: number; 
+  resetDraftsToken?: number;
+  columnFilters?: Record<string, Set<string>>;
+  onColumnFilterChange?: (key: string, values: Set<string>) => void;
 }) { 
   const { widths, startResize } = useColumnResizer(); 
   const [openCell, setOpenCell] = useState<string | null>(null); 
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [openFilterKey, setOpenFilterKey] = useState<string | null>(null);
+  
+  const sourceRows = allRows || rows; // Use allRows for filter values if provided
+  
+  // Close filter dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setOpenFilterKey(null);
+    if (openFilterKey) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openFilterKey]);
+  
   useEffect(() => {
     if (resetDraftsToken === undefined) return;
     setDrafts({});
@@ -1297,16 +1354,101 @@ function ExcelTableEditable({
               const isTopLeft = isSticky; 
               const style: React.CSSProperties = { width: w, minWidth: w, maxWidth: w, position: isSticky ? "sticky" : undefined, left: isSticky ? stickyLeftPx(colIndex) : undefined, top: 0, zIndex: isTopLeft ? 50 : 20, background: isSticky ? "#f1f5f9" : undefined }; 
               const headerLabel = c.label; 
+              const columnKey = c.key as string || c.id;
+              const hasFilter = columnFilters && onColumnFilterChange;
+              const activeFilter = columnFilters?.[columnKey];
+              const isFiltered = activeFilter && activeFilter.size > 0;
+              
+              // Get unique values for this column
+              const uniqueValues = useMemo(() => {
+                if (!hasFilter) return [];
+                const values = new Set<string>();
+                sourceRows.forEach(row => {
+                  const val = row[columnKey];
+                  if (val !== null && val !== undefined && val !== '') {
+                    values.add(String(val));
+                  }
+                });
+                return Array.from(values).sort().slice(0, 100); // Limit to 100 values
+              }, [sourceRows, columnKey, hasFilter]);
+              
               return ( 
                 <th key={c.id} className="border border-slate-500 px-2 py-2 whitespace-nowrap relative" style={style}> 
-                  {c.sortable ? ( 
-                    <button className="inline-flex items-center hover:underline" onClick={() => onSortChange(c.sortable)} type="button"> 
-                      {headerLabel} 
-                      {sortIcon(c.sortable)} 
-                    </button> 
-                  ) : ( 
-                    headerLabel 
-                  )} 
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="flex-1 min-w-0">
+                      {c.sortable ? ( 
+                        <button className="inline-flex items-center hover:underline truncate" onClick={() => onSortChange(c.sortable)} type="button"> 
+                          {headerLabel} 
+                          {sortIcon(c.sortable)} 
+                        </button> 
+                      ) : ( 
+                        <span className="truncate">{headerLabel}</span>
+                      )} 
+                    </div>
+                    {hasFilter && uniqueValues.length > 0 && (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenFilterKey(openFilterKey === columnKey ? null : columnKey);
+                          }}
+                          className={`p-1 hover:bg-slate-200 rounded text-xs ${isFiltered ? 'text-blue-600' : 'text-slate-600'}`}
+                          title="Filter"
+                        >
+                          ▼
+                        </button>
+                        {openFilterKey === columnKey && (
+                          <div 
+                            className="absolute top-full right-0 mt-1 bg-white border border-slate-300 shadow-lg rounded z-50 min-w-[200px] max-w-[300px] max-h-[400px] overflow-auto"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="p-2 border-b border-slate-200 sticky top-0 bg-white flex justify-between items-center">
+                              <button
+                                onClick={() => {
+                                  onColumnFilterChange?.(columnKey, new Set());
+                                  setOpenFilterKey(null);
+                                }}
+                                className="text-xs text-blue-600 hover:underline"
+                              >
+                                {isFiltered ? 'Clear Filter' : 'Select All'}
+                              </button>
+                              <button
+                                onClick={() => setOpenFilterKey(null)}
+                                className="text-xs text-slate-600 hover:text-slate-900"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                            <div className="p-2">
+                              {uniqueValues.map(value => {
+                                const isChecked = !isFiltered || activeFilter.has(value);
+                                return (
+                                  <label key={value} className="flex items-center gap-2 p-1 hover:bg-slate-50 cursor-pointer text-sm">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        const newSet = new Set(activeFilter || new Set());
+                                        if (isChecked && isFiltered) {
+                                          newSet.delete(value);
+                                        } else {
+                                          newSet.add(value);
+                                        }
+                                        onColumnFilterChange?.(columnKey, newSet);
+                                      }}
+                                      className="cursor-pointer"
+                                    />
+                                    <span className="truncate">{value}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <div className="absolute top-0 right-0 h-full w-2 cursor-col-resize select-none" onMouseDown={(e) => startResize(e, c.id, w)}> 
                     <div className="mx-auto h-full w-px bg-slate-300" /> 
                   </div> 
