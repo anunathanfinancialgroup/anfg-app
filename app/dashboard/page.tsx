@@ -711,6 +711,9 @@ export default function Dashboard() {
       setRecords(patch);
       setUpcoming(patch);
       
+      // Reload the current page to get fresh data from database
+      await loadPage(page);
+      
       // Refresh Client Progress Summary if date fields were updated
       const hasDateUpdates = Object.keys(edits).some(key => 
         key === 'CalledOn' || key === 'BOP_Date' || key === 'Followup_Date'
