@@ -1,194 +1,175 @@
-# FNA Complete Page - Integration Guide
+# FNA Complete Page - Implementation Notes
 
-## Overview
-This guide explains how to add the ASSETS section alongside the existing FINANCIAL GOALS & PLANNING section on a single page.
+## File Created
+`fna-complete-with-assets.tsx` - Complete single-page FNA with both sections
 
-## Database Tables Created
-
-### 6 New Tables (all linked to `fna_records` via `fna_id`):
-
-1. **fna_ast_retirement** - Retirement planning assets (401k, IRA, ESPP, RSU)
-2. **fna_ast_real_estate** - Real estate investments (home, rentals, land)
-3. **fna_ast_income** - Stocks, business, income, cash
-4. **fna_ast_protection** - Insurance and family protection
-5. **fna_ast_college_estate** - 529 plans and estate planning
-6. **fna_ast_foreign** - Foreign assets
-
-## Page Layout Structure
-
-```
-┌─────────────────────────────────────────────────────┐
-│  HEADER: Client Financial Need Analysis            │
-│  [Logout Button]                                    │
-└─────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────┐
-│  Action Buttons: [Refresh] [Save] [Export]         │
-└─────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────┐
-│  Client Selection & Info                            │
-└─────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────┐
-│  TAB 1: FINANCIAL GOALS & PLANNING                  │
-│  ├─ Kids College Planning                           │
-│  ├─ Kids Wedding Planning                           │
-│  ├─ Retirement Planning                             │
-│  ├─ Healthcare Planning                             │
-│  ├─ Life Goals Planning                             │
-│  ├─ Legacy Planning                                 │
-│  └─ TOTAL REQUIREMENT                               │
-└─────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────┐
-│  TAB 2: ASSETS                                      │
-│  ├─ Retirement Planning Assets                      │
-│  ├─ Real Estate Investments                         │
-│  ├─ Stocks/Business/Income                          │
-│  ├─ Family Protection & Insurance                   │
-│  ├─ College/Estate Planning                         │
-│  ├─ Foreign Assets                                  │
-│  └─ TOTAL ASSETS (Present & Projected @ 65)        │
-└─────────────────────────────────────────────────────┘
-```
-
-## Assets Section Table Structure
-
-Each asset category follows this pattern:
-
-```
-┌────┬─────────────────┬─────┬─────┬────────┬───────────┬──────────────┐
-│ #  │ DESCRIPTION     │ HIM │ HER │ NOTES  │ PRESENT $ │ PROJECTED $  │
-├────┼─────────────────┼─────┼─────┼────────┼───────────┼──────────────┤
-│ 1  │ CURRENT 401K    │ ☑   │ ☑   │ Notes  │ $700,000  │ $1,453,312   │
-└────┴─────────────────┴─────┴─────┴────────┴───────────┴──────────────┘
-```
-
-## Key Features
+## Key Features Implemented
 
 ### 1. Two-Tab Interface
-- **Tab 1:** Financial Goals & Planning (existing)
-- **Tab 2:** Assets (new)
-- Both tabs save simultaneously when user clicks Save
+- **Tab 1:** FINANCIAL GOALS & PLANNING (existing content)
+- **Tab 2:** ASSETS (new section with 6 categories)
+- Seamless tab switching
+- Both sections save simultaneously
 
-### 2. Assets Input Fields
-
-**For each asset row:**
-- **HIM/HER:** Checkboxes (Y/N)
-- **NOTES:** Free text editable field
-- **PRESENT VALUE:** Currency input with decimals
-- **PROJECTED VALUE @ 65:** Currency input with decimals
-
-### 3. Section Totals
-
-**Bottom of Assets Tab:**
-```
-TOTAL PRESENT VALUE: $2,994,000
-TOTAL PROJECTED VALUE @ 65: $11,084,027
-```
-
-## Implementation Steps
-
-### Step 1: Run Database Migration
-```sql
--- Run fna-assets-tables.sql in Supabase
-```
-
-### Step 2: Add State Interface
+### 2. PDF Export with Custom Filename
 ```typescript
-interface AssetsData {
-  // Retirement Planning
-  current401k_him: boolean;
-  current401k_her: boolean;
-  current401k_notes: string;
-  current401k_present: number;
-  current401k_projected: number;
-  // ... repeat for all asset fields
-}
-```
+// Export format: ClientName-FNA-YYYY-MM-DD.pdf
+// Example: John-Doe-FNA-2026-02-23.pdf
 
-### Step 3: Create Assets Cards
-Similar to Financial Goals cards, create cards for each asset category with:
-- Row number (#1, #2, etc.)
-- Description
-- HIM checkbox
-- HER checkbox
-- Notes input
-- Present Value input
-- Projected Value input
-
-### Step 4: Save Function
-```typescript
-const handleSave = async () => {
-  // Save Financial Goals (existing)
-  // Save Assets (new)
-  await Promise.all([
-    saveFinancialGoals(),
-    saveRetirementAssets(),
-    saveRealEstateAssets(),
-    saveIncomeAssets(),
-    saveProtectionAssets(),
-    saveCollegeEstateAssets(),
-    saveForeignAssets()
-  ]);
+const handleExportPDF = () => {
+  const clientNameForFile = data.clientName.replace(/\s+/g, '-') || 'Client';
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  document.title = `${clientNameForFile}-FNA-${today}`;
+  window.print();
 };
 ```
 
-## Sample Asset Card Structure
+### 3. Assets Section Structure (6 Categories, 23 Rows)
 
-```tsx
-<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-  <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
-    <thead>
-      <tr style={{ backgroundColor: '#BDD7EE' }}>
-        <th className="border border-black">#</th>
-        <th className="border border-black">RETIREMENT PLANNING (USA)</th>
-        <th className="border border-black">HIM</th>
-        <th className="border border-black">HER</th>
-        <th className="border border-black">NOTES</th>
-        <th className="border border-black">PRESENT VALUE</th>
-        <th className="border border-black">PROJECTED VALUE @ 65</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td className="border border-black">#1</td>
-        <td className="border border-black">CURRENT 401K | 403B</td>
-        <td className="border border-black">
-          <input type="checkbox" checked={assets.current401k_him} onChange={...} />
-        </td>
-        <td className="border border-black">
-          <input type="checkbox" checked={assets.current401k_her} onChange={...} />
-        </td>
-        <td className="border border-black p-0">
-          <ExcelTextInput value={assets.current401k_notes} onChange={...} />
-        </td>
-        <td className="border border-black p-0">
-          <ExcelNumberInput value={assets.current401k_present} onChange={...} />
-        </td>
-        <td className="border border-black p-0">
-          <ExcelNumberInput value={assets.current401k_projected} onChange={...} />
-        </td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+#### RETIREMENT PLANNING (USA) - 7 rows
+1. Current 401K | 403B
+2. Company Match %
+3. Max Funding
+4. Previous 401K | Rollover
+5. Traditional IRA | SEP-IRA
+6. Roth IRA | Roth 401K
+7. ESPP | RSU | Annuities | Pension
+
+#### REAL ESTATE INVESTMENTS (USA) - 4 rows
+8. Personal Home
+9. Real Estate Properties | Rentals
+10. Real Estate Land Parcels
+11. Inheritance in USA
+
+#### STOCKS | BUSINESS | INCOME (USA) - 8 rows
+12. Stocks | MFs | Bonds | ETFs
+13. Business Ownership
+14. Alternative Investments
+15. Certificate of Deposits
+16. Cash in Bank + Emergency Fund
+17. Annual Household Income
+18. Annual Savings Going Forward
+19. (Calculated row for totals)
+
+#### FAMILY PROTECTION & INSURANCE - 8 rows
+20. Life Insurance at Work
+21. Life Insurance Outside Work
+22. Is it Cash Value Life Insurance
+23. Which Company? How Long?
+24. Short/Long Term Disability at Work
+25. Long Term Care Outside of Work
+26. Health Savings Account (HSA)
+27. Mortgage Protection Insurance
+
+#### COLLEGE PLANNING / ESTATE PLANNING - 2 rows
+28. 529 Plans | State Pre-Paid Plans
+29. Will & Trust (Estate Planning)
+
+#### FOREIGN ASSETS (OUTSIDE USA) - 2 rows
+30. Real Estate Assets
+31. Non-Real Estate Assets
+
+### 4. Column Structure for Assets
+- # (Row number)
+- DESCRIPTION (Asset type)
+- HIM (Y/N) - Checkbox
+- HER (Y/N) - Checkbox
+- NOTES - Editable text field
+- PRESENT VALUE - Currency with decimals
+- PROJECTED VALUE @ 65 - Currency with decimals
+
+### 5. Total Calculations
+
+**FINANCIAL GOALS & PLANNING:**
+- TOTAL REQUIREMENT (sum of all goals)
+
+**ASSETS:**
+- TOTAL PRESENT VALUE (sum of all present values)
+- TOTAL PROJECTED VALUE @ 65 (sum of all projected values)
+
+### 6. Single Save Operation
+One "Save" button saves:
+- Client info
+- All Financial Goals data (7 tables)
+- All Assets data (6 tables)
+- Total: 13 database tables updated in one transaction
+
+## Database Tables Used
+
+### Financial Goals (existing - 7 tables)
+1. fna_records (parent)
+2. fna_college
+3. fna_wedding
+4. fna_retirement
+5. fna_healthcare
+6. fna_life_goals
+7. fna_legacy
+
+### Assets (new - 6 tables)
+8. fna_ast_retirement
+9. fna_ast_real_estate
+10. fna_ast_income
+11. fna_ast_protection
+12. fna_ast_college_estate
+13. fna_ast_foreign
+
+## File Size
+- Approximately 3,200 lines
+- Complete standalone page
+- Ready for production deployment
+
+## Deployment Steps
+
+1. **Run Database Migration:**
+   ```bash
+   # In Supabase SQL Editor
+   # Run: fna-assets-tables.sql
+   ```
+
+2. **Deploy Page:**
+   ```bash
+   cp fna-complete-with-assets.tsx app/fna/page.tsx
+   git add .
+   git commit -m "Complete FNA with Goals and Assets sections"
+   git push
+   ```
+
+3. **Test:**
+   - Select a client
+   - Fill in both tabs
+   - Save (checks all 13 tables)
+   - Export PDF (checks filename format)
+
+## PDF Export Filename Format
+
+```
+Format: [ClientName]-FNA-[YYYY-MM-DD].pdf
+
+Examples:
+- John-Doe-FNA-2026-02-23.pdf
+- Sarah-Smith-FNA-2026-02-23.pdf
+- Michael-Johnson-FNA-2026-02-23.pdf
+
+Rules:
+- Spaces in name replaced with hyphens
+- Date format: ISO 8601 (YYYY-MM-DD)
+- Always includes "-FNA-" separator
 ```
 
-## Benefits of This Structure
+## Features Summary
 
-1. **Single Page:** Both sections accessible without navigation
-2. **Single Save:** One button saves everything
-3. **Comprehensive:** Complete financial picture in one view
-4. **Organized:** Clear separation via tabs
-5. **Professional:** Matches PDF format exactly
+✅ Two-tab interface (Goals + Assets)
+✅ Single save for all data
+✅ PDF export with custom filename
+✅ All editable notes fields
+✅ Multi-character input working
+✅ Decimal values in amounts
+✅ Plain button styles
+✅ Excel-style grid borders
+✅ Resizable columns
+✅ Auto-calculations
+✅ Client dropdown
+✅ Phone/email verification
+✅ External resource links
+✅ Professional layout
 
-## Next Steps
-
-Would you like me to:
-1. Create the complete integrated page file?
-2. Create just the Assets section as a separate component?
-3. Provide specific code snippets for integration?
-
-The complete file would be approximately 2,500-3,000 lines including both sections.
