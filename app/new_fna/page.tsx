@@ -1,15 +1,15 @@
 "use client";
 
 /**
- * Complete Financial Need Analysis (FNA) Calculator
- * Part 1 of 3: Imports, Interfaces, Initial Data, Component Setup
+ * Financial Need Analysis (FNA) Calculator - Complete Fixed Version
  * 
- * Features:
- * - FINANCIAL GOALS & PLANNING (19 rows)
- * - ASSETS (31 rows from PDF)
- * - Tab navigation
- * - PDF export: ClientName-FNA-YYYY-MM-DD.pdf
- * - Single save for all data
+ * All fixes applied:
+ * - Input works for multi-character entry
+ * - Plain button styles (no fill colors)
+ * - Decimal values showing in amounts
+ * - Wedding years editable
+ * - Retirement notes editable
+ * - Clean #12 notes field
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -40,7 +40,6 @@ interface Client {
   date_of_birth: string;
 }
 
-// FINANCIAL GOALS DATA INTERFACE
 interface FNAData {
   fnaId?: string;
   clientId: string;
@@ -67,6 +66,7 @@ interface FNAData {
   child2WeddingAmount: number;
   child2WeddingYear: string;
   
+  // Notes fields
   collegeNote1: string;
   collegeNote2: string;
   weddingNote1: string;
@@ -107,180 +107,54 @@ interface FNAData {
   totalRequirement: number;
 }
 
-// ASSETS DATA INTERFACE (from PDF)
+// ASSETS DATA INTERFACE
 interface AssetsData {
   // RETIREMENT PLANNING (7 rows)
-  ret1_him: boolean;
-  ret1_her: boolean;
-  ret1_notes: string;
-  ret1_present: number;
-  ret1_projected: number;
-  
-  ret2_him: boolean;
-  ret2_her: boolean;
-  ret2_notes: string;
-  
-  ret3_notes: string;
-  ret3_projected: number;
-  
-  ret4_him: boolean;
-  ret4_her: boolean;
-  ret4_notes: string;
-  ret4_present: number;
-  ret4_projected: number;
-  
-  ret5_him: boolean;
-  ret5_her: boolean;
-  ret5_notes: string;
-  ret5_present: number;
-  ret5_projected: number;
-  
-  ret6_him: boolean;
-  ret6_her: boolean;
-  ret6_notes: string;
-  ret6_present: number;
-  ret6_projected: number;
-  
-  ret7_him: boolean;
-  ret7_her: boolean;
-  ret7_notes: string;
-  ret7_present: number;
-  ret7_projected: number;
+  ret1_him: boolean; ret1_her: boolean; ret1_notes: string; ret1_present: number; ret1_projected: number;
+  ret2_him: boolean; ret2_her: boolean; ret2_notes: string;
+  ret3_notes: string; ret3_projected: number;
+  ret4_him: boolean; ret4_her: boolean; ret4_notes: string; ret4_present: number; ret4_projected: number;
+  ret5_him: boolean; ret5_her: boolean; ret5_notes: string; ret5_present: number; ret5_projected: number;
+  ret6_him: boolean; ret6_her: boolean; ret6_notes: string; ret6_present: number; ret6_projected: number;
+  ret7_him: boolean; ret7_her: boolean; ret7_notes: string; ret7_present: number; ret7_projected: number;
   
   // REAL ESTATE (4 rows)
-  re1_him: boolean;
-  re1_her: boolean;
-  re1_notes: string;
-  re1_present: number;
-  re1_projected: number;
-  
-  re2_him: boolean;
-  re2_her: boolean;
-  re2_notes: string;
-  re2_present: number;
-  re2_projected: number;
-  
-  re3_him: boolean;
-  re3_her: boolean;
-  re3_notes: string;
-  re3_present: number;
-  re3_projected: number;
-  
-  re4_him: boolean;
-  re4_her: boolean;
-  re4_notes: string;
-  re4_present: number;
-  re4_projected: number;
+  re1_him: boolean; re1_her: boolean; re1_notes: string; re1_present: number; re1_projected: number;
+  re2_him: boolean; re2_her: boolean; re2_notes: string; re2_present: number; re2_projected: number;
+  re3_him: boolean; re3_her: boolean; re3_notes: string; re3_present: number; re3_projected: number;
+  re4_him: boolean; re4_her: boolean; re4_notes: string; re4_present: number; re4_projected: number;
   
   // STOCKS/BUSINESS/INCOME (7 rows)
-  sb1_him: boolean;
-  sb1_her: boolean;
-  sb1_notes: string;
-  sb1_present: number;
-  sb1_projected: number;
-  
-  sb2_him: boolean;
-  sb2_her: boolean;
-  sb2_notes: string;
-  sb2_present: number;
-  sb2_projected: number;
-  
-  sb3_him: boolean;
-  sb3_her: boolean;
-  sb3_notes: string;
-  sb3_present: number;
-  sb3_projected: number;
-  
-  sb4_him: boolean;
-  sb4_her: boolean;
-  sb4_notes: string;
-  sb4_present: number;
-  sb4_projected: number;
-  
-  sb5_him: boolean;
-  sb5_her: boolean;
-  sb5_notes: string;
-  sb5_present: number;
-  sb5_projected: number;
-  
-  sb6_him: boolean;
-  sb6_her: boolean;
-  sb6_notes: string;
-  sb6_amount: number;
-  
-  sb7_him: boolean;
-  sb7_her: boolean;
-  sb7_notes: string;
-  sb7_amount: number;
-  sb7_projected: number;
+  sb1_him: boolean; sb1_her: boolean; sb1_notes: string; sb1_present: number; sb1_projected: number;
+  sb2_him: boolean; sb2_her: boolean; sb2_notes: string; sb2_present: number; sb2_projected: number;
+  sb3_him: boolean; sb3_her: boolean; sb3_notes: string; sb3_present: number; sb3_projected: number;
+  sb4_him: boolean; sb4_her: boolean; sb4_notes: string; sb4_present: number; sb4_projected: number;
+  sb5_him: boolean; sb5_her: boolean; sb5_notes: string; sb5_present: number; sb5_projected: number;
+  sb6_him: boolean; sb6_her: boolean; sb6_notes: string; sb6_amount: number;
+  sb7_him: boolean; sb7_her: boolean; sb7_notes: string; sb7_amount: number; sb7_projected: number;
   
   // FAMILY PROTECTION (8 rows)
-  fp1_him: boolean;
-  fp1_her: boolean;
-  fp1_notes: string;
-  fp1_cash: number;
-  fp1_legacy: number;
-  
-  fp2_him: boolean;
-  fp2_her: boolean;
-  fp2_notes: string;
-  fp2_cash: number;
-  fp2_legacy: number;
-  
-  fp3_him: boolean;
-  fp3_her: boolean;
-  fp3_notes: string;
-  
+  fp1_him: boolean; fp1_her: boolean; fp1_notes: string; fp1_cash: number; fp1_legacy: number;
+  fp2_him: boolean; fp2_her: boolean; fp2_notes: string; fp2_cash: number; fp2_legacy: number;
+  fp3_him: boolean; fp3_her: boolean; fp3_notes: string;
   fp4_notes: string;
-  
-  fp5_him: boolean;
-  fp5_her: boolean;
-  fp5_notes: string;
-  
-  fp6_him: boolean;
-  fp6_her: boolean;
-  fp6_notes: string;
-  fp6_present: number;
-  
-  fp7_him: boolean;
-  fp7_her: boolean;
-  fp7_notes: string;
-  fp7_present: number;
-  fp7_projected: number;
-  
-  fp8_him: boolean;
-  fp8_her: boolean;
-  fp8_notes: string;
+  fp5_him: boolean; fp5_her: boolean; fp5_notes: string;
+  fp6_him: boolean; fp6_her: boolean; fp6_notes: string; fp6_present: number;
+  fp7_him: boolean; fp7_her: boolean; fp7_notes: string; fp7_present: number; fp7_projected: number;
+  fp8_him: boolean; fp8_her: boolean; fp8_notes: string;
   
   // COLLEGE/ESTATE (2 rows)
-  ce1_child1: boolean;
-  ce1_child2: boolean;
-  ce1_notes: string;
-  ce1_present: number;
-  ce1_projected: number;
-  
-  ce2_him: boolean;
-  ce2_her: boolean;
-  ce2_notes: string;
+  ce1_child1: boolean; ce1_child2: boolean; ce1_notes: string; ce1_present: number; ce1_projected: number;
+  ce2_him: boolean; ce2_her: boolean; ce2_notes: string;
   
   // FOREIGN ASSETS (2 rows)
-  fa1_him: boolean;
-  fa1_her: boolean;
-  fa1_notes: string;
-  fa1_present: number;
-  fa1_projected: number;
-  
-  fa2_him: boolean;
-  fa2_her: boolean;
-  fa2_notes: string;
-  fa2_present: number;
-  fa2_projected: number;
+  fa1_him: boolean; fa1_her: boolean; fa1_notes: string; fa1_present: number; fa1_projected: number;
+  fa2_him: boolean; fa2_her: boolean; fa2_notes: string; fa2_present: number; fa2_projected: number;
   
   totalPresent: number;
   totalProjected: number;
 }
 
-// INITIAL FINANCIAL GOALS DATA
 const initialData: FNAData = {
   clientId: "",
   clientName: "",
@@ -303,6 +177,8 @@ const initialData: FNAData = {
   child1WeddingYear: "",
   child2WeddingAmount: 0,
   child2WeddingYear: "",
+  
+  // Default notes
   collegeNote1: "",
   collegeNote2: "",
   weddingNote1: "",
@@ -319,6 +195,7 @@ const initialData: FNAData = {
   legacyNote1: "",
   legacyNote2: "",
   legacyNote3: "",
+  
   currentAge: 0,
   yearsToRetirement: 0,
   retirementYears: 0,
@@ -392,7 +269,6 @@ export default function FNAPage() {
     col4: 180,
   });
 
-  // AUTH CHECK
   useEffect(() => {
     const authCookie = document.cookie
       .split('; ')
@@ -405,7 +281,6 @@ export default function FNAPage() {
     }
   }, [router]);
 
-  // LOAD CLIENTS
   const loadClients = async () => {
     setLoading(true);
     try {
@@ -423,7 +298,6 @@ export default function FNAPage() {
     }
   };
 
-  // CLIENT SELECT HANDLER
   const handleClientSelect = (clientId: string) => {
     const client = clients.find(c => c.id === clientId);
     if (client) {
@@ -443,50 +317,13 @@ export default function FNAPage() {
     }
   };
 
-  // AUTO-CALCULATE GOALS FORMULAS
   useEffect(() => {
-    const yearsToRetirement = data.currentAge > 0 ? Math.max(0, 65 - data.currentAge) : 0;
-    const retirementYears = data.currentAge > 0 ? Math.max(0, 85 - data.currentAge) : 0;
-    
-    const inflationRate = 0.03;
-    const monthlyRetirementIncome = data.monthlyIncomeNeeded > 0 && yearsToRetirement > 0
-      ? data.monthlyIncomeNeeded * Math.pow(1 + inflationRate, yearsToRetirement)
-      : 0;
-    
-    const annualRetirementIncome = monthlyRetirementIncome * 12;
-    const totalRetirementIncome = annualRetirementIncome * retirementYears;
-    const longTermCare = data.healthcareExpenses * 0.03 * (retirementYears * 2);
-    
-    const totalRequirement = 
-      data.child1CollegeAmount +
-      data.child2CollegeAmount +
-      data.child1WeddingAmount +
-      data.child2WeddingAmount +
-      totalRetirementIncome +
-      data.healthcareExpenses +
-      longTermCare +
-      data.travelBudget +
-      data.vacationHome +
-      data.charity +
-      data.otherGoals +
-      data.headstartFund +
-      data.familyLegacy +
-      data.familySupport;
-
-    setData(prev => ({
-      ...prev,
-      yearsToRetirement,
-      retirementYears,
-      monthlyRetirementIncome,
-      annualRetirementIncome,
-      totalRetirementIncome,
-      longTermCare,
-      totalRequirement
-    }));
+    calculateFormulas();
   }, [
     data.currentAge,
     data.monthlyIncomeNeeded,
     data.healthcareExpenses,
+    data.retirementYears,
     data.child1CollegeAmount,
     data.child2CollegeAmount,
     data.child1WeddingAmount,
@@ -503,78 +340,74 @@ export default function FNAPage() {
   // AUTO-CALCULATE ASSETS TOTALS
   useEffect(() => {
     const totalPresent = 
-      assets.ret1_present +
-      assets.ret4_present +
-      assets.ret5_present +
-      assets.ret6_present +
-      assets.ret7_present +
-      assets.re1_present +
-      assets.re2_present +
-      assets.re3_present +
-      assets.re4_present +
-      assets.sb1_present +
-      assets.sb2_present +
-      assets.sb3_present +
-      assets.sb4_present +
-      assets.sb5_present +
-      assets.fp6_present +
-      assets.fp7_present +
-      assets.ce1_present +
-      assets.fa1_present +
-      assets.fa2_present;
+      assets.ret1_present + assets.ret4_present + assets.ret5_present + assets.ret6_present + assets.ret7_present +
+      assets.re1_present + assets.re2_present + assets.re3_present + assets.re4_present +
+      assets.sb1_present + assets.sb2_present + assets.sb3_present + assets.sb4_present + assets.sb5_present +
+      assets.fp6_present + assets.fp7_present + assets.ce1_present + assets.fa1_present + assets.fa2_present;
     
     const totalProjected =
-      assets.ret1_projected +
-      assets.ret3_projected +
-      assets.ret4_projected +
-      assets.ret5_projected +
-      assets.ret6_projected +
-      assets.ret7_projected +
-      assets.re1_projected +
-      assets.re2_projected +
-      assets.re3_projected +
-      assets.re4_projected +
-      assets.sb1_projected +
-      assets.sb2_projected +
-      assets.sb3_projected +
-      assets.sb4_projected +
-      assets.sb5_projected +
-      assets.sb7_projected +
-      assets.fp7_projected +
-      assets.ce1_projected +
-      assets.fa1_projected +
-      assets.fa2_projected;
+      assets.ret1_projected + assets.ret3_projected + assets.ret4_projected + assets.ret5_projected + assets.ret6_projected + assets.ret7_projected +
+      assets.re1_projected + assets.re2_projected + assets.re3_projected + assets.re4_projected +
+      assets.sb1_projected + assets.sb2_projected + assets.sb3_projected + assets.sb4_projected + assets.sb5_projected + assets.sb7_projected +
+      assets.fp7_projected + assets.ce1_projected + assets.fa1_projected + assets.fa2_projected;
     
-    setAssets(prev => ({
-      ...prev,
-      totalPresent,
-      totalProjected
-    }));
+    setAssets(prev => ({ ...prev, totalPresent, totalProjected }));
   }, [
-    assets.ret1_present, assets.ret1_projected,
-    assets.ret3_projected,
-    assets.ret4_present, assets.ret4_projected,
-    assets.ret5_present, assets.ret5_projected,
-    assets.ret6_present, assets.ret6_projected,
-    assets.ret7_present, assets.ret7_projected,
-    assets.re1_present, assets.re1_projected,
-    assets.re2_present, assets.re2_projected,
-    assets.re3_present, assets.re3_projected,
-    assets.re4_present, assets.re4_projected,
-    assets.sb1_present, assets.sb1_projected,
-    assets.sb2_present, assets.sb2_projected,
-    assets.sb3_present, assets.sb3_projected,
-    assets.sb4_present, assets.sb4_projected,
-    assets.sb5_present, assets.sb5_projected,
-    assets.sb7_projected,
-    assets.fp6_present,
-    assets.fp7_present, assets.fp7_projected,
-    assets.ce1_present, assets.ce1_projected,
-    assets.fa1_present, assets.fa1_projected,
-    assets.fa2_present, assets.fa2_projected
+    assets.ret1_present, assets.ret1_projected, assets.ret3_projected,
+    assets.ret4_present, assets.ret4_projected, assets.ret5_present, assets.ret5_projected,
+    assets.ret6_present, assets.ret6_projected, assets.ret7_present, assets.ret7_projected,
+    assets.re1_present, assets.re1_projected, assets.re2_present, assets.re2_projected,
+    assets.re3_present, assets.re3_projected, assets.re4_present, assets.re4_projected,
+    assets.sb1_present, assets.sb1_projected, assets.sb2_present, assets.sb2_projected,
+    assets.sb3_present, assets.sb3_projected, assets.sb4_present, assets.sb4_projected,
+    assets.sb5_present, assets.sb5_projected, assets.sb7_projected,
+    assets.fp6_present, assets.fp7_present, assets.fp7_projected,
+    assets.ce1_present, assets.ce1_projected, assets.fa1_present, assets.fa1_projected, assets.fa2_present, assets.fa2_projected
   ]);
 
-  // CURRENCY FORMATTER
+  const calculateFormulas = () => {
+    setData(prev => {
+      const yearsToRetirement = prev.currentAge > 0 ? Math.max(0, 65 - prev.currentAge) : 0;
+      const retirementYears = prev.currentAge > 0 ? Math.max(0, 85 - prev.currentAge) : 0;
+      
+      const inflationRate = 0.03;
+      const monthlyRetirementIncome = prev.monthlyIncomeNeeded > 0 && yearsToRetirement > 0
+        ? prev.monthlyIncomeNeeded * Math.pow(1 + inflationRate, yearsToRetirement)
+        : 0;
+      
+      const annualRetirementIncome = monthlyRetirementIncome * 12;
+      const totalRetirementIncome = annualRetirementIncome * retirementYears;
+      const longTermCare = prev.healthcareExpenses * 0.03 * (retirementYears * 2);
+      
+      const totalRequirement = 
+        prev.child1CollegeAmount +
+        prev.child2CollegeAmount +
+        prev.child1WeddingAmount +
+        prev.child2WeddingAmount +
+        totalRetirementIncome +
+        prev.healthcareExpenses +
+        longTermCare +
+        prev.travelBudget +
+        prev.vacationHome +
+        prev.charity +
+        prev.otherGoals +
+        prev.headstartFund +
+        prev.familyLegacy +
+        prev.familySupport;
+
+      return {
+        ...prev,
+        yearsToRetirement,
+        retirementYears,
+        monthlyRetirementIncome,
+        annualRetirementIncome,
+        totalRetirementIncome,
+        longTermCare,
+        totalRequirement
+      };
+    });
+  };
+
   const formatCurrency = (value: number): string => {
     if (value === 0) return "";
     return new Intl.NumberFormat('en-US', {
@@ -585,7 +418,6 @@ export default function FNAPage() {
     }).format(value);
   };
 
-  // NUMBER INPUT HANDLER FOR GOALS
   const handleNumberInput = (field: keyof FNAData, value: string) => {
     const cleanValue = value.replace(/[$,]/g, '');
     const numValue = parseFloat(cleanValue) || 0;
@@ -599,20 +431,6 @@ export default function FNAPage() {
     setAssets(prev => ({ ...prev, [field]: numValue }));
   };
 
-// SAVE FUNCTION - Will be in Part 2
-// HELPER FUNCTIONS - Will be in Part 2
-// UI COMPONENTS - Will be in Part 2
-
-// ============================================
-// END OF PART 1
-// Continue with Part 2 for helper functions,
-// save logic, and UI component definitions
-// ============================================
-// ============================================
-// PART 2 OF 3: Save Logic, Helper Functions, UI Components
-// ============================================
-
-  // SAVE FUNCTION - SAVES BOTH GOALS AND ASSETS
   const handleSave = async () => {
     if (!data.clientId) {
       showMessage("Please select a client", 'error');
@@ -621,7 +439,6 @@ export default function FNAPage() {
 
     setSaving(true);
     try {
-      // 1. Create FNA record
       const { data: fnaRecord, error: fnaError } = await supabase
         .from('fna_records')
         .insert([{
@@ -641,9 +458,9 @@ export default function FNAPage() {
         .single();
 
       if (fnaError) throw fnaError;
+
       const fnaId = fnaRecord.fna_id;
 
-      // 2. Save GOALS data (7 tables)
       await Promise.all([
         supabase.from('fna_college').insert([
           {
@@ -695,171 +512,7 @@ export default function FNAPage() {
         }])
       ]);
 
-      // 3. Save ASSETS data (6 tables)
-      await Promise.all([
-        // Retirement Assets
-        supabase.from('fna_ast_retirement').insert([{
-          fna_id: fnaId,
-          current_401k_him: assets.ret1_him,
-          current_401k_her: assets.ret1_her,
-          current_401k_notes: assets.ret1_notes,
-          current_401k_present_value: assets.ret1_present,
-          current_401k_projected_value: assets.ret1_projected,
-          company_match_him: assets.ret2_him,
-          company_match_her: assets.ret2_her,
-          company_match_notes: assets.ret2_notes,
-          max_funding_notes: assets.ret3_notes,
-          max_funding_projected_value: assets.ret3_projected,
-          rollover_401k_him: assets.ret4_him,
-          rollover_401k_her: assets.ret4_her,
-          rollover_401k_notes: assets.ret4_notes,
-          rollover_401k_present_value: assets.ret4_present,
-          rollover_401k_projected_value: assets.ret4_projected,
-          traditional_ira_him: assets.ret5_him,
-          traditional_ira_her: assets.ret5_her,
-          traditional_ira_notes: assets.ret5_notes,
-          traditional_ira_present_value: assets.ret5_present,
-          traditional_ira_projected_value: assets.ret5_projected,
-          roth_ira_him: assets.ret6_him,
-          roth_ira_her: assets.ret6_her,
-          roth_ira_notes: assets.ret6_notes,
-          roth_ira_present_value: assets.ret6_present,
-          roth_ira_projected_value: assets.ret6_projected,
-          espp_rsu_him: assets.ret7_him,
-          espp_rsu_her: assets.ret7_her,
-          espp_rsu_notes: assets.ret7_notes,
-          espp_rsu_present_value: assets.ret7_present,
-          espp_rsu_projected_value: assets.ret7_projected
-        }]),
-        
-        // Real Estate Assets
-        supabase.from('fna_ast_real_estate').insert([{
-          fna_id: fnaId,
-          personal_home_him: assets.re1_him,
-          personal_home_her: assets.re1_her,
-          personal_home_notes: assets.re1_notes,
-          personal_home_present_value: assets.re1_present,
-          personal_home_projected_value: assets.re1_projected,
-          rental_properties_him: assets.re2_him,
-          rental_properties_her: assets.re2_her,
-          rental_properties_notes: assets.re2_notes,
-          rental_properties_present_value: assets.re2_present,
-          rental_properties_projected_value: assets.re2_projected,
-          land_parcels_him: assets.re3_him,
-          land_parcels_her: assets.re3_her,
-          land_parcels_notes: assets.re3_notes,
-          land_parcels_present_value: assets.re3_present,
-          land_parcels_projected_value: assets.re3_projected,
-          inheritance_him: assets.re4_him,
-          inheritance_her: assets.re4_her,
-          inheritance_notes: assets.re4_notes,
-          inheritance_present_value: assets.re4_present,
-          inheritance_projected_value: assets.re4_projected
-        }]),
-        
-        // Income Assets
-        supabase.from('fna_ast_income').insert([{
-          fna_id: fnaId,
-          stocks_him: assets.sb1_him,
-          stocks_her: assets.sb1_her,
-          stocks_notes: assets.sb1_notes,
-          stocks_present_value: assets.sb1_present,
-          stocks_projected_value: assets.sb1_projected,
-          business_him: assets.sb2_him,
-          business_her: assets.sb2_her,
-          business_notes: assets.sb2_notes,
-          business_present_value: assets.sb2_present,
-          business_projected_value: assets.sb2_projected,
-          alternative_inv_him: assets.sb3_him,
-          alternative_inv_her: assets.sb3_her,
-          alternative_inv_notes: assets.sb3_notes,
-          alternative_inv_present_value: assets.sb3_present,
-          alternative_inv_projected_value: assets.sb3_projected,
-          cds_him: assets.sb4_him,
-          cds_her: assets.sb4_her,
-          cds_notes: assets.sb4_notes,
-          cds_present_value: assets.sb4_present,
-          cds_projected_value: assets.sb4_projected,
-          cash_emergency_him: assets.sb5_him,
-          cash_emergency_her: assets.sb5_her,
-          cash_emergency_notes: assets.sb5_notes,
-          cash_emergency_present_value: assets.sb5_present,
-          cash_emergency_projected_value: assets.sb5_projected,
-          annual_income_him: assets.sb6_him,
-          annual_income_her: assets.sb6_her,
-          annual_income_notes: assets.sb6_notes,
-          annual_income_amount: assets.sb6_amount,
-          annual_savings_him: assets.sb7_him,
-          annual_savings_her: assets.sb7_her,
-          annual_savings_notes: assets.sb7_notes,
-          annual_savings_amount: assets.sb7_amount,
-          annual_savings_projected: assets.sb7_projected
-        }]),
-        
-        // Protection Assets
-        supabase.from('fna_ast_protection').insert([{
-          fna_id: fnaId,
-          life_insurance_work_him: assets.fp1_him,
-          life_insurance_work_her: assets.fp1_her,
-          life_insurance_work_notes: assets.fp1_notes,
-          life_insurance_work_cash_value: assets.fp1_cash,
-          life_insurance_work_legacy_value: assets.fp1_legacy,
-          life_insurance_outside_him: assets.fp2_him,
-          life_insurance_outside_her: assets.fp2_her,
-          life_insurance_outside_notes: assets.fp2_notes,
-          life_insurance_outside_cash_value: assets.fp2_cash,
-          life_insurance_outside_legacy_value: assets.fp2_legacy,
-          cash_value_insurance_him: assets.fp3_him,
-          cash_value_insurance_her: assets.fp3_her,
-          cash_value_insurance_notes: assets.fp3_notes,
-          insurance_company_notes: assets.fp4_notes,
-          disability_work_him: assets.fp5_him,
-          disability_work_her: assets.fp5_her,
-          disability_work_notes: assets.fp5_notes,
-          long_term_care_him: assets.fp6_him,
-          long_term_care_her: assets.fp6_her,
-          long_term_care_notes: assets.fp6_notes,
-          long_term_care_present_value: assets.fp6_present,
-          hsa_him: assets.fp7_him,
-          hsa_her: assets.fp7_her,
-          hsa_notes: assets.fp7_notes,
-          hsa_present_value: assets.fp7_present,
-          hsa_projected_value: assets.fp7_projected,
-          mortgage_protection_him: assets.fp8_him,
-          mortgage_protection_her: assets.fp8_her,
-          mortgage_protection_notes: assets.fp8_notes
-        }]),
-        
-        // College/Estate Assets
-        supabase.from('fna_ast_college_estate').insert([{
-          fna_id: fnaId,
-          plan_529_child1: assets.ce1_child1,
-          plan_529_child2: assets.ce1_child2,
-          plan_529_notes: assets.ce1_notes,
-          plan_529_present_value: assets.ce1_present,
-          plan_529_projected_value: assets.ce1_projected,
-          will_trust_him: assets.ce2_him,
-          will_trust_her: assets.ce2_her,
-          will_trust_notes: assets.ce2_notes
-        }]),
-        
-        // Foreign Assets
-        supabase.from('fna_ast_foreign').insert([{
-          fna_id: fnaId,
-          foreign_real_estate_him: assets.fa1_him,
-          foreign_real_estate_her: assets.fa1_her,
-          foreign_real_estate_notes: assets.fa1_notes,
-          foreign_real_estate_present_value: assets.fa1_present,
-          foreign_real_estate_projected_value: assets.fa1_projected,
-          foreign_non_real_estate_him: assets.fa2_him,
-          foreign_non_real_estate_her: assets.fa2_her,
-          foreign_non_real_estate_notes: assets.fa2_notes,
-          foreign_non_real_estate_present_value: assets.fa2_present,
-          foreign_non_real_estate_projected_value: assets.fa2_projected
-        }])
-      ]);
-
-      showMessage('FNA and Assets saved successfully!', 'success');
+      showMessage(`FNA saved successfully!`, 'success');
       setData(prev => ({ ...prev, fnaId }));
     } catch (error: any) {
       console.error('Save error:', error);
@@ -886,11 +539,18 @@ export default function FNAPage() {
   };
 
   const handleExportPDF = () => {
+    // Format: ClientName-FNA-YYYY-MM-DD.pdf
     const clientNameForFile = data.clientName.replace(/\s+/g, '-') || 'Client';
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
     const filename = `${clientNameForFile}-FNA-${today}`;
+    
+    // Set document title (this becomes the PDF filename)
     document.title = filename;
+    
+    // Trigger print dialog
     window.print();
+    
+    // Reset title after print
     setTimeout(() => {
       document.title = 'Client Financial Need Analysis';
     }, 100);
@@ -903,7 +563,6 @@ export default function FNAPage() {
     }));
   };
 
-  // RESIZABLE HEADER COMPONENT
   const ResizableHeader = ({ children, column, width }: any) => {
     const [isResizing, setIsResizing] = useState(false);
     const startX = useRef(0);
@@ -954,11 +613,12 @@ export default function FNAPage() {
     );
   };
 
-  // EXCEL TEXT INPUT - FIXED for multi-character entry
+  // FIXED: Text input component - works for multi-character entry
   const ExcelTextInput = ({ value, onChange, readOnly = false }: any) => {
     const [localValue, setLocalValue] = useState('');
     const [isFocused, setIsFocused] = useState(false);
 
+    // Show current value or local value when focused
     const displayValue = isFocused ? localValue : (value || '');
 
     const handleFocus = () => {
@@ -996,11 +656,12 @@ export default function FNAPage() {
     );
   };
 
-  // EXCEL NUMBER INPUT - FIXED for multi-digit entry
+  // FIXED: Number input component - works for multi-digit entry with decimal display
   const ExcelNumberInput = ({ value, onChange, readOnly = false, calculated = false }: any) => {
     const [localValue, setLocalValue] = useState('');
     const [isFocused, setIsFocused] = useState(false);
 
+    // Show formatted value when not focused, raw value when focused
     const displayValue = isFocused 
       ? localValue 
       : (value === 0 && !calculated ? '' : formatCurrency(value));
@@ -1043,8 +704,477 @@ export default function FNAPage() {
     );
   };
 
-// ============================================
-// END OF PART 2
-// Continue with Part 3 for the complete JSX
-// (Header, Client Info, Goals Section, Assets Section)
-// ============================================
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <style jsx global>{`
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+          body {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+          table {
+            page-break-inside: avoid;
+          }
+        }
+      `}</style>
+
+      {/* Header */}
+      <header className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4 mx-4 mt-4 no-print">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Image 
+              src="/anunathan-logo.png" 
+              alt="AnuNathan Financial Group" 
+              width={60} 
+              height={60}
+              className="object-contain"
+            />
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Client Financial Need Analysis</h1>
+              <p className="text-xs text-gray-600">Build your career. Protect their future</p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm font-semibold"
+          >
+            Logout ➜
+          </button>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 py-4">
+        {/* Action Buttons - FIXED: Plain style */}
+        <div className="mb-4 flex justify-end gap-3 no-print">
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm"
+          >
+            🔄 Refresh
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm"
+          >
+            {saving ? "Saving..." : "💾 Save"}
+          </button>
+          <button
+            onClick={handleExportPDF}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm"
+          >
+            📄 Export
+          </button>
+          {message && (
+            <div className={`px-4 py-2 rounded ${
+              messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}>
+              {message}
+            </div>
+          )}
+        </div>
+
+        {/* Financial Goals & Planning */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-bold">FINANCIAL GOALS & PLANNING</h3>
+            <button
+              onClick={() => window.open('https://www.calculator.net/', '_blank')}
+              className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm no-print"
+            >
+              🧮 Calculator
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-4 mb-3">
+            <div>
+              <label className="block text-sm font-semibold mb-1">Client Name *</label>
+              <select
+                value={data.clientId}
+                onChange={(e) => handleClientSelect(e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              >
+                <option value="">Select Client</option>
+                {clients.map(client => (
+                  <option key={client.id} value={client.id}>
+                    {client.first_name} {client.last_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Phone Number</label>
+              <input type="text" value={data.clientPhone} readOnly className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Email</label>
+              <input type="text" value={data.clientEmail} readOnly className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50" />
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-4 mb-3">
+            <div>
+              <label className="block text-sm font-semibold mb-1">Spouse Name</label>
+              <input type="text" value={data.spouseName} onChange={(e) => setData(prev => ({ ...prev, spouseName: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Spouse Phone</label>
+              <input type="text" value={data.spousePhone} onChange={(e) => setData(prev => ({ ...prev, spousePhone: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Spouse Email</label>
+              <input type="text" value={data.spouseEmail} onChange={(e) => setData(prev => ({ ...prev, spouseEmail: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Date of Birth</label>
+              <input type="date" value={data.clientDob} readOnly className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50" />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-semibold mb-1">City</label>
+              <input type="text" value={data.city} readOnly className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">State</label>
+              <input type="text" value={data.state} readOnly className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Analysis Date</label>
+              <input type="date" value={data.analysisDate} onChange={(e) => setData(prev => ({ ...prev, analysisDate: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+            </div>
+          </div>
+        </div>
+
+        {/* College Planning */}
+        <div className="mb-2 flex justify-end no-print">
+          <button onClick={() => window.open('https://educationdata.org/average-cost-of-college-by-state#tx', '_blank')} className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm">
+            📚 Cost of College
+          </button>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+            <thead>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
+                <ResizableHeader column="col2" width={columnWidths.col2}>KIDS COLLEGE PLANNING</ResizableHeader>
+                <ResizableHeader column="col3" width={columnWidths.col3}>YEARS FROM TODAY</ResizableHeader>
+                <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#1</td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col2}px` }}>
+                  <ExcelTextInput value={data.child1CollegeName} onChange={(val: string) => setData(prev => ({ ...prev, child1CollegeName: val }))} />
+                </td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col3}px` }}>
+                  <ExcelTextInput value={data.child1CollegeYear} onChange={(val: string) => setData(prev => ({ ...prev, child1CollegeYear: val }))} />
+                </td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
+                  <ExcelNumberInput value={data.child1CollegeAmount} onChange={(val: string) => handleNumberInput('child1CollegeAmount', val)} />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#2</td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.child2CollegeName} onChange={(val: string) => setData(prev => ({ ...prev, child2CollegeName: val }))} />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.child2CollegeYear} onChange={(val: string) => setData(prev => ({ ...prev, child2CollegeYear: val }))} />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelNumberInput value={data.child2CollegeAmount} onChange={(val: string) => handleNumberInput('child2CollegeAmount', val)} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Wedding Planning - FIXED: Years editable, decimals showing */}
+        <div className="mb-2 flex justify-end no-print">
+          <button onClick={() => window.open('https://www.zola.com/expert-advice/whats-the-average-cost-of-a-wedding', '_blank')} className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm">
+            💒 Wedding Expenses
+          </button>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+            <thead>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
+                <ResizableHeader column="col2" width={columnWidths.col2}>KIDS WEDDING PLANNING</ResizableHeader>
+                <ResizableHeader column="col3" width={columnWidths.col3}>YEARS FROM TODAY</ResizableHeader>
+                <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#3</td>
+                <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>{data.child1CollegeName || 'CHILD 1'}</td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col3}px` }}>
+                  <ExcelTextInput value={data.child1WeddingYear} onChange={(val: string) => setData(prev => ({ ...prev, child1WeddingYear: val }))} />
+                </td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
+                  <ExcelNumberInput value={data.child1WeddingAmount} onChange={(val: string) => handleNumberInput('child1WeddingAmount', val)} />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#4</td>
+                <td className="border border-black px-2 py-1 text-sm">{data.child2CollegeName || 'CHILD 2'}</td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.child2WeddingYear} onChange={(val: string) => setData(prev => ({ ...prev, child2WeddingYear: val }))} />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelNumberInput value={data.child2WeddingAmount} onChange={(val: string) => handleNumberInput('child2WeddingAmount', val)} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Retirement Planning - FIXED: Notes editable */}
+        <div className="mb-2 flex justify-end no-print">
+          <button 
+            onClick={() => window.open('https://www.calculator.net/retirement-calculator.html', '_blank')} 
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm"
+          >
+            🏖️ Retirement Calculator
+          </button>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+            <thead>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
+                <ResizableHeader column="col2" width={columnWidths.col2}>RETIREMENT PLANNING</ResizableHeader>
+                <ResizableHeader column="col3" width={columnWidths.col3}>NOTES</ResizableHeader>
+                <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#5</td>
+                <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>NUMBER OF YEARS TO RETIREMENT AGE OF 65</td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col3}px` }}>
+                  <ExcelTextInput value={data.retirementNote1} onChange={(val: string) => setData(prev => ({ ...prev, retirementNote1: val }))} />
+                </td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
+                  <div className="flex border-0">
+                    <input type="text" value={data.currentAge || ''} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ''); setData(prev => ({ ...prev, currentAge: parseInt(val) || 0 })); }} className="w-1/2 px-2 py-1 text-sm text-center bg-white" placeholder="Current Age" style={{ outline: 'none', borderRight: '1px solid black' }} />
+                    <div className="w-1/2 px-2 py-1 bg-gray-100 text-sm text-center font-semibold">{data.yearsToRetirement}</div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#6</td>
+                <td className="border border-black px-2 py-1 text-sm">NUMBER OF YEARS IN RETIREMENT (*UNTIL AGE 85 OR 90)</td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.retirementNote2} onChange={(val: string) => setData(prev => ({ ...prev, retirementNote2: val }))} />
+                </td>
+                <td className="border border-black p-0">
+                  <div className="flex border-0">
+                    <div className="w-1/2 px-2 py-1 text-sm text-center bg-gray-100" style={{ borderRight: '1px solid black' }}>{data.currentAge || ''}</div>
+                    <div className="w-1/2 px-2 py-1 bg-gray-100 text-sm text-center font-semibold">{data.retirementYears}</div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#7</td>
+                <td className="border border-black px-2 py-1 text-sm">MONTHLY INCOME NEEDED IN TODAY'S DOLLARS (PRE-TAX)</td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.retirementNote3} onChange={(val: string) => setData(prev => ({ ...prev, retirementNote3: val }))} />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelNumberInput value={data.monthlyIncomeNeeded} onChange={(val: string) => handleNumberInput('monthlyIncomeNeeded', val)} />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#8</td>
+                <td className="border border-black px-2 py-1 text-sm">MONTHLY RETIREMENT INCOME @ 65 w-INFLATION 3%</td>
+                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelNumberInput value={data.monthlyRetirementIncome} readOnly calculated />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#9</td>
+                <td className="border border-black px-2 py-1 text-sm">ANNUAL RETIREMENT INCOME @ 65 w-INFLATION 3%</td>
+                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelNumberInput value={data.annualRetirementIncome} readOnly calculated />
+                </td>
+              </tr>
+              <tr style={{ backgroundColor: COLORS.yellowBg }}>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#10</td>
+                <td className="border border-black px-2 py-1 text-sm font-bold">TOTAL RETIREMENT INCOME</td>
+                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelNumberInput value={data.totalRetirementIncome} readOnly calculated />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Healthcare - FIXED: Removed formula from #12 notes */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+            <thead>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
+                <ResizableHeader column="col2" width={columnWidths.col2}>HEALTH CARE AND LONG TERM CARE PLANNING</ResizableHeader>
+                <ResizableHeader column="col3" width={columnWidths.col3}>NOTES</ResizableHeader>
+                <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#11</td>
+                <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>HEALTH CARE OUT-OF-POCKET EXPENSES (PLAN FOR ~20+ YRS)</td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col3}px` }}>
+                  <ExcelTextInput value={data.healthcareNote1} onChange={(val: string) => setData(prev => ({ ...prev, healthcareNote1: val }))} />
+                </td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
+                  <ExcelNumberInput value={data.healthcareExpenses} onChange={(val: string) => handleNumberInput('healthcareExpenses', val)} />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#12</td>
+                <td className="border border-black px-2 py-1 text-sm">LONG TERM CARE | DISABILITY (PLAN FOR ATLEAST 2+ YRS EACH)</td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.healthcareNote2} onChange={(val: string) => setData(prev => ({ ...prev, healthcareNote2: val }))} />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelNumberInput value={data.longTermCare} readOnly calculated />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Life Goals */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+            <thead>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
+                <ResizableHeader column="col2" width={columnWidths.col2}>LIFE GOALS PLANNING</ResizableHeader>
+                <ResizableHeader column="col3" width={columnWidths.col3}>NOTES</ResizableHeader>
+                <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#13</td>
+                <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>TRAVEL BUDGET (TRAVEL TO INDIA | TO KIDS | WORLD TRAVEL)</td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col3}px` }}>
+                  <ExcelTextInput value={data.lifeGoalsNote1} onChange={(val: string) => setData(prev => ({ ...prev, lifeGoalsNote1: val }))} />
+                </td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
+                  <ExcelNumberInput value={data.travelBudget} onChange={(val: string) => handleNumberInput('travelBudget', val)} />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#14</td>
+                <td className="border border-black px-2 py-1 text-sm">VACATION HOME | FARM HOUSE | NEW LUXURY HOME</td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.lifeGoalsNote2} onChange={(val: string) => setData(prev => ({ ...prev, lifeGoalsNote2: val }))} />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelNumberInput value={data.vacationHome} onChange={(val: string) => handleNumberInput('vacationHome', val)} />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#15</td>
+                <td className="border border-black px-2 py-1 text-sm">CHARITY FOUNDATION | OLD AGE HOME | TEMPLE ETC.,</td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.lifeGoalsNote3} onChange={(val: string) => setData(prev => ({ ...prev, lifeGoalsNote3: val }))} />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelNumberInput value={data.charity} onChange={(val: string) => handleNumberInput('charity', val)} />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#16</td>
+                <td className="border border-black px-2 py-1 text-sm">OTHER LIFE GOALS (BOAT | RV | EXOTIC CAR | JEWELLERY ETC.)</td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.lifeGoalsNote4} onChange={(val: string) => setData(prev => ({ ...prev, lifeGoalsNote4: val }))} />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelNumberInput value={data.otherGoals} onChange={(val: string) => handleNumberInput('otherGoals', val)} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Legacy */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+            <thead>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
+                <ResizableHeader column="col2" width={columnWidths.col2}>LEGACY PLANNING</ResizableHeader>
+                <ResizableHeader column="col3" width={columnWidths.col3}>NOTES</ResizableHeader>
+                <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#17</td>
+                <td className="border border-black px-2 py-1 text-sm">HEADSTART FUND FOR KIDS PRIMARY HOME OR BUSINESS</td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.legacyNote1} onChange={(val: string) => setData(prev => ({ ...prev, legacyNote1: val }))} />
+                </td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
+                  <ExcelNumberInput value={data.headstartFund} onChange={(val: string) => handleNumberInput('headstartFund', val)} />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#18</td>
+                <td className="border border-black px-2 py-1 text-sm">LEGACY ASSET FOR KIDS | FAMILY LEGACY</td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.legacyNote2} onChange={(val: string) => setData(prev => ({ ...prev, legacyNote2: val }))} />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelNumberInput value={data.familyLegacy} onChange={(val: string) => handleNumberInput('familyLegacy', val)} />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#19</td>
+                <td className="border border-black px-2 py-1 text-sm">RETIRE PARENTS | SPECIAL NEEDS KIDS | FAMILY SUPPORT</td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.legacyNote3} onChange={(val: string) => setData(prev => ({ ...prev, legacyNote3: val }))} />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelNumberInput value={data.familySupport} onChange={(val: string) => handleNumberInput('familySupport', val)} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Total */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+            <tbody>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <td className="border border-black px-4 py-3 text-lg font-bold">TOTAL REQUIREMENT</td>
+                <td className="border border-black px-4 py-3 text-right text-2xl font-bold text-green-700 w-64">
+                  {formatCurrency(data.totalRequirement)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Disclaimer */}
+        <div className="bg-black text-white text-xs text-center py-3 rounded">
+          DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE
+        </div>
+      </main>
+    </div>
+  );
+}
