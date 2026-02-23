@@ -19,7 +19,7 @@
 - **Contains:** All 31 asset rows, totals, compliance notes
 
 ---
-
+npm run build
 ## 📋 Assembly Instructions
 
 ### Step 1: Create New File
