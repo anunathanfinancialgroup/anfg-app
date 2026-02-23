@@ -740,6 +740,14 @@ export default function FNAPage() {
         </div>
 
         {/* Retirement Planning - FIXED: Notes editable */}
+        <div className="mb-2 flex justify-end no-print">
+          <button 
+            onClick={() => window.open('https://www.calculator.net/retirement-calculator.html', '_blank')} 
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm"
+          >
+            🏖️ Retirement Calculator
+          </button>
+        </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
