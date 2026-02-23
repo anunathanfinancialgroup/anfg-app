@@ -603,7 +603,15 @@ export default function FNAPage() {
 // HELPER FUNCTIONS - Will be in Part 2
 // UI COMPONENTS - Will be in Part 2
 
+// ============================================
+// END OF PART 1
+// Continue with Part 2 for helper functions,
+// save logic, and UI component definitions
+// ============================================
 
+// ============================================
+// PART 2 OF 3: Save Logic, Helper Functions, UI Components
+// ============================================
 
   // SAVE FUNCTION - SAVES BOTH GOALS AND ASSETS
   const handleSave = async () => {
@@ -1036,7 +1044,15 @@ export default function FNAPage() {
     );
   };
 
+// ============================================
+// END OF PART 2
+// Continue with Part 3 for the complete JSX
+// (Header, Client Info, Goals Section, Assets Section)
+// ============================================
 
+// ============================================
+// PART 3 OF 3: Complete JSX - Tab Navigation, Goals & Assets
+// ============================================
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1538,17 +1554,6 @@ export default function FNAPage() {
         {/* ASSETS TAB CONTENT */}
         {activeTab === 'assets' && (
           <>
-
-
-            {/* RETIREMENT PLANNING (USA) - 7 rows */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-              <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
-                <thead>
-                  <tr style={{ backgroundColor: COLORS.headerBg }}>
-                    <th className="border border-black px-2 py-2 text-sm font-bold w-12">#</th>
-                    <th className="border border-black px-2 py-2 text-sm font-bold">RETIREMENT PLANNING (USA)</th>
-                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HIM</th>
-                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HER</th>
                     <th className="border border-black px-2 py-2 text-sm font-bold w-64">NOTES</th>
                     <th className="border border-black px-2 py-2 text-sm font-bold w-40">PRESENT VALUE</th>
                     <th className="border border-black px-2 py-2 text-sm font-bold w-40">PROJECTED @ 65</th>
