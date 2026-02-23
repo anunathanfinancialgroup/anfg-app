@@ -379,6 +379,18 @@ const initialAssets: AssetsData = {
 // HELPER COMPONENTS (defined outside main component for performance)
 // ========================================
 
+
+// Format currency helper function (used by ExcelNumberInput)
+const formatCurrency = (value: number): string => {
+  if (value === 0) return "";
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
+};
+
 const ResizableHeader = ({ children, column, width }: any) => {
   const [isResizing, setIsResizing] = useState(false);
   const startX = useRef(0);
@@ -517,7 +529,6 @@ const ExcelNumberInput = ({ value, onChange, readOnly = false, calculated = fals
     />
   );
 };
-
 export default function FNAPage() {
   const router = useRouter();
   const [data, setData] = useState<FNAData>(initialData);
@@ -719,15 +730,6 @@ export default function FNAPage() {
   ]);
 
   // CURRENCY FORMATTER
-  const formatCurrency = (value: number): string => {
-    if (value === 0) return "";
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
-  };
 
   // NUMBER INPUT HANDLER FOR GOALS
   const handleNumberInput = (field: keyof FNAData, value: string) => {
