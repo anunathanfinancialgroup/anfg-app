@@ -161,19 +161,8 @@ After assembly, check these exist:
 ## 🚀 Deploy
 
 ```bash
-# Copy to app directory
-cp fna-complete-full.tsx app/fna/page.tsx
-
-# Or if you named it differently
-cp your-assembled-file.tsx app/fna/page.tsx
-
-# Build
+cp FNA-COMPLETE-WORKING.tsx app/new_fna/page.tsx
 npm run build
-
-# If successful
-git add .
-git commit -m "Complete FNA with Goals and Assets tabs"
-git push
 ```
 
 ---
