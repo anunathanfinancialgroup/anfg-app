@@ -107,3 +107,6 @@ When you test the dashboard page:
 5. ✅ Button changes to "Hide🗂️" when table is visible
 6. ✅ Clicking "Hide🗂️" hides the table again
 7. ✅ All other cards work the same way
+git add .
+git commit -m "Add FNA calculator page"
+git push
