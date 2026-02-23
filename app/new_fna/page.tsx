@@ -1,14 +1,12 @@
 "use client";
 
 /**
- * Financial Need Analysis (FNA) Calculator - Final Version
- * AnuNathan Financial Group
- * 
- * Features:
- * - Fixed input (no auto-advance)
- * - PDF export functionality
- * - External resource links
- * - Matching dashboard styling
+ * Financial Need Analysis (FNA) Calculator - Production Ready
+ * All issues fixed:
+ * - Multi-character input working
+ * - Button colors matching dashboard
+ * - Clear PDF export
+ * - Proper table borders
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -381,14 +379,8 @@ export default function FNAPage() {
     showMessage("Data refreshed", 'success');
   };
 
-  const handleExportPDF = async () => {
-    try {
-      // Use browser's print dialog with PDF option
-      window.print();
-    } catch (error) {
-      console.error('Export error:', error);
-      showMessage("Export failed", 'error');
-    }
+  const handleExportPDF = () => {
+    window.print();
   };
 
   const handleColumnResize = (column: string, newWidth: number) => {
@@ -448,30 +440,66 @@ export default function FNAPage() {
     );
   };
 
-  const ExcelCell = ({ value, onChange, readOnly = false }: any) => (
-    <input
-      type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      readOnly={readOnly}
-      className={`w-full px-2 py-1 border-0 text-sm ${readOnly ? 'bg-gray-100' : 'bg-white'}`}
-      style={{ fontFamily: 'Arial, sans-serif', outline: 'none' }}
-    />
-  );
+  // FIXED: Simple text input without any state issues
+  const ExcelTextInput = ({ value, onChange, readOnly = false }: any) => {
+    return (
+      <input
+        type="text"
+        value={value || ''}
+        onChange={(e) => !readOnly && onChange(e.target.value)}
+        readOnly={readOnly}
+        className={`w-full px-2 py-1 text-sm ${readOnly ? 'bg-gray-100' : 'bg-white'}`}
+        style={{ 
+          fontFamily: 'Arial, sans-serif', 
+          outline: 'none',
+          border: 'none'
+        }}
+      />
+    );
+  };
 
-  const ExcelNumberCell = ({ value, onChange, readOnly = false, calculated = false }: any) => (
-    <input
-      type="text"
-      value={value === 0 && !calculated ? '' : formatCurrency(value)}
-      onChange={(e) => !readOnly && onChange(e.target.value)}
-      readOnly={readOnly}
-      className={`w-full px-2 py-1 border-0 text-sm text-right ${
-        readOnly || calculated ? 'bg-gray-100 font-semibold' : 'bg-white'
-      }`}
-      style={{ fontFamily: 'Arial, sans-serif', outline: 'none' }}
-      placeholder="$0"
-    />
-  );
+  // FIXED: Number input that handles currency formatting
+  const ExcelNumberInput = ({ value, onChange, readOnly = false, calculated = false }: any) => {
+    const [displayValue, setDisplayValue] = useState('');
+
+    useEffect(() => {
+      if (value === 0 && !calculated) {
+        setDisplayValue('');
+      } else {
+        setDisplayValue(formatCurrency(value));
+      }
+    }, [value, calculated]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (readOnly) return;
+      const val = e.target.value;
+      setDisplayValue(val);
+    };
+
+    const handleBlur = () => {
+      if (readOnly) return;
+      onChange(displayValue);
+    };
+
+    return (
+      <input
+        type="text"
+        value={displayValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        readOnly={readOnly}
+        className={`w-full px-2 py-1 text-sm text-right ${
+          readOnly || calculated ? 'bg-gray-100 font-semibold' : 'bg-white'
+        }`}
+        style={{ 
+          fontFamily: 'Arial, sans-serif', 
+          outline: 'none',
+          border: 'none'
+        }}
+        placeholder="$0"
+      />
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -480,10 +508,17 @@ export default function FNAPage() {
           .no-print {
             display: none !important;
           }
+          body {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+          table {
+            page-break-inside: avoid;
+          }
         }
       `}</style>
 
-      {/* Header - Matching Dashboard Style */}
+      {/* Header */}
       <header className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4 mx-4 mt-4 no-print">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -509,25 +544,25 @@ export default function FNAPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-4">
-        {/* Action Buttons - Right Aligned like Dashboard */}
+        {/* Action Buttons */}
         <div className="mb-4 flex justify-end gap-3 no-print">
           <button
             onClick={handleRefresh}
             disabled={loading}
-            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm font-semibold"
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:bg-gray-100 transition-colors text-sm font-semibold"
           >
             🔄 Refresh
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 transition-colors font-semibold text-sm"
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400 transition-colors font-semibold text-sm"
           >
             {saving ? "Saving..." : "💾 Save"}
           </button>
           <button
             onClick={handleExportPDF}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm"
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-semibold"
           >
             📄 Export
           </button>
@@ -540,13 +575,13 @@ export default function FNAPage() {
           )}
         </div>
 
-        {/* Client Information Header Card */}
+        {/* Client Information Card */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-lg font-bold">Client Information</h3>
             <button
               onClick={() => window.open('https://www.calculator.net/', '_blank')}
-              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm no-print"
+              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm no-print"
             >
               🧮 Calculator
             </button>
@@ -655,7 +690,7 @@ export default function FNAPage() {
           </div>
         </div>
 
-        {/* Kids College Planning Card with Button */}
+        {/* College Planning Card */}
         <div className="mb-2 flex justify-end no-print">
           <button
             onClick={() => window.open('https://educationdata.org/average-cost-of-college-by-state#tx', '_blank')}
@@ -665,7 +700,7 @@ export default function FNAPage() {
           </button>
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
                 <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
@@ -678,19 +713,19 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#1</td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col2}px` }}>
-                  <ExcelCell
+                  <ExcelTextInput
                     value={data.child1CollegeName}
                     onChange={(val: string) => setData(prev => ({ ...prev, child1CollegeName: val }))}
                   />
                 </td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col3}px` }}>
-                  <ExcelCell
+                  <ExcelTextInput
                     value={data.child1CollegeYear}
                     onChange={(val: string) => setData(prev => ({ ...prev, child1CollegeYear: val }))}
                   />
                 </td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.child1CollegeAmount}
                     onChange={(val: string) => handleNumberInput('child1CollegeAmount', val)}
                   />
@@ -699,19 +734,19 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#2</td>
                 <td className="border border-black p-0">
-                  <ExcelCell
+                  <ExcelTextInput
                     value={data.child2CollegeName}
                     onChange={(val: string) => setData(prev => ({ ...prev, child2CollegeName: val }))}
                   />
                 </td>
                 <td className="border border-black p-0">
-                  <ExcelCell
+                  <ExcelTextInput
                     value={data.child2CollegeYear}
                     onChange={(val: string) => setData(prev => ({ ...prev, child2CollegeYear: val }))}
                   />
                 </td>
                 <td className="border border-black p-0">
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.child2CollegeAmount}
                     onChange={(val: string) => handleNumberInput('child2CollegeAmount', val)}
                   />
@@ -721,7 +756,7 @@ export default function FNAPage() {
           </table>
         </div>
 
-        {/* Kids Wedding Planning Card with Button */}
+        {/* Wedding Planning Card */}
         <div className="mb-2 flex justify-end no-print">
           <button
             onClick={() => window.open('https://www.zola.com/expert-advice/whats-the-average-cost-of-a-wedding', '_blank')}
@@ -731,7 +766,7 @@ export default function FNAPage() {
           </button>
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
                 <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
@@ -746,7 +781,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>{data.child1CollegeName || 'CHILD 1'}</td>
                 <td className="border border-black" style={{ width: `${columnWidths.col3}px` }}></td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.child1WeddingAmount}
                     onChange={(val: string) => handleNumberInput('child1WeddingAmount', val)}
                   />
@@ -757,7 +792,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm">{data.child2CollegeName || 'CHILD 2'}</td>
                 <td className="border border-black"></td>
                 <td className="border border-black p-0">
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.child2WeddingAmount}
                     onChange={(val: string) => handleNumberInput('child2WeddingAmount', val)}
                   />
@@ -767,9 +802,9 @@ export default function FNAPage() {
           </table>
         </div>
 
-        {/* Retirement Planning Card */}
+        {/* Retirement Planning */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
                 <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
@@ -782,7 +817,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#5</td>
                 <td className="border border-black px-2 py-1 text-sm" colSpan={2}>NUMBER OF YEARS TO RETIREMENT AGE OF 65</td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
-                  <div className="flex">
+                  <div className="flex border-0">
                     <input
                       type="text"
                       value={data.currentAge || ''}
@@ -790,9 +825,9 @@ export default function FNAPage() {
                         const val = e.target.value.replace(/[^0-9]/g, '');
                         setData(prev => ({ ...prev, currentAge: parseInt(val) || 0 }));
                       }}
-                      className="w-1/2 px-2 py-1 border-r border-black text-sm text-center bg-white"
+                      className="w-1/2 px-2 py-1 text-sm text-center bg-white"
                       placeholder="Current Age"
-                      style={{ outline: 'none' }}
+                      style={{ outline: 'none', borderRight: '1px solid black' }}
                     />
                     <div className="w-1/2 px-2 py-1 bg-gray-100 text-sm text-center font-semibold">
                       {data.yearsToRetirement}
@@ -804,8 +839,8 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#6</td>
                 <td className="border border-black px-2 py-1 text-sm" colSpan={2}>NUMBER OF YEARS IN RETIREMENT (*UNTIL AGE 85 OR 90)</td>
                 <td className="border border-black p-0">
-                  <div className="flex">
-                    <div className="w-1/2 px-2 py-1 border-r border-black text-sm text-center bg-gray-100">
+                  <div className="flex border-0">
+                    <div className="w-1/2 px-2 py-1 text-sm text-center bg-gray-100" style={{ borderRight: '1px solid black' }}>
                       {data.currentAge || ''}
                     </div>
                     <div className="w-1/2 px-2 py-1 bg-gray-100 text-sm text-center font-semibold">
@@ -818,7 +853,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#7</td>
                 <td className="border border-black px-2 py-1 text-sm" colSpan={2}>MONTHLY INCOME NEEDED IN TODAY'S DOLLARS (PRE-TAX)</td>
                 <td className="border border-black p-0">
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.monthlyIncomeNeeded}
                     onChange={(val: string) => handleNumberInput('monthlyIncomeNeeded', val)}
                   />
@@ -828,7 +863,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#8</td>
                 <td className="border border-black px-2 py-1 text-sm" colSpan={2}>MONTHLY RETIREMENT INCOME @ 65 w-INFLATION 3%</td>
                 <td className="border border-black p-0">
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.monthlyRetirementIncome}
                     readOnly
                     calculated
@@ -839,7 +874,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#9</td>
                 <td className="border border-black px-2 py-1 text-sm" colSpan={2}>ANNUAL RETIREMENT INCOME @ 65 w-INFLATION 3%</td>
                 <td className="border border-black p-0">
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.annualRetirementIncome}
                     readOnly
                     calculated
@@ -850,7 +885,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#10</td>
                 <td className="border border-black px-2 py-1 text-sm font-bold" colSpan={2}>TOTAL RETIREMENT INCOME</td>
                 <td className="border border-black p-0">
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.totalRetirementIncome}
                     readOnly
                     calculated
@@ -861,9 +896,9 @@ export default function FNAPage() {
           </table>
         </div>
 
-        {/* Healthcare Card */}
+        {/* Healthcare */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
                 <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
@@ -878,7 +913,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>HEALTH CARE OUT-OF-POCKET EXPENSES (PLAN FOR ~20+ YRS)</td>
                 <td className="border border-black px-2 py-1 text-xs text-gray-600" style={{ width: `${columnWidths.col3}px` }}>~$315K FOR COUPLE IN TODAY'S DOLLARS</td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.healthcareExpenses}
                     onChange={(val: string) => handleNumberInput('healthcareExpenses', val)}
                   />
@@ -889,7 +924,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm">LONG TERM CARE | DISABILITY (PLAN FOR ATLEAST 2+ YRS EACH)</td>
                 <td className="border border-black px-2 py-1 text-xs text-gray-600">(#11 * 0.03 * (#6 * 2))</td>
                 <td className="border border-black p-0">
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.longTermCare}
                     readOnly
                     calculated
@@ -900,9 +935,9 @@ export default function FNAPage() {
           </table>
         </div>
 
-        {/* Life Goals Card */}
+        {/* Life Goals */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
                 <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
@@ -917,7 +952,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>TRAVEL BUDGET (TRAVEL TO INDIA | TO KIDS | WORLD TRAVEL)</td>
                 <td className="border border-black px-2 py-1 text-xs text-gray-600" style={{ width: `${columnWidths.col3}px` }}>your travel plan expenses after retirement per year</td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.travelBudget}
                     onChange={(val: string) => handleNumberInput('travelBudget', val)}
                   />
@@ -927,7 +962,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#14</td>
                 <td className="border border-black px-2 py-1 text-sm" colSpan={2}>VACATION HOME | FARM HOUSE | NEW LUXURY HOME</td>
                 <td className="border border-black p-0">
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.vacationHome}
                     onChange={(val: string) => handleNumberInput('vacationHome', val)}
                   />
@@ -937,7 +972,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#15</td>
                 <td className="border border-black px-2 py-1 text-sm" colSpan={2}>CHARITY FOUNDATION | OLD AGE HOME | TEMPLE ETC.,</td>
                 <td className="border border-black p-0">
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.charity}
                     onChange={(val: string) => handleNumberInput('charity', val)}
                   />
@@ -947,7 +982,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#16</td>
                 <td className="border border-black px-2 py-1 text-sm" colSpan={2}>OTHER LIFE GOALS (BOAT | RV | EXOTIC CAR | JEWELLERY ETC.)</td>
                 <td className="border border-black p-0">
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.otherGoals}
                     onChange={(val: string) => handleNumberInput('otherGoals', val)}
                   />
@@ -957,9 +992,9 @@ export default function FNAPage() {
           </table>
         </div>
 
-        {/* Legacy Planning Card */}
+        {/* Legacy */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
                 <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
@@ -973,7 +1008,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#17</td>
                 <td className="border border-black px-2 py-1 text-sm" colSpan={2}>HEADSTART FUND FOR KIDS PRIMARY HOME OR BUSINESS</td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.headstartFund}
                     onChange={(val: string) => handleNumberInput('headstartFund', val)}
                   />
@@ -983,7 +1018,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#18</td>
                 <td className="border border-black px-2 py-1 text-sm" colSpan={2}>LEGACY ASSET FOR KIDS | FAMILY LEGACY</td>
                 <td className="border border-black p-0">
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.familyLegacy}
                     onChange={(val: string) => handleNumberInput('familyLegacy', val)}
                   />
@@ -993,7 +1028,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#19</td>
                 <td className="border border-black px-2 py-1 text-sm" colSpan={2}>RETIRE PARENTS | SPECIAL NEEDS KIDS | FAMILY SUPPORT</td>
                 <td className="border border-black p-0">
-                  <ExcelNumberCell
+                  <ExcelNumberInput
                     value={data.familySupport}
                     onChange={(val: string) => handleNumberInput('familySupport', val)}
                   />
@@ -1003,9 +1038,9 @@ export default function FNAPage() {
           </table>
         </div>
 
-        {/* Total Requirement Card */}
+        {/* Total */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <tbody>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
                 <td className="border border-black px-4 py-3 text-lg font-bold">TOTAL REQUIREMENT</td>
