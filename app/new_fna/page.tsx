@@ -418,7 +418,21 @@ export default function FNAPage() {
   };
 
   const handleExportPDF = () => {
+    // Format: ClientName-FNA-YYYY-MM-DD.pdf
+    const clientNameForFile = data.clientName.replace(/\s+/g, '-') || 'Client';
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const filename = `${clientNameForFile}-FNA-${today}`;
+    
+    // Set document title (this becomes the PDF filename)
+    document.title = filename;
+    
+    // Trigger print dialog
     window.print();
+    
+    // Reset title after print
+    setTimeout(() => {
+      document.title = 'Client Financial Need Analysis';
+    }, 100);
   };
 
   const handleColumnResize = (column: string, newWidth: number) => {
