@@ -66,6 +66,24 @@ interface FNAData {
   child2WeddingAmount: number;
   child2WeddingYear: string;
   
+  // Notes fields
+  collegeNote1: string;
+  collegeNote2: string;
+  weddingNote1: string;
+  weddingNote2: string;
+  retirementNote1: string;
+  retirementNote2: string;
+  retirementNote3: string;
+  healthcareNote1: string;
+  healthcareNote2: string;
+  lifeGoalsNote1: string;
+  lifeGoalsNote2: string;
+  lifeGoalsNote3: string;
+  lifeGoalsNote4: string;
+  legacyNote1: string;
+  legacyNote2: string;
+  legacyNote3: string;
+  
   currentAge: number;
   yearsToRetirement: number;
   retirementYears: number;
@@ -73,7 +91,6 @@ interface FNAData {
   monthlyRetirementIncome: number;
   annualRetirementIncome: number;
   totalRetirementIncome: number;
-  retirementNotes: string;
   
   healthcareExpenses: number;
   longTermCare: number;
@@ -112,6 +129,25 @@ const initialData: FNAData = {
   child1WeddingYear: "",
   child2WeddingAmount: 0,
   child2WeddingYear: "",
+  
+  // Default notes
+  collegeNote1: "",
+  collegeNote2: "",
+  weddingNote1: "",
+  weddingNote2: "",
+  retirementNote1: "",
+  retirementNote2: "",
+  retirementNote3: "PROPERTY TAXES + CARS + INSURANCE + FOOD + REPAIRS + UTILITIES + LIVING",
+  healthcareNote1: "~$315K FOR COUPLE IN TODAY'S DOLLARS",
+  healthcareNote2: "",
+  lifeGoalsNote1: "your travel plan expenses after retirement per year",
+  lifeGoalsNote2: "",
+  lifeGoalsNote3: "",
+  lifeGoalsNote4: "",
+  legacyNote1: "",
+  legacyNote2: "",
+  legacyNote3: "",
+  
   currentAge: 0,
   yearsToRetirement: 0,
   retirementYears: 0,
@@ -119,7 +155,6 @@ const initialData: FNAData = {
   monthlyRetirementIncome: 0,
   annualRetirementIncome: 0,
   totalRetirementIncome: 0,
-  retirementNotes: "",
   healthcareExpenses: 315000,
   longTermCare: 0,
   travelBudget: 0,
@@ -583,10 +618,10 @@ export default function FNAPage() {
           )}
         </div>
 
-        {/* Client Information */}
+        {/* Financial Goals & Planning */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-bold">Client Information</h3>
+            <h3 className="text-lg font-bold">FINANCIAL GOALS & PLANNING</h3>
             <button
               onClick={() => window.open('https://www.calculator.net/', '_blank')}
               className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm no-print"
@@ -763,7 +798,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#5</td>
                 <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>NUMBER OF YEARS TO RETIREMENT AGE OF 65</td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col3}px` }}>
-                  <ExcelTextInput value={data.retirementNotes} onChange={(val: string) => setData(prev => ({ ...prev, retirementNotes: val }))} />
+                  <ExcelTextInput value={data.retirementNote1} onChange={(val: string) => setData(prev => ({ ...prev, retirementNote1: val }))} />
                 </td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <div className="flex border-0">
@@ -775,7 +810,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#6</td>
                 <td className="border border-black px-2 py-1 text-sm">NUMBER OF YEARS IN RETIREMENT (*UNTIL AGE 85 OR 90)</td>
-                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.retirementNote2} onChange={(val: string) => setData(prev => ({ ...prev, retirementNote2: val }))} />
+                </td>
                 <td className="border border-black p-0">
                   <div className="flex border-0">
                     <div className="w-1/2 px-2 py-1 text-sm text-center bg-gray-100" style={{ borderRight: '1px solid black' }}>{data.currentAge || ''}</div>
@@ -786,7 +823,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#7</td>
                 <td className="border border-black px-2 py-1 text-sm">MONTHLY INCOME NEEDED IN TODAY'S DOLLARS (PRE-TAX)</td>
-                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.retirementNote3} onChange={(val: string) => setData(prev => ({ ...prev, retirementNote3: val }))} />
+                </td>
                 <td className="border border-black p-0">
                   <ExcelNumberInput value={data.monthlyIncomeNeeded} onChange={(val: string) => handleNumberInput('monthlyIncomeNeeded', val)} />
                 </td>
@@ -834,7 +873,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#11</td>
                 <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>HEALTH CARE OUT-OF-POCKET EXPENSES (PLAN FOR ~20+ YRS)</td>
-                <td className="border border-black px-2 py-1 text-xs text-gray-600" style={{ width: `${columnWidths.col3}px` }}>~$315K FOR COUPLE IN TODAY'S DOLLARS</td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col3}px` }}>
+                  <ExcelTextInput value={data.healthcareNote1} onChange={(val: string) => setData(prev => ({ ...prev, healthcareNote1: val }))} />
+                </td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <ExcelNumberInput value={data.healthcareExpenses} onChange={(val: string) => handleNumberInput('healthcareExpenses', val)} />
                 </td>
@@ -842,7 +883,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#12</td>
                 <td className="border border-black px-2 py-1 text-sm">LONG TERM CARE | DISABILITY (PLAN FOR ATLEAST 2+ YRS EACH)</td>
-                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.healthcareNote2} onChange={(val: string) => setData(prev => ({ ...prev, healthcareNote2: val }))} />
+                </td>
                 <td className="border border-black p-0">
                   <ExcelNumberInput value={data.longTermCare} readOnly calculated />
                 </td>
@@ -866,7 +909,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#13</td>
                 <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>TRAVEL BUDGET (TRAVEL TO INDIA | TO KIDS | WORLD TRAVEL)</td>
-                <td className="border border-black px-2 py-1 text-xs text-gray-600" style={{ width: `${columnWidths.col3}px` }}>your travel plan expenses after retirement per year</td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col3}px` }}>
+                  <ExcelTextInput value={data.lifeGoalsNote1} onChange={(val: string) => setData(prev => ({ ...prev, lifeGoalsNote1: val }))} />
+                </td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <ExcelNumberInput value={data.travelBudget} onChange={(val: string) => handleNumberInput('travelBudget', val)} />
                 </td>
@@ -874,7 +919,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#14</td>
                 <td className="border border-black px-2 py-1 text-sm">VACATION HOME | FARM HOUSE | NEW LUXURY HOME</td>
-                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.lifeGoalsNote2} onChange={(val: string) => setData(prev => ({ ...prev, lifeGoalsNote2: val }))} />
+                </td>
                 <td className="border border-black p-0">
                   <ExcelNumberInput value={data.vacationHome} onChange={(val: string) => handleNumberInput('vacationHome', val)} />
                 </td>
@@ -882,7 +929,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#15</td>
                 <td className="border border-black px-2 py-1 text-sm">CHARITY FOUNDATION | OLD AGE HOME | TEMPLE ETC.,</td>
-                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.lifeGoalsNote3} onChange={(val: string) => setData(prev => ({ ...prev, lifeGoalsNote3: val }))} />
+                </td>
                 <td className="border border-black p-0">
                   <ExcelNumberInput value={data.charity} onChange={(val: string) => handleNumberInput('charity', val)} />
                 </td>
@@ -890,7 +939,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#16</td>
                 <td className="border border-black px-2 py-1 text-sm">OTHER LIFE GOALS (BOAT | RV | EXOTIC CAR | JEWELLERY ETC.)</td>
-                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.lifeGoalsNote4} onChange={(val: string) => setData(prev => ({ ...prev, lifeGoalsNote4: val }))} />
+                </td>
                 <td className="border border-black p-0">
                   <ExcelNumberInput value={data.otherGoals} onChange={(val: string) => handleNumberInput('otherGoals', val)} />
                 </td>
@@ -914,7 +965,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#17</td>
                 <td className="border border-black px-2 py-1 text-sm">HEADSTART FUND FOR KIDS PRIMARY HOME OR BUSINESS</td>
-                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.legacyNote1} onChange={(val: string) => setData(prev => ({ ...prev, legacyNote1: val }))} />
+                </td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <ExcelNumberInput value={data.headstartFund} onChange={(val: string) => handleNumberInput('headstartFund', val)} />
                 </td>
@@ -922,7 +975,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#18</td>
                 <td className="border border-black px-2 py-1 text-sm">LEGACY ASSET FOR KIDS | FAMILY LEGACY</td>
-                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.legacyNote2} onChange={(val: string) => setData(prev => ({ ...prev, legacyNote2: val }))} />
+                </td>
                 <td className="border border-black p-0">
                   <ExcelNumberInput value={data.familyLegacy} onChange={(val: string) => handleNumberInput('familyLegacy', val)} />
                 </td>
@@ -930,7 +985,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#19</td>
                 <td className="border border-black px-2 py-1 text-sm">RETIRE PARENTS | SPECIAL NEEDS KIDS | FAMILY SUPPORT</td>
-                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.legacyNote3} onChange={(val: string) => setData(prev => ({ ...prev, legacyNote3: val }))} />
+                </td>
                 <td className="border border-black p-0">
                   <ExcelNumberInput value={data.familySupport} onChange={(val: string) => handleNumberInput('familySupport', val)} />
                 </td>
