@@ -4,26 +4,18 @@
  * Financial Need Analysis (FNA) Calculator
  * AnuNathan Financial Group
  * 
- * Complete financial planning calculator based on Excel template
- * Includes: College, Wedding, Retirement, Healthcare, Life Goals, Legacy Planning
- * 
- * File: app/fna/page.tsx
- * 
- * Features:
- * - Auto-calculations matching Excel formulas
- * - Color-coded sections (matching Excel)
- * - Tooltips with guidance from Excel comments
- * - Save to Supabase database
- * - Currency formatting with $ sign
- * - Responsive design
+ * Updated version with:
+ * - Excel-style grid with cell borders
+ * - Client dropdown from client_registrations
+ * - Phone/email verification
+ * - $ sign formatting in cells
+ * - Separate cards for each section
+ * - No default values (0 for uncalculated fields)
  */
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-
-// Import Supabase client
-// Make sure you have this file: lib/supabaseClient.ts
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -32,36 +24,27 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Excel color scheme
 const COLORS = {
-  headerBg: '#BDD7EE',    // Light blue headers
-  whiteBg: '#FFFFFF',     // Normal rows
-  yellowBg: '#FFFF00',    // Highlighted totals
-  headerText: '#000000',
-  normalText: '#0f172a',
+  headerBg: '#BDD7EE',
+  whiteBg: '#FFFFFF',
+  yellowBg: '#FFFF00',
+  border: '#000000',
 };
+
+interface Client {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email: string;
+}
 
 interface FNAData {
   fnaId?: string;
-  clientId?: string;
+  clientId: string;
   clientName: string;
+  clientPhone: string;
+  clientEmail: string;
   analysisDate: string;
-  
-  // Personal Info (from fna_records)
-  spouseName: string;
-  clientDob: string;
-  spouseDob: string;
-  address: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  homePhone: string;
-  mobilePhone: string;
-  personalEmail: string;
-  spouseMobilePhone: string;
-  spouseEmail: string;
-  moreChildrenPlanned: boolean;
-  moreChildrenCount: number;
-  goalsText: string;
-  ownOrRent: string;
   
   // College Planning
   child1CollegeName: string;
@@ -77,16 +60,16 @@ interface FNAData {
   
   // Retirement Planning
   currentAge: number;
-  yearsToRetirement: number; // Calculated: 65 - currentAge
-  retirementYears: number; // Calculated: 85 - currentAge
+  yearsToRetirement: number;
+  retirementYears: number;
   monthlyIncomeNeeded: number;
-  monthlyRetirementIncome: number; // Calculated with 3% inflation
-  annualRetirementIncome: number; // Calculated: monthly * 12
-  totalRetirementIncome: number; // Calculated: annual * retirementYears
+  monthlyRetirementIncome: number;
+  annualRetirementIncome: number;
+  totalRetirementIncome: number;
   
   // Healthcare
   healthcareExpenses: number;
-  longTermCare: number; // Calculated: healthcare * 0.03
+  longTermCare: number;
   
   // Life Goals
   travelBudget: number;
@@ -100,49 +83,36 @@ interface FNAData {
   familySupport: number;
   
   // Total
-  totalRequirement: number; // Calculated
+  totalRequirement: number;
 }
 
 const initialData: FNAData = {
+  clientId: "",
   clientName: "",
+  clientPhone: "",
+  clientEmail: "",
   analysisDate: new Date().toISOString().split('T')[0],
-  spouseName: "",
-  clientDob: "",
-  spouseDob: "",
-  address: "",
-  city: "",
-  state: "",
-  zipCode: "",
-  homePhone: "",
-  mobilePhone: "",
-  personalEmail: "",
-  spouseMobilePhone: "",
-  spouseEmail: "",
-  moreChildrenPlanned: false,
-  moreChildrenCount: 0,
-  goalsText: "",
-  ownOrRent: "Own",
-  child1CollegeName: "CHILD 1",
-  child1CollegeYear: "2027",
-  child1CollegeAmount: 400000,
-  child2CollegeName: "CHILD 2",
-  child2CollegeYear: "2033",
-  child2CollegeAmount: 400000,
-  child1WeddingAmount: 100000,
-  child2WeddingAmount: 100000,
-  currentAge: 55,
-  yearsToRetirement: 10,
-  retirementYears: 30,
-  monthlyIncomeNeeded: 5000,
+  child1CollegeName: "",
+  child1CollegeYear: "",
+  child1CollegeAmount: 0,
+  child2CollegeName: "",
+  child2CollegeYear: "",
+  child2CollegeAmount: 0,
+  child1WeddingAmount: 0,
+  child2WeddingAmount: 0,
+  currentAge: 0,
+  yearsToRetirement: 0,
+  retirementYears: 0,
+  monthlyIncomeNeeded: 0,
   monthlyRetirementIncome: 0,
   annualRetirementIncome: 0,
   totalRetirementIncome: 0,
-  healthcareExpenses: 315000,
+  healthcareExpenses: 0,
   longTermCare: 0,
-  travelBudget: 500000,
-  vacationHome: 50000,
-  charity: 50000,
-  otherGoals: 100000,
+  travelBudget: 0,
+  vacationHome: 0,
+  charity: 0,
+  otherGoals: 0,
   headstartFund: 0,
   familyLegacy: 0,
   familySupport: 0,
@@ -152,7 +122,7 @@ const initialData: FNAData = {
 export default function FNAPage() {
   const router = useRouter();
   const [data, setData] = useState<FNAData>(initialData);
-  const [loading, setLoading] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
@@ -165,10 +135,41 @@ export default function FNAPage() {
     
     if (!authCookie) {
       router.push('/');
+    } else {
+      loadClients();
     }
   }, [router]);
 
-  // Auto-calculate formulas whenever dependencies change
+  // Load clients from database
+  const loadClients = async () => {
+    try {
+      const { data: clientData, error } = await supabase
+        .from('client_registrations')
+        .select('id, first_name, last_name, phone, email')
+        .order('first_name', { ascending: true });
+
+      if (error) throw error;
+      setClients(clientData || []);
+    } catch (error) {
+      console.error('Error loading clients:', error);
+    }
+  };
+
+  // Handle client selection
+  const handleClientSelect = (clientId: string) => {
+    const client = clients.find(c => c.id === clientId);
+    if (client) {
+      setData(prev => ({
+        ...prev,
+        clientId: client.id,
+        clientName: `${client.first_name} ${client.last_name}`,
+        clientPhone: client.phone || '',
+        clientEmail: client.email || ''
+      }));
+    }
+  };
+
+  // Auto-calculate formulas
   useEffect(() => {
     calculateFormulas();
   }, [
@@ -190,27 +191,18 @@ export default function FNAPage() {
 
   const calculateFormulas = () => {
     setData(prev => {
-      // #5: Years to Retirement = 65 - Current Age
-      const yearsToRetirement = Math.max(0, 65 - prev.currentAge);
+      const yearsToRetirement = prev.currentAge > 0 ? Math.max(0, 65 - prev.currentAge) : 0;
+      const retirementYears = prev.currentAge > 0 ? Math.max(0, 85 - prev.currentAge) : 0;
       
-      // #6: Retirement Years = 85 - Current Age
-      const retirementYears = Math.max(0, 85 - prev.currentAge);
-      
-      // #8: Monthly Retirement Income with 3% inflation
-      // Formula: PV * (1 + rate)^nper
       const inflationRate = 0.03;
-      const monthlyRetirementIncome = prev.monthlyIncomeNeeded * Math.pow(1 + inflationRate, yearsToRetirement);
+      const monthlyRetirementIncome = prev.monthlyIncomeNeeded > 0 && yearsToRetirement > 0
+        ? prev.monthlyIncomeNeeded * Math.pow(1 + inflationRate, yearsToRetirement)
+        : 0;
       
-      // #9: Annual Retirement Income = Monthly * 12
       const annualRetirementIncome = monthlyRetirementIncome * 12;
-      
-      // #10: Total Retirement Income = Annual * Retirement Years
       const totalRetirementIncome = annualRetirementIncome * retirementYears;
-      
-      // #12: Long Term Care = Healthcare * 3%
       const longTermCare = prev.healthcareExpenses * 0.03;
       
-      // Total Requirement = Sum of all categories
       const totalRequirement = 
         prev.child1CollegeAmount +
         prev.child2CollegeAmount +
@@ -241,58 +233,36 @@ export default function FNAPage() {
   };
 
   const formatCurrency = (value: number): string => {
+    if (value === 0) return "$0";
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 2,
+      minimumFractionDigits: 0,
       maximumFractionDigits: 2
     }).format(value);
   };
 
-  const handleInputChange = (field: keyof FNAData, value: string | number | boolean) => {
-    setData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleNumberInput = (field: keyof FNAData, value: string) => {
+    // Remove $ and commas, parse as number
+    const cleanValue = value.replace(/[$,]/g, '');
+    const numValue = parseFloat(cleanValue) || 0;
+    setData(prev => ({ ...prev, [field]: numValue }));
   };
 
   const handleSave = async () => {
-    if (!data.clientName.trim()) {
-      showMessage("Please enter client name", 'error');
+    if (!data.clientId) {
+      showMessage("Please select a client", 'error');
       return;
     }
 
     setSaving(true);
-    setMessage("");
-
     try {
-      // For now, we'll use a placeholder client_id
-      // In production, you'll get this from your client selection
-      const clientId = crypto.randomUUID();
-
-      // Insert main FNA record
       const { data: fnaRecord, error: fnaError } = await supabase
         .from('fna_records')
         .insert([{
-          client_id: clientId,
+          client_id: data.clientId,
           analysis_date: data.analysisDate,
-          spouse_name: data.spouseName,
-          spouse_dob: data.spouseDob || null,
-          address: data.address,
-          city: data.city,
-          state: data.state,
-          zip_code: data.zipCode,
-          client_dob: data.clientDob || null,
-          home_phone: data.homePhone,
-          mobile_phone: data.mobilePhone,
-          personal_email: data.personalEmail,
-          spouse_mobile_phone: data.spouseMobilePhone,
-          spouse_email: data.spouseEmail,
-          more_children_planned: data.moreChildrenPlanned,
-          more_children_count: data.moreChildrenCount,
-          goals_text: data.goalsText,
-          own_or_rent: data.ownOrRent,
-          notes: `Client: ${data.clientName}`
+          notes: `FNA for ${data.clientName}`
         }])
         .select()
         .single();
@@ -301,85 +271,60 @@ export default function FNAPage() {
 
       const fnaId = fnaRecord.fna_id;
 
-      // Insert college planning
-      if (data.child1CollegeAmount > 0 || data.child2CollegeAmount > 0) {
-        await supabase.from('fna_college').insert([
+      // Insert all related data
+      await Promise.all([
+        supabase.from('fna_college').insert([
           {
             fna_id: fnaId,
             child_number: 1,
             child_name: data.child1CollegeName,
-            year_from_today: parseInt(data.child1CollegeYear) - new Date().getFullYear(),
+            year_from_today: data.child1CollegeYear ? parseInt(data.child1CollegeYear) - new Date().getFullYear() : 0,
             amount: data.child1CollegeAmount
           },
           {
             fna_id: fnaId,
             child_number: 2,
             child_name: data.child2CollegeName,
-            year_from_today: parseInt(data.child2CollegeYear) - new Date().getFullYear(),
+            year_from_today: data.child2CollegeYear ? parseInt(data.child2CollegeYear) - new Date().getFullYear() : 0,
             amount: data.child2CollegeAmount
           }
-        ]);
-      }
+        ]),
+        supabase.from('fna_wedding').insert([
+          { fna_id: fnaId, child_number: 1, child_name: data.child1CollegeName, amount: data.child1WeddingAmount },
+          { fna_id: fnaId, child_number: 2, child_name: data.child2CollegeName, amount: data.child2WeddingAmount }
+        ]),
+        supabase.from('fna_retirement').insert([{
+          fna_id: fnaId,
+          current_age: data.currentAge,
+          years_to_retirement: data.yearsToRetirement,
+          retirement_years: data.retirementYears,
+          monthly_income_needed: data.monthlyIncomeNeeded,
+          monthly_retirement_income: data.monthlyRetirementIncome,
+          annual_retirement_income: data.annualRetirementIncome,
+          total_retirement_income: data.totalRetirementIncome
+        }]),
+        supabase.from('fna_healthcare').insert([{
+          fna_id: fnaId,
+          healthcare_expenses: data.healthcareExpenses,
+          long_term_care: data.longTermCare
+        }]),
+        supabase.from('fna_life_goals').insert([{
+          fna_id: fnaId,
+          travel_budget: data.travelBudget,
+          vacation_home: data.vacationHome,
+          charity: data.charity,
+          other_goals: data.otherGoals
+        }]),
+        supabase.from('fna_legacy').insert([{
+          fna_id: fnaId,
+          headstart_fund: data.headstartFund,
+          family_legacy: data.familyLegacy,
+          family_support: data.familySupport
+        }])
+      ]);
 
-      // Insert wedding planning
-      if (data.child1WeddingAmount > 0 || data.child2WeddingAmount > 0) {
-        await supabase.from('fna_wedding').insert([
-          {
-            fna_id: fnaId,
-            child_number: 1,
-            child_name: data.child1CollegeName,
-            amount: data.child1WeddingAmount
-          },
-          {
-            fna_id: fnaId,
-            child_number: 2,
-            child_name: data.child2CollegeName,
-            amount: data.child2WeddingAmount
-          }
-        ]);
-      }
-
-      // Insert retirement planning
-      await supabase.from('fna_retirement').insert([{
-        fna_id: fnaId,
-        current_age: data.currentAge,
-        years_to_retirement: data.yearsToRetirement,
-        retirement_years: data.retirementYears,
-        monthly_income_needed: data.monthlyIncomeNeeded,
-        monthly_retirement_income: data.monthlyRetirementIncome,
-        annual_retirement_income: data.annualRetirementIncome,
-        total_retirement_income: data.totalRetirementIncome
-      }]);
-
-      // Insert healthcare
-      await supabase.from('fna_healthcare').insert([{
-        fna_id: fnaId,
-        healthcare_expenses: data.healthcareExpenses,
-        long_term_care: data.longTermCare
-      }]);
-
-      // Insert life goals
-      await supabase.from('fna_life_goals').insert([{
-        fna_id: fnaId,
-        travel_budget: data.travelBudget,
-        vacation_home: data.vacationHome,
-        charity: data.charity,
-        other_goals: data.otherGoals
-      }]);
-
-      // Insert legacy
-      await supabase.from('fna_legacy').insert([{
-        fna_id: fnaId,
-        headstart_fund: data.headstartFund,
-        family_legacy: data.familyLegacy,
-        family_support: data.familySupport
-      }]);
-
-      showMessage(`FNA saved successfully! ID: ${fnaId}`, 'success');
-      
-      // Update local state with fnaId
+      showMessage(`FNA saved successfully!`, 'success');
       setData(prev => ({ ...prev, fnaId }));
-
     } catch (error: any) {
       console.error('Save error:', error);
       showMessage(`Error: ${error.message}`, 'error');
@@ -400,85 +345,88 @@ export default function FNAPage() {
   };
 
   const handleReset = () => {
-    if (confirm("Are you sure you want to reset all values to defaults?")) {
+    if (confirm("Reset all values?")) {
       setData(initialData);
-      showMessage("Form reset to default values", 'success');
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  // Excel-style input cell
+  const ExcelCell = ({ value, onChange, readOnly = false, style = {} }: any) => (
+    <input
+      type="text"
+      value={value}
+      onChange={onChange}
+      readOnly={readOnly}
+      className={`w-full px-2 py-1 border border-black text-sm ${readOnly ? 'bg-gray-100' : 'bg-white'}`}
+      style={{ ...style, fontFamily: 'Arial, sans-serif' }}
+    />
+  );
+
+  const ExcelNumberCell = ({ value, onChange, readOnly = false, calculated = false }: any) => (
+    <input
+      type="text"
+      value={value === 0 && !calculated ? '' : formatCurrency(value)}
+      onChange={(e) => !readOnly && onChange(e.target.value)}
+      readOnly={readOnly}
+      className={`w-full px-2 py-1 border border-black text-sm text-right ${
+        readOnly || calculated ? 'bg-gray-100 font-semibold' : 'bg-white'
+      }`}
+      style={{ fontFamily: 'Arial, sans-serif' }}
+      placeholder="$0"
+    />
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <style jsx global>{`
-        @media print {
-          .no-print {
-            display: none !important;
-          }
-          .print-section {
-            page-break-inside: avoid;
-          }
-        }
-      `}</style>
-
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 no-print">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Image 
-                src="/anunathan-logo.png" 
-                alt="AnuNathan Financial Group" 
-                width={80} 
-                height={80}
-                className="object-contain"
-              />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Client Financial Need Analysis
-                </h1>
-                <p className="text-sm text-gray-600">
-                  Building careers, protecting families
-                </p>
-              </div>
+      {/* Header - matching dashboard style */}
+      <header className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4 mx-4 mt-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Image 
+              src="/anunathan-logo.png" 
+              alt="AnuNathan Financial Group" 
+              width={60} 
+              height={60}
+              className="object-contain"
+            />
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Client Financial Need Analysis</h1>
+              <p className="text-xs text-gray-600">Building careers, protecting families</p>
             </div>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              Logout ➜
-            </button>
           </div>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm font-semibold"
+          >
+            Logout ➜
+          </button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-4">
         {/* Action Buttons */}
-        <div className="mb-6 flex gap-3 no-print">
+        <div className="mb-4 flex gap-3">
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors font-semibold"
+            className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 transition-colors font-semibold"
           >
-            {saving ? "Saving..." : "💾 Save FNA"}
+            💾 {saving ? "Saving..." : "Save FNA"}
           </button>
           <button
             onClick={handleReset}
-            className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
           >
             🔄 Reset
           </button>
           <button
-            onClick={handlePrint}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={() => window.print()}
+            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
           >
             🖨️ Print
           </button>
           {message && (
-            <div className={`ml-auto px-4 py-2 rounded-lg ${
+            <div className={`ml-auto px-4 py-2 rounded ${
               messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
             }`}>
               {message}
@@ -486,429 +434,399 @@ export default function FNAPage() {
           )}
         </div>
 
-        {/* FNA Form */}
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          {/* Client Info Section */}
-          <div className="mb-8 print-section">
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-semibold mb-1">NAME:</label>
-                <input
-                  type="text"
-                  value={data.clientName}
-                  onChange={(e) => handleInputChange('clientName', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                  placeholder="Client name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">DATE:</label>
-                <input
-                  type="date"
-                  value={data.analysisDate}
-                  onChange={(e) => handleInputChange('analysisDate', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                />
-              </div>
+        {/* Client Selection Card */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-semibold mb-1">Client Name *</label>
+              <select
+                value={data.clientId}
+                onChange={(e) => handleClientSelect(e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              >
+                <option value="">Select Client</option>
+                {clients.map(client => (
+                  <option key={client.id} value={client.id}>
+                    {client.first_name} {client.last_name}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
-
-          {/* Kids College Planning */}
-          <div className="mb-6 print-section">
-            <div className="grid grid-cols-4 gap-2 mb-2" style={{ backgroundColor: COLORS.headerBg }}>
-              <div className="col-span-2 px-3 py-2 font-bold">KIDS COLLEGE PLANNING</div>
-              <div className="px-3 py-2 font-bold text-center">YEARS FROM TODAY</div>
-              <div className="px-3 py-2 font-bold text-center">AMOUNT</div>
-            </div>
-            
-            {/* Child 1 */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#1</div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Phone Number</label>
               <input
                 type="text"
-                value={data.child1CollegeName}
-                onChange={(e) => handleInputChange('child1CollegeName', e.target.value)}
-                className="border border-gray-300 rounded px-3 py-1"
-                title="Name of first child"
-              />
-              <input
-                type="number"
-                value={data.child1CollegeYear}
-                onChange={(e) => handleInputChange('child1CollegeYear', e.target.value)}
-                className="border border-gray-300 rounded px-3 py-1 text-center"
-                title="Expected year of college enrollment"
-              />
-              <input
-                type="number"
-                value={data.child1CollegeAmount}
-                onChange={(e) => handleInputChange('child1CollegeAmount', parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded px-3 py-1 text-right"
-                title="Total college cost for 4 years"
+                value={data.clientPhone}
+                readOnly
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50"
+                placeholder="Select client to view"
               />
             </div>
-            <div className="text-right text-sm text-gray-600 mb-2">
-              {formatCurrency(data.child1CollegeAmount)}
-            </div>
-
-            {/* Child 2 */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#2</div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Email</label>
               <input
                 type="text"
-                value={data.child2CollegeName}
-                onChange={(e) => handleInputChange('child2CollegeName', e.target.value)}
-                className="border border-gray-300 rounded px-3 py-1"
+                value={data.clientEmail}
+                readOnly
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50"
+                placeholder="Select client to view"
               />
-              <input
-                type="number"
-                value={data.child2CollegeYear}
-                onChange={(e) => handleInputChange('child2CollegeYear', e.target.value)}
-                className="border border-gray-300 rounded px-3 py-1 text-center"
-              />
-              <input
-                type="number"
-                value={data.child2CollegeAmount}
-                onChange={(e) => handleInputChange('child2CollegeAmount', parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded px-3 py-1 text-right"
-              />
-            </div>
-            <div className="text-right text-sm text-gray-600">
-              {formatCurrency(data.child2CollegeAmount)}
             </div>
           </div>
-
-          {/* Kids Wedding Planning */}
-          <div className="mb-6 print-section">
-            <div className="grid grid-cols-4 gap-2 mb-2" style={{ backgroundColor: COLORS.headerBg }}>
-              <div className="col-span-2 px-3 py-2 font-bold">KIDS WEDDING PLANNING</div>
-              <div className="px-3 py-2 font-bold text-center">YEARS FROM TODAY</div>
-              <div className="px-3 py-2 font-bold text-center">AMOUNT</div>
-            </div>
-
-            {/* Child 1 Wedding */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#3</div>
-              <div className="px-3 py-2">{data.child1CollegeName}</div>
-              <div></div>
-              <input
-                type="number"
-                value={data.child1WeddingAmount}
-                onChange={(e) => handleInputChange('child1WeddingAmount', parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded px-3 py-1 text-right"
-                title="Estimated wedding expenses"
-              />
-            </div>
-            <div className="text-right text-sm text-gray-600 mb-2">
-              {formatCurrency(data.child1WeddingAmount)}
-            </div>
-
-            {/* Child 2 Wedding */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#4</div>
-              <div className="px-3 py-2">{data.child2CollegeName}</div>
-              <div></div>
-              <input
-                type="number"
-                value={data.child2WeddingAmount}
-                onChange={(e) => handleInputChange('child2WeddingAmount', parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded px-3 py-1 text-right"
-              />
-            </div>
-            <div className="text-right text-sm text-gray-600">
-              {formatCurrency(data.child2WeddingAmount)}
-            </div>
+          <div className="mt-3">
+            <label className="block text-sm font-semibold mb-1">Analysis Date</label>
+            <input
+              type="date"
+              value={data.analysisDate}
+              onChange={(e) => setData(prev => ({ ...prev, analysisDate: e.target.value }))}
+              className="border border-gray-300 rounded px-3 py-2 text-sm"
+            />
           </div>
+        </div>
 
-          {/* Retirement Planning */}
-          <div className="mb-6 print-section">
-            <div className="grid grid-cols-4 gap-2 mb-2" style={{ backgroundColor: COLORS.headerBg }}>
-              <div className="col-span-3 px-3 py-2 font-bold">RETIREMENT PLANNING</div>
-              <div className="px-3 py-2 font-bold text-center">AMOUNT</div>
-            </div>
+        {/* Kids College Planning Card */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+            <thead>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold w-12">#</th>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold">KIDS COLLEGE PLANNING</th>
+                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">YEARS FROM TODAY</th>
+                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#1</td>
+                <td className="border border-black p-0">
+                  <ExcelCell
+                    value={data.child1CollegeName}
+                    onChange={(e: any) => setData(prev => ({ ...prev, child1CollegeName: e.target.value }))}
+                  />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelCell
+                    value={data.child1CollegeYear}
+                    onChange={(e: any) => setData(prev => ({ ...prev, child1CollegeYear: e.target.value }))}
+                  />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.child1CollegeAmount}
+                    onChange={(val: string) => handleNumberInput('child1CollegeAmount', val)}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#2</td>
+                <td className="border border-black p-0">
+                  <ExcelCell
+                    value={data.child2CollegeName}
+                    onChange={(e: any) => setData(prev => ({ ...prev, child2CollegeName: e.target.value }))}
+                  />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelCell
+                    value={data.child2CollegeYear}
+                    onChange={(e: any) => setData(prev => ({ ...prev, child2CollegeYear: e.target.value }))}
+                  />
+                </td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.child2CollegeAmount}
+                    onChange={(val: string) => handleNumberInput('child2CollegeAmount', val)}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-            {/* #5 - Years to Retirement */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#5</div>
-              <div className="col-span-2 px-3 py-2 text-sm">
-                NUMBER OF YEARS TO RETIREMENT AGE OF 65
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  value={data.currentAge}
-                  onChange={(e) => handleInputChange('currentAge', parseInt(e.target.value) || 0)}
-                  className="w-20 border border-gray-300 rounded px-3 py-1 text-center"
-                  placeholder="Age"
-                  title="Your current age"
-                />
-                <div className="flex items-center px-3 py-1 bg-gray-100 rounded font-semibold">
-                  {data.yearsToRetirement}
-                </div>
-              </div>
-            </div>
+        {/* Kids Wedding Planning Card */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+            <thead>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold w-12">#</th>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold">KIDS WEDDING PLANNING</th>
+                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">YEARS FROM TODAY</th>
+                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#3</td>
+                <td className="border border-black px-2 py-1 text-sm">{data.child1CollegeName || 'CHILD 1'}</td>
+                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.child1WeddingAmount}
+                    onChange={(val: string) => handleNumberInput('child1WeddingAmount', val)}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#4</td>
+                <td className="border border-black px-2 py-1 text-sm">{data.child2CollegeName || 'CHILD 2'}</td>
+                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.child2WeddingAmount}
+                    onChange={(val: string) => handleNumberInput('child2WeddingAmount', val)}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-            {/* #6 - Retirement Years */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#6</div>
-              <div className="col-span-2 px-3 py-2 text-sm">
-                NUMBER OF YEARS IN RETIREMENT (*UNTIL AGE 85 OR 90)
-              </div>
-              <div className="flex gap-2">
-                <div className="w-20 px-3 py-1 text-center">{data.currentAge}</div>
-                <div className="flex items-center px-3 py-1 bg-gray-100 rounded font-semibold">
-                  {data.retirementYears}
-                </div>
-              </div>
-            </div>
+        {/* Retirement Planning Card */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+            <thead>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold w-12">#</th>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold" colSpan={2}>RETIREMENT PLANNING</th>
+                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#5</td>
+                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>NUMBER OF YEARS TO RETIREMENT AGE OF 65</td>
+                <td className="border border-black p-0">
+                  <div className="flex">
+                    <input
+                      type="text"
+                      value={data.currentAge || ''}
+                      onChange={(e) => handleNumberInput('currentAge', e.target.value.replace(/[^0-9]/g, ''))}
+                      className="w-1/2 px-2 py-1 border-r border-black text-sm text-center"
+                      placeholder="Age"
+                    />
+                    <div className="w-1/2 px-2 py-1 bg-gray-100 text-sm text-center font-semibold">
+                      {data.yearsToRetirement}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#6</td>
+                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>NUMBER OF YEARS IN RETIREMENT (*UNTIL AGE 85 OR 90)</td>
+                <td className="border border-black p-0">
+                  <div className="flex">
+                    <div className="w-1/2 px-2 py-1 border-r border-black text-sm text-center">{data.currentAge || ''}</div>
+                    <div className="w-1/2 px-2 py-1 bg-gray-100 text-sm text-center font-semibold">
+                      {data.retirementYears}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#7</td>
+                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>MONTHLY INCOME NEEDED IN TODAY'S DOLLARS (PRE-TAX)</td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.monthlyIncomeNeeded}
+                    onChange={(val: string) => handleNumberInput('monthlyIncomeNeeded', val)}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#8</td>
+                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>MONTHLY RETIREMENT INCOME @ 65 w-INFLATION 3%</td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.monthlyRetirementIncome}
+                    readOnly
+                    calculated
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#9</td>
+                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>ANNUAL RETIREMENT INCOME @ 65 w-INFLATION 3%</td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.annualRetirementIncome}
+                    readOnly
+                    calculated
+                  />
+                </td>
+              </tr>
+              <tr style={{ backgroundColor: COLORS.yellowBg }}>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#10</td>
+                <td className="border border-black px-2 py-1 text-sm font-bold" colSpan={2}>TOTAL RETIREMENT INCOME</td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.totalRetirementIncome}
+                    readOnly
+                    calculated
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-            {/* #7 - Monthly Income Needed */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#7</div>
-              <div className="col-span-2 px-3 py-2 text-sm" title="PROPERTY TAXES + CARS + INSURANCE + FOOD + REPAIRS + UTILITIES + LIVING">
-                MONTHLY INCOME NEEDED IN TODAY'S DOLLARS (PRE-TAX)
-              </div>
-              <input
-                type="number"
-                value={data.monthlyIncomeNeeded}
-                onChange={(e) => handleInputChange('monthlyIncomeNeeded', parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded px-3 py-1 text-right"
-              />
-            </div>
-            <div className="text-right text-sm text-gray-600 mb-2">
-              {formatCurrency(data.monthlyIncomeNeeded)}
-            </div>
+        {/* Healthcare Card */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+            <thead>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold w-12">#</th>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold">HEALTH CARE AND LONG TERM CARE PLANNING</th>
+                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-64">NOTES</th>
+                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#11</td>
+                <td className="border border-black px-2 py-1 text-sm">HEALTH CARE OUT-OF-POCKET EXPENSES (PLAN FOR ~20+ YRS)</td>
+                <td className="border border-black px-2 py-1 text-xs text-gray-600">~$315K FOR COUPLE IN TODAY'S DOLLARS</td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.healthcareExpenses}
+                    onChange={(val: string) => handleNumberInput('healthcareExpenses', val)}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#12</td>
+                <td className="border border-black px-2 py-1 text-sm">LONG TERM CARE | DISABILITY (PLAN FOR ATLEAST 2+ YRS EACH)</td>
+                <td className="border border-black px-2 py-1 text-xs text-gray-600">(ADD 3% INFLATION FOR FUTURE)</td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.longTermCare}
+                    readOnly
+                    calculated
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-            {/* #8 - Monthly Retirement Income with Inflation */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#8</div>
-              <div className="col-span-2 px-3 py-2 text-sm">
-                MONTHLY RETIREMENT INCOME @ 65 w-INFLATION 3%
-              </div>
-              <div className="px-3 py-1 bg-gray-100 rounded text-right font-semibold">
-                {formatCurrency(data.monthlyRetirementIncome)}
-              </div>
-            </div>
+        {/* Life Goals Card */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+            <thead>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold w-12">#</th>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold">LIFE GOALS PLANNING</th>
+                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-64">NOTES</th>
+                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#13</td>
+                <td className="border border-black px-2 py-1 text-sm">TRAVEL BUDGET (TRAVEL TO INDIA | TO KIDS | WORLD TRAVEL)</td>
+                <td className="border border-black px-2 py-1 text-xs text-gray-600">your travel plan expenses after retirement per year</td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.travelBudget}
+                    onChange={(val: string) => handleNumberInput('travelBudget', val)}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#14</td>
+                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>VACATION HOME | FARM HOUSE | NEW LUXURY HOME</td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.vacationHome}
+                    onChange={(val: string) => handleNumberInput('vacationHome', val)}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#15</td>
+                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>CHARITY FOUNDATION | OLD AGE HOME | TEMPLE ETC.,</td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.charity}
+                    onChange={(val: string) => handleNumberInput('charity', val)}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#16</td>
+                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>OTHER LIFE GOALS (BOAT | RV | EXOTIC CAR | JEWELLERY ETC.)</td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.otherGoals}
+                    onChange={(val: string) => handleNumberInput('otherGoals', val)}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-            {/* #9 - Annual Retirement Income */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#9</div>
-              <div className="col-span-2 px-3 py-2 text-sm">
-                ANNUAL RETIREMENT INCOME @ 65 w-INFLATION 3%
-              </div>
-              <div className="px-3 py-1 bg-gray-100 rounded text-right font-semibold">
-                {formatCurrency(data.annualRetirementIncome)}
-              </div>
-            </div>
+        {/* Legacy Planning Card */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+            <thead>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold w-12">#</th>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold">LEGACY PLANNING</th>
+                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-64">NOTES</th>
+                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#17</td>
+                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>HEADSTART FUND FOR KIDS PRIMARY HOME OR BUSINESS</td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.headstartFund}
+                    onChange={(val: string) => handleNumberInput('headstartFund', val)}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#18</td>
+                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>LEGACY ASSET FOR KIDS | FAMILY LEGACY</td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.familyLegacy}
+                    onChange={(val: string) => handleNumberInput('familyLegacy', val)}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-1 text-sm font-semibold">#19</td>
+                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>RETIRE PARENTS | SPECIAL NEEDS KIDS | FAMILY SUPPORT</td>
+                <td className="border border-black p-0">
+                  <ExcelNumberCell
+                    value={data.familySupport}
+                    onChange={(val: string) => handleNumberInput('familySupport', val)}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-            {/* #10 - Total Retirement Income */}
-            <div className="grid grid-cols-4 gap-2 mb-1" style={{ backgroundColor: COLORS.yellowBg }}>
-              <div className="px-3 py-2 text-sm font-semibold">#10</div>
-              <div className="col-span-2 px-3 py-2 text-sm font-bold">
-                TOTAL RETIREMENT INCOME
-              </div>
-              <div className="px-3 py-1 rounded text-right font-bold text-lg">
-                {formatCurrency(data.totalRetirementIncome)}
-              </div>
-            </div>
-          </div>
+        {/* Total Requirement Card */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
+            <tbody>
+              <tr style={{ backgroundColor: COLORS.headerBg }}>
+                <td className="border border-black px-4 py-3 text-lg font-bold">TOTAL REQUIREMENT</td>
+                <td className="border border-black px-4 py-3 text-right text-2xl font-bold text-green-700 w-64">
+                  {formatCurrency(data.totalRequirement)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-          {/* Healthcare and Long Term Care */}
-          <div className="mb-6 print-section">
-            <div className="grid grid-cols-4 gap-2 mb-2" style={{ backgroundColor: COLORS.headerBg }}>
-              <div className="col-span-2 px-3 py-2 font-bold">HEALTH CARE AND LONG TERM CARE PLANNING</div>
-              <div className="px-3 py-2 font-bold text-center">NOTES</div>
-              <div className="px-3 py-2 font-bold text-center">AMOUNT</div>
-            </div>
-
-            {/* #11 - Healthcare Expenses */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#11</div>
-              <div className="px-3 py-2 text-sm" title="DOCTORS CO-PAYS, LABS CO-PAYS, PHARMACY CO-PAYS ETC.,">
-                HEALTH CARE OUT-OF-POCKET EXPENSES (PLAN FOR ~20+ YRS)
-              </div>
-              <div className="px-3 py-2 text-xs text-gray-600">
-                ~$315K FOR COUPLE IN TODAY'S DOLLARS
-              </div>
-              <input
-                type="number"
-                value={data.healthcareExpenses}
-                onChange={(e) => handleInputChange('healthcareExpenses', parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded px-3 py-1 text-right"
-              />
-            </div>
-            <div className="text-right text-sm text-gray-600 mb-2">
-              {formatCurrency(data.healthcareExpenses)}
-            </div>
-
-            {/* #12 - Long Term Care */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#12</div>
-              <div className="px-3 py-2 text-sm" title="AVERAGE PERSON STAYS IN LTC BETWEEN 0 TO 5 YEARS">
-                LONG TERM CARE | DISABILITY (PLAN FOR ATLEAST 2+ YRS EACH)
-              </div>
-              <div className="px-3 py-2 text-xs text-gray-600">
-                (ADD 3% INFLATION FOR FUTURE)
-              </div>
-              <div className="px-3 py-1 bg-gray-100 rounded text-right font-semibold">
-                {formatCurrency(data.longTermCare)}
-              </div>
-            </div>
-          </div>
-
-          {/* Life Goals Planning */}
-          <div className="mb-6 print-section">
-            <div className="grid grid-cols-4 gap-2 mb-2" style={{ backgroundColor: COLORS.headerBg }}>
-              <div className="col-span-2 px-3 py-2 font-bold">LIFE GOALS PLANNING</div>
-              <div className="px-3 py-2 font-bold text-center">NOTES</div>
-              <div className="px-3 py-2 font-bold text-center">AMOUNT</div>
-            </div>
-
-            {/* #13 - Travel Budget */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#13</div>
-              <div className="px-3 py-2 text-sm">
-                TRAVEL BUDGET (TRAVEL TO INDIA | TO KIDS | WORLD TRAVEL)
-              </div>
-              <div className="px-3 py-2 text-xs text-gray-600">
-                your travel plan expenses after retirement per year
-              </div>
-              <input
-                type="number"
-                value={data.travelBudget}
-                onChange={(e) => handleInputChange('travelBudget', parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded px-3 py-1 text-right"
-              />
-            </div>
-            <div className="text-right text-sm text-gray-600 mb-2">
-              {formatCurrency(data.travelBudget)}
-            </div>
-
-            {/* #14 - Vacation Home */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#14</div>
-              <div className="col-span-2 px-3 py-2 text-sm">
-                VACATION HOME | FARM HOUSE | NEW LUXURY HOME
-              </div>
-              <input
-                type="number"
-                value={data.vacationHome}
-                onChange={(e) => handleInputChange('vacationHome', parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded px-3 py-1 text-right"
-              />
-            </div>
-            <div className="text-right text-sm text-gray-600 mb-2">
-              {formatCurrency(data.vacationHome)}
-            </div>
-
-            {/* #15 - Charity */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#15</div>
-              <div className="col-span-2 px-3 py-2 text-sm">
-                CHARITY FOUNDATION | OLD AGE HOME | TEMPLE ETC.,
-              </div>
-              <input
-                type="number"
-                value={data.charity}
-                onChange={(e) => handleInputChange('charity', parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded px-3 py-1 text-right"
-              />
-            </div>
-            <div className="text-right text-sm text-gray-600 mb-2">
-              {formatCurrency(data.charity)}
-            </div>
-
-            {/* #16 - Other Life Goals */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#16</div>
-              <div className="col-span-2 px-3 py-2 text-sm">
-                OTHER LIFE GOALS (BOAT | RV | EXOTIC CAR | JEWELLERY ETC.)
-              </div>
-              <input
-                type="number"
-                value={data.otherGoals}
-                onChange={(e) => handleInputChange('otherGoals', parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded px-3 py-1 text-right"
-              />
-            </div>
-            <div className="text-right text-sm text-gray-600">
-              {formatCurrency(data.otherGoals)}
-            </div>
-          </div>
-
-          {/* Legacy Planning */}
-          <div className="mb-6 print-section">
-            <div className="grid grid-cols-4 gap-2 mb-2" style={{ backgroundColor: COLORS.headerBg }}>
-              <div className="col-span-2 px-3 py-2 font-bold">LEGACY PLANNING</div>
-              <div className="px-3 py-2 font-bold text-center">NOTES</div>
-              <div className="px-3 py-2 font-bold text-center">AMOUNT</div>
-            </div>
-
-            {/* #17 - Headstart Fund */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#17</div>
-              <div className="col-span-2 px-3 py-2 text-sm">
-                HEADSTART FUND FOR KIDS PRIMARY HOME OR BUSINESS
-              </div>
-              <input
-                type="number"
-                value={data.headstartFund}
-                onChange={(e) => handleInputChange('headstartFund', parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded px-3 py-1 text-right"
-              />
-            </div>
-            <div className="text-right text-sm text-gray-600 mb-2">
-              {formatCurrency(data.headstartFund)}
-            </div>
-
-            {/* #18 - Family Legacy */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#18</div>
-              <div className="col-span-2 px-3 py-2 text-sm">
-                LEGACY ASSET FOR KIDS | FAMILY LEGACY (FINAL ASSETS LIKE PRIMARY HOME + REAL ESTATE + LIFE INSURANCE)
-              </div>
-              <input
-                type="number"
-                value={data.familyLegacy}
-                onChange={(e) => handleInputChange('familyLegacy', parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded px-3 py-1 text-right"
-              />
-            </div>
-            <div className="text-right text-sm text-gray-600 mb-2">
-              {formatCurrency(data.familyLegacy)}
-            </div>
-
-            {/* #19 - Family Support */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
-              <div className="px-3 py-2 text-sm font-semibold">#19</div>
-              <div className="col-span-2 px-3 py-2 text-sm">
-                RETIRE PARENTS | SPECIAL NEEDS KIDS | FAMILY SUPPORT
-              </div>
-              <input
-                type="number"
-                value={data.familySupport}
-                onChange={(e) => handleInputChange('familySupport', parseFloat(e.target.value) || 0)}
-                className="border border-gray-300 rounded px-3 py-1 text-right"
-              />
-            </div>
-            <div className="text-right text-sm text-gray-600">
-              {formatCurrency(data.familySupport)}
-            </div>
-          </div>
-
-          {/* Total Requirement */}
-          <div className="mb-6 print-section">
-            <div className="grid grid-cols-4 gap-2 p-4" style={{ backgroundColor: COLORS.headerBg }}>
-              <div className="col-span-3 text-xl font-bold">TOTAL REQUIREMENT</div>
-              <div className="text-right text-2xl font-bold text-green-700">
-                {formatCurrency(data.totalRequirement)}
-              </div>
-            </div>
-          </div>
-
-          {/* Disclaimer */}
-          <div className="mt-8 p-4 bg-black text-white text-xs text-center print-section">
-            DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE
-          </div>
+        {/* Disclaimer */}
+        <div className="bg-black text-white text-xs text-center py-3 rounded">
+          DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE
         </div>
       </main>
     </div>
