@@ -494,11 +494,36 @@ export default function FNAPage() {
 
   // FIXED: Text input component - works for multi-character entry
   const ExcelTextInput = ({ value, onChange, readOnly = false }: any) => {
+    const [localValue, setLocalValue] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
+
+    // Show current value or local value when focused
+    const displayValue = isFocused ? localValue : (value || '');
+
+    const handleFocus = () => {
+      setIsFocused(true);
+      setLocalValue(value || '');
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (readOnly) return;
+      setLocalValue(e.target.value);
+    };
+
+    const handleBlur = () => {
+      setIsFocused(false);
+      if (!readOnly) {
+        onChange(localValue);
+      }
+    };
+
     return (
       <input
         type="text"
-        value={value || ''}
-        onChange={(e) => !readOnly && onChange(e.target.value)}
+        value={displayValue}
+        onChange={handleChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         readOnly={readOnly}
         className={`w-full px-2 py-1 text-sm ${readOnly ? 'bg-gray-100' : 'bg-white'}`}
         style={{ 
