@@ -2247,6 +2247,7 @@ export default function FNAPage() {
               </table>
             </div>
 
+           
             {/* Compliance Notes */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
               <div className="text-xs space-y-2">
@@ -2260,24 +2261,9 @@ export default function FNAPage() {
             <div className="bg-black text-white text-xs text-center py-3 rounded">
               DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE
             </div>
-
-// ============================================
-// END OF PART 4
-// 
-// COMPLETE ASSETS SECTION WITH ALL 31 ROWS:
-// - Retirement Planning (7 rows)
-// - Real Estate (4 rows)
-// - Stocks/Business/Income (7 rows)
-// - Family Protection (8 rows)
-// - College/Estate (2 rows)
-// - Foreign Assets (2 rows)
-// - Total Assets (calculated)
-// - Compliance notes
-// - Disclaimer
-//
-// TO INTEGRATE:
-// 1. Open your assembled file (Parts 1+2+3)
-// 2. Find the Assets placeholder around line 2300
-// 3. Replace the placeholder content with this Part 4 content
-// 4. Save and test!
-// ============================================
+			</>
+        )}
+      </main>
+    </div>
+  );
+}
