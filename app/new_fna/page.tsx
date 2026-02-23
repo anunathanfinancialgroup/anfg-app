@@ -603,15 +603,7 @@ export default function FNAPage() {
 // HELPER FUNCTIONS - Will be in Part 2
 // UI COMPONENTS - Will be in Part 2
 
-// ============================================
-// END OF PART 1
-// Continue with Part 2 for helper functions,
-// save logic, and UI component definitions
-// ============================================
 
-// ============================================
-// PART 2 OF 3: Save Logic, Helper Functions, UI Components
-// ============================================
 
   // SAVE FUNCTION - SAVES BOTH GOALS AND ASSETS
   const handleSave = async () => {
@@ -1044,15 +1036,7 @@ export default function FNAPage() {
     );
   };
 
-// ============================================
-// END OF PART 2
-// Continue with Part 3 for the complete JSX
-// (Header, Client Info, Goals Section, Assets Section)
-// ============================================
 
-// ============================================
-// PART 3 OF 3: Complete JSX - Tab Navigation, Goals & Assets
-// ============================================
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1551,39 +1535,10 @@ export default function FNAPage() {
           </>
         )}
 
-       </main>
-    </div>
-  );
-}
+        {/* ASSETS TAB CONTENT */}
+        {activeTab === 'assets' && (
+          <>
 
-// ============================================
-// END OF PART 3
-// This completes the file structure.
-// Assets tab content will be provided separately
-// due to size (31 rows across 6 categories)
-// ============================================
-
-// ============================================
-// PART 4: COMPLETE ASSETS SECTION
-// ============================================
-// 
-// INSTRUCTIONS TO INTEGRATE:
-// 
-// In your assembled file (Parts 1+2+3), find this section around line 2300:
-// 
-//   {activeTab === 'assets' && (
-//     <>
-//       <div className="text-center py-20">
-//         <p className="text-xl font-semibold text-gray-700 mb-2">Assets Section</p>
-//         <p className="text-gray-500">Assets content will be added here</p>
-//         <p className="text-sm text-gray-400 mt-4">This tab is ready - content being prepared in separate file</p>
-//       </div>
-//     </>
-//   )}
-//
-// REPLACE everything between the <> and </> with the code below
-// (starting from line 23)
-// ============================================
 
             {/* RETIREMENT PLANNING (USA) - 7 rows */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
@@ -2246,7 +2201,7 @@ export default function FNAPage() {
               </div>
             {/* Disclaimer */}
             <div className="bg-black text-white text-xs text-center py-3 rounded">
-              DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE
+              Disclaimer: For Education Purpose Only. We Do Not Provide Any Legal Or Tax Advice
             </div>
 			</>
         )}
