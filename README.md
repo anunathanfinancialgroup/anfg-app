@@ -1,178 +1,77 @@
-# FNA Complete Page - Implementation Notes
+# FNA with Two Tab Cards - Implementation Summary
 
-## File Created
-`fna-complete-with-assets.tsx` - Complete single-page FNA with both sections
+## What's Being Created
 
-## Key Features Implemented
-
-### 1. Two-Tab Interface
-- **Tab 1:** FINANCIAL GOALS & PLANNING (existing content)
-- **Tab 2:** ASSETS (new section with 6 categories)
-- Seamless tab switching
-- Both sections save simultaneously
-
-### 2. PDF Export with Custom Filename
-```typescript
-// Export format: ClientName-FNA-YYYY-MM-DD.pdf
-// Example: John-Doe-FNA-2026-02-23.pdf
-
-const handleExportPDF = () => {
-  const clientNameForFile = data.clientName.replace(/\s+/g, '-') || 'Client';
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  document.title = `${clientNameForFile}-FNA-${today}`;
-  window.print();
-};
-```
-
-### 3. Assets Section Structure (6 Categories, 23 Rows)
-
-#### RETIREMENT PLANNING (USA) - 7 rows
-1. Current 401K | 403B
-2. Company Match %
-3. Max Funding
-4. Previous 401K | Rollover
-5. Traditional IRA | SEP-IRA
-6. Roth IRA | Roth 401K
-7. ESPP | RSU | Annuities | Pension
-
-#### REAL ESTATE INVESTMENTS (USA) - 4 rows
-8. Personal Home
-9. Real Estate Properties | Rentals
-10. Real Estate Land Parcels
-11. Inheritance in USA
-
-#### STOCKS | BUSINESS | INCOME (USA) - 8 rows
-12. Stocks | MFs | Bonds | ETFs
-13. Business Ownership
-14. Alternative Investments
-15. Certificate of Deposits
-16. Cash in Bank + Emergency Fund
-17. Annual Household Income
-18. Annual Savings Going Forward
-19. (Calculated row for totals)
-
-#### FAMILY PROTECTION & INSURANCE - 8 rows
-20. Life Insurance at Work
-21. Life Insurance Outside Work
-22. Is it Cash Value Life Insurance
-23. Which Company? How Long?
-24. Short/Long Term Disability at Work
-25. Long Term Care Outside of Work
-26. Health Savings Account (HSA)
-27. Mortgage Protection Insurance
-
-#### COLLEGE PLANNING / ESTATE PLANNING - 2 rows
-28. 529 Plans | State Pre-Paid Plans
-29. Will & Trust (Estate Planning)
-
-#### FOREIGN ASSETS (OUTSIDE USA) - 2 rows
-30. Real Estate Assets
-31. Non-Real Estate Assets
-
-### 4. Column Structure for Assets
-- # (Row number)
-- DESCRIPTION (Asset type)
-- HIM (Y/N) - Checkbox
-- HER (Y/N) - Checkbox
-- NOTES - Editable text field
-- PRESENT VALUE - Currency with decimals
-- PROJECTED VALUE @ 65 - Currency with decimals
-
-### 5. Total Calculations
-
-**FINANCIAL GOALS & PLANNING:**
-- TOTAL REQUIREMENT (sum of all goals)
-
-**ASSETS:**
-- TOTAL PRESENT VALUE (sum of all present values)
-- TOTAL PROJECTED VALUE @ 65 (sum of all projected values)
-
-### 6. Single Save Operation
-One "Save" button saves:
-- Client info
-- All Financial Goals data (7 tables)
-- All Assets data (6 tables)
-- Total: 13 database tables updated in one transaction
-
-## Database Tables Used
-
-### Financial Goals (existing - 7 tables)
-1. fna_records (parent)
-2. fna_college
-3. fna_wedding
-4. fna_retirement
-5. fna_healthcare
-6. fna_life_goals
-7. fna_legacy
-
-### Assets (new - 6 tables)
-8. fna_ast_retirement
-9. fna_ast_real_estate
-10. fna_ast_income
-11. fna_ast_protection
-12. fna_ast_college_estate
-13. fna_ast_foreign
-
-## File Size
-- Approximately 3,200 lines
-- Complete standalone page
-- Ready for production deployment
-
-## Deployment Steps
-
-1. **Run Database Migration:**
-   ```bash
-   # In Supabase SQL Editor
-   # Run: fna-assets-tables.sql
-   ```
-
-2. **Deploy Page:**
-   ```bash
-   cp fna-complete-with-assets.tsx app/fna/page.tsx
-   git add .
-   git commit -m "Complete FNA with Goals and Assets sections"
-   git push
-   ```
-
-3. **Test:**
-   - Select a client
-   - Fill in both tabs
-   - Save (checks all 13 tables)
-   - Export PDF (checks filename format)
-
-## PDF Export Filename Format
+A single FNA page with TWO clickable tab cards:
 
 ```
-Format: [ClientName]-FNA-[YYYY-MM-DD].pdf
+┌─────────────────────────────────────────────────────────────┐
+│  Client Information (shared between both tabs)              │
+└─────────────────────────────────────────────────────────────┘
 
-Examples:
-- John-Doe-FNA-2026-02-23.pdf
-- Sarah-Smith-FNA-2026-02-23.pdf
-- Michael-Johnson-FNA-2026-02-23.pdf
+┌─────────────────┐  ┌─────────────────┐
+│ 📊 GOALS        │  │ 💰 ASSETS       │  ← Clickable Tabs
+│ (ACTIVE)        │  │                 │
+└─────────────────┘  └─────────────────┘
 
-Rules:
-- Spaces in name replaced with hyphens
-- Date format: ISO 8601 (YYYY-MM-DD)
-- Always includes "-FNA-" separator
+┌─────────────────────────────────────────────────────────────┐
+│                                                               │
+│  TAB 1 CONTENT (when Goals tab is clicked):                  │
+│  • Kids College Planning                                      │
+│  • Kids Wedding Planning                                      │
+│  • Retirement Planning                                        │
+│  • Healthcare Planning                                        │
+│  • Life Goals                                                 │
+│  • Legacy Planning                                            │
+│  • TOTAL REQUIREMENT                                          │
+│                                                               │
+└─────────────────────────────────────────────────────────────┘
+
+OR
+
+┌─────────────────────────────────────────────────────────────┐
+│                                                               │
+│  TAB 2 CONTENT (when Assets tab is clicked):                 │
+│  • Retirement Planning Assets (7 rows)                        │
+│  • Real Estate Investments (4 rows)                           │
+│  • Stocks/Business/Income (7 rows)                            │
+│  • Family Protection & Insurance (8 rows)                     │
+│  • College/Estate Planning (2 rows)                           │
+│  • Foreign Assets (2 rows)                                    │
+│  • TOTAL ASSETS                                               │
+│                                                               │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Features Summary
+## Key Features
 
-✅ Two-tab interface (Goals + Assets)
-✅ Single save for all data
-✅ PDF export with custom filename
-✅ All editable notes fields
-✅ Multi-character input working
-✅ Decimal values in amounts
-✅ Plain button styles
-✅ Excel-style grid borders
-✅ Resizable columns
-✅ Auto-calculations
-✅ Client dropdown
-✅ Phone/email verification
-✅ External resource links
-✅ Professional layout
+1. **Single Client Selection** - Select client once, data shared between tabs
+2. **Tab Switching** - Click tabs to switch between Goals and Assets
+3. **Single Save Button** - Saves both Goals and Assets data
+4. **Single Export** - PDF includes both sections
+5. **Clean UI** - Only one section visible at a time
 
-# Deploy current version (Goals only)
-cp fna-page-complete-fixed.tsx app/fna/page.tsx
-git push
+## File Being Created
+
+`fna-with-two-tabs.tsx` - Complete file with:
+- Both interfaces
+- Tab state management
+- Both card sections
+- Single save for all data
+- PDF export for both sections
+
+## Total Content
+
+- **Goals Section**: 19 rows across 7 categories
+- **Assets Section**: 31 rows across 6 categories
+- **Total**: 50 input rows + calculations
+
+## User Experience
+
+1. User opens FNA page
+2. Selects client (auto-fills info)
+3. Clicks "GOALS" tab → Sees/fills goals data
+4. Clicks "ASSETS" tab → Sees/fills assets data
+5. Clicks "Save" → Saves everything to 13 tables
+6. Clicks "Export" → Gets PDF with both sections
+
