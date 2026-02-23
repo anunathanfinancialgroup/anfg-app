@@ -6,6 +6,7 @@ import { useState } from 'react';
 const DESTINATIONS = [
   { value: 'dashboard', label: 'Dashboard', path: '/dashboard' },
   { value: 'prospect', label: 'Prospect List', path: '/prospect' },
+  { value: 'fna', label: 'Financial Need Analysis', path: '/fna'},
  ];
 
 const AUTH_COOKIE = 'canfs_auth';
