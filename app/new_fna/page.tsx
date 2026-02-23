@@ -1045,7 +1045,7 @@ export default function FNAPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <style jsx global>{`
+      <style>{`
         @media print {
           .no-print {
             display: none !important;
