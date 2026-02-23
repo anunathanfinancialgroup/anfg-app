@@ -608,6 +608,7 @@ export default function FNAPage() {
 // Continue with Part 2 for helper functions,
 // save logic, and UI component definitions
 // ============================================
+
 // ============================================
 // PART 2 OF 3: Save Logic, Helper Functions, UI Components
 // ============================================
@@ -1048,6 +1049,7 @@ export default function FNAPage() {
 // Continue with Part 3 for the complete JSX
 // (Header, Client Info, Goals Section, Assets Section)
 // ============================================
+
 // ============================================
 // PART 3 OF 3: Complete JSX - Tab Navigation, Goals & Assets
 // ============================================
@@ -1570,6 +1572,7 @@ export default function FNAPage() {
 // Assets tab content will be provided separately
 // due to size (31 rows across 6 categories)
 // ============================================
+
 // ============================================
 // PART 4: COMPLETE ASSETS SECTION
 // ============================================
