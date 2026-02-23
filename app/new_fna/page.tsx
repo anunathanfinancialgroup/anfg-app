@@ -1,19 +1,19 @@
 "use client";
 
 /**
- * Financial Need Analysis (FNA) Calculator
+ * Financial Need Analysis (FNA) Calculator - Updated
  * AnuNathan Financial Group
  * 
- * Updated version with:
- * - Excel-style grid with cell borders
- * - Client dropdown from client_registrations
- * - Phone/email verification
- * - $ sign formatting in cells
- * - Separate cards for each section
- * - No default values (0 for uncalculated fields)
+ * Updates:
+ * - Client data auto-populated from client_registrations
+ * - Spouse info saved to fna_records
+ * - Resizable columns (Excel-style)
+ * - Fixed input issues
+ * - Auto-populated kid names
+ * - Corrected calculations
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from '@supabase/supabase-js';
@@ -22,7 +22,6 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Excel color scheme
 const COLORS = {
   headerBg: '#BDD7EE',
   whiteBg: '#FFFFFF',
@@ -36,6 +35,10 @@ interface Client {
   last_name: string;
   phone: string;
   email: string;
+  spouse_name: string;
+  city: string;
+  state: string;
+  date_of_birth: string;
 }
 
 interface FNAData {
@@ -44,9 +47,14 @@ interface FNAData {
   clientName: string;
   clientPhone: string;
   clientEmail: string;
+  spouseName: string;
+  spousePhone: string;
+  spouseEmail: string;
+  clientDob: string;
+  city: string;
+  state: string;
   analysisDate: string;
   
-  // College Planning
   child1CollegeName: string;
   child1CollegeYear: string;
   child1CollegeAmount: number;
@@ -54,11 +62,9 @@ interface FNAData {
   child2CollegeYear: string;
   child2CollegeAmount: number;
   
-  // Wedding Planning
   child1WeddingAmount: number;
   child2WeddingAmount: number;
   
-  // Retirement Planning
   currentAge: number;
   yearsToRetirement: number;
   retirementYears: number;
@@ -67,22 +73,18 @@ interface FNAData {
   annualRetirementIncome: number;
   totalRetirementIncome: number;
   
-  // Healthcare
   healthcareExpenses: number;
   longTermCare: number;
   
-  // Life Goals
   travelBudget: number;
   vacationHome: number;
   charity: number;
   otherGoals: number;
   
-  // Legacy
   headstartFund: number;
   familyLegacy: number;
   familySupport: number;
   
-  // Total
   totalRequirement: number;
 }
 
@@ -91,6 +93,12 @@ const initialData: FNAData = {
   clientName: "",
   clientPhone: "",
   clientEmail: "",
+  spouseName: "",
+  spousePhone: "",
+  spouseEmail: "",
+  clientDob: "",
+  city: "",
+  state: "",
   analysisDate: new Date().toISOString().split('T')[0],
   child1CollegeName: "",
   child1CollegeYear: "",
@@ -107,7 +115,7 @@ const initialData: FNAData = {
   monthlyRetirementIncome: 0,
   annualRetirementIncome: 0,
   totalRetirementIncome: 0,
-  healthcareExpenses: 0,
+  healthcareExpenses: 315000,
   longTermCare: 0,
   travelBudget: 0,
   vacationHome: 0,
@@ -126,8 +134,15 @@ export default function FNAPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
+  
+  // Column widths state (shared across all cards)
+  const [columnWidths, setColumnWidths] = useState({
+    col1: 60,   // # column
+    col2: 400,  // Description column
+    col3: 180,  // Years/Notes column
+    col4: 180,  // Amount column
+  });
 
-  // Check authentication
   useEffect(() => {
     const authCookie = document.cookie
       .split('; ')
@@ -140,12 +155,11 @@ export default function FNAPage() {
     }
   }, [router]);
 
-  // Load clients from database
   const loadClients = async () => {
     try {
       const { data: clientData, error } = await supabase
         .from('client_registrations')
-        .select('id, first_name, last_name, phone, email')
+        .select('id, first_name, last_name, phone, email, spouse_name, city, state, date_of_birth')
         .order('first_name', { ascending: true });
 
       if (error) throw error;
@@ -155,7 +169,6 @@ export default function FNAPage() {
     }
   };
 
-  // Handle client selection
   const handleClientSelect = (clientId: string) => {
     const client = clients.find(c => c.id === clientId);
     if (client) {
@@ -164,7 +177,15 @@ export default function FNAPage() {
         clientId: client.id,
         clientName: `${client.first_name} ${client.last_name}`,
         clientPhone: client.phone || '',
-        clientEmail: client.email || ''
+        clientEmail: client.email || '',
+        spouseName: client.spouse_name || '',
+        city: client.city || '',
+        state: client.state || '',
+        clientDob: client.date_of_birth || '',
+        // Spouse phone/email would need to be added to client_registrations table
+        // For now, leaving empty - you can add these fields to the table
+        spousePhone: '',
+        spouseEmail: ''
       }));
     }
   };
@@ -176,6 +197,7 @@ export default function FNAPage() {
     data.currentAge,
     data.monthlyIncomeNeeded,
     data.healthcareExpenses,
+    data.retirementYears,
     data.child1CollegeAmount,
     data.child2CollegeAmount,
     data.child1WeddingAmount,
@@ -201,7 +223,9 @@ export default function FNAPage() {
       
       const annualRetirementIncome = monthlyRetirementIncome * 12;
       const totalRetirementIncome = annualRetirementIncome * retirementYears;
-      const longTermCare = prev.healthcareExpenses * 0.03;
+      
+      // Updated calculation: #11 * 0.03 * (#6 * 2)
+      const longTermCare = prev.healthcareExpenses * 0.03 * (retirementYears * 2);
       
       const totalRequirement = 
         prev.child1CollegeAmount +
@@ -233,7 +257,7 @@ export default function FNAPage() {
   };
 
   const formatCurrency = (value: number): string => {
-    if (value === 0) return "$0";
+    if (value === 0) return "";
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -243,7 +267,6 @@ export default function FNAPage() {
   };
 
   const handleNumberInput = (field: keyof FNAData, value: string) => {
-    // Remove $ and commas, parse as number
     const cleanValue = value.replace(/[$,]/g, '');
     const numValue = parseFloat(cleanValue) || 0;
     setData(prev => ({ ...prev, [field]: numValue }));
@@ -262,6 +285,14 @@ export default function FNAPage() {
         .insert([{
           client_id: data.clientId,
           analysis_date: data.analysisDate,
+          spouse_name: data.spouseName,
+          client_dob: data.clientDob || null,
+          city: data.city,
+          state: data.state,
+          mobile_phone: data.clientPhone,
+          personal_email: data.clientEmail,
+          spouse_mobile_phone: data.spousePhone,
+          spouse_email: data.spouseEmail,
           notes: `FNA for ${data.clientName}`
         }])
         .select()
@@ -271,7 +302,6 @@ export default function FNAPage() {
 
       const fnaId = fnaRecord.fna_id;
 
-      // Insert all related data
       await Promise.all([
         supabase.from('fna_college').insert([
           {
@@ -350,15 +380,74 @@ export default function FNAPage() {
     }
   };
 
-  // Excel-style input cell
-  const ExcelCell = ({ value, onChange, readOnly = false, style = {} }: any) => (
+  // Column resize handler
+  const handleColumnResize = (column: string, newWidth: number) => {
+    setColumnWidths(prev => ({
+      ...prev,
+      [column]: Math.max(50, newWidth) // Minimum width of 50px
+    }));
+  };
+
+  // Resizable column component
+  const ResizableHeader = ({ children, column, width }: any) => {
+    const [isResizing, setIsResizing] = useState(false);
+    const startX = useRef(0);
+    const startWidth = useRef(0);
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+      e.preventDefault();
+      setIsResizing(true);
+      startX.current = e.clientX;
+      startWidth.current = width;
+    };
+
+    useEffect(() => {
+      const handleMouseMove = (e: MouseEvent) => {
+        if (isResizing) {
+          const diff = e.clientX - startX.current;
+          handleColumnResize(column, startWidth.current + diff);
+        }
+      };
+
+      const handleMouseUp = () => {
+        setIsResizing(false);
+      };
+
+      if (isResizing) {
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+      }
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }, [isResizing]);
+
+    return (
+      <th 
+        className="border border-black px-2 py-2 text-left text-sm font-bold relative"
+        style={{ width: `${width}px`, minWidth: `${width}px` }}
+      >
+        {children}
+        <div
+          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500"
+          onMouseDown={handleMouseDown}
+          style={{ userSelect: 'none' }}
+        />
+      </th>
+    );
+  };
+
+  // Fixed Excel cell - no onChange in state setter
+  const ExcelCell = ({ value, onChange, readOnly = false }: any) => (
     <input
       type="text"
       value={value}
-      onChange={onChange}
+      onChange={(e) => onChange(e.target.value)}
       readOnly={readOnly}
-      className={`w-full px-2 py-1 border border-black text-sm ${readOnly ? 'bg-gray-100' : 'bg-white'}`}
-      style={{ ...style, fontFamily: 'Arial, sans-serif' }}
+      className={`w-full px-2 py-1 border-0 text-sm ${readOnly ? 'bg-gray-100' : 'bg-white'}`}
+      style={{ fontFamily: 'Arial, sans-serif', outline: 'none' }}
     />
   );
 
@@ -368,17 +457,17 @@ export default function FNAPage() {
       value={value === 0 && !calculated ? '' : formatCurrency(value)}
       onChange={(e) => !readOnly && onChange(e.target.value)}
       readOnly={readOnly}
-      className={`w-full px-2 py-1 border border-black text-sm text-right ${
+      className={`w-full px-2 py-1 border-0 text-sm text-right ${
         readOnly || calculated ? 'bg-gray-100 font-semibold' : 'bg-white'
       }`}
-      style={{ fontFamily: 'Arial, sans-serif' }}
+      style={{ fontFamily: 'Arial, sans-serif', outline: 'none' }}
       placeholder="$0"
     />
   );
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header - matching dashboard style */}
+      {/* Header */}
       <header className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4 mx-4 mt-4">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -434,9 +523,10 @@ export default function FNAPage() {
           )}
         </div>
 
-        {/* Client Selection Card */}
+        {/* Client Information Header Card */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-          <div className="grid grid-cols-3 gap-4">
+          <h3 className="text-lg font-bold mb-3">Client Information</h3>
+          <div className="grid grid-cols-3 gap-4 mb-3">
             <div>
               <label className="block text-sm font-semibold mb-1">Client Name *</label>
               <select
@@ -459,7 +549,6 @@ export default function FNAPage() {
                 value={data.clientPhone}
                 readOnly
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50"
-                placeholder="Select client to view"
               />
             </div>
             <div>
@@ -469,18 +558,75 @@ export default function FNAPage() {
                 value={data.clientEmail}
                 readOnly
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50"
-                placeholder="Select client to view"
               />
             </div>
           </div>
-          <div className="mt-3">
-            <label className="block text-sm font-semibold mb-1">Analysis Date</label>
-            <input
-              type="date"
-              value={data.analysisDate}
-              onChange={(e) => setData(prev => ({ ...prev, analysisDate: e.target.value }))}
-              className="border border-gray-300 rounded px-3 py-2 text-sm"
-            />
+          <div className="grid grid-cols-4 gap-4 mb-3">
+            <div>
+              <label className="block text-sm font-semibold mb-1">Spouse Name</label>
+              <input
+                type="text"
+                value={data.spouseName}
+                onChange={(e) => setData(prev => ({ ...prev, spouseName: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Spouse Phone</label>
+              <input
+                type="text"
+                value={data.spousePhone}
+                onChange={(e) => setData(prev => ({ ...prev, spousePhone: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Spouse Email</label>
+              <input
+                type="text"
+                value={data.spouseEmail}
+                onChange={(e) => setData(prev => ({ ...prev, spouseEmail: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Date of Birth</label>
+              <input
+                type="date"
+                value={data.clientDob}
+                readOnly
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-semibold mb-1">City</label>
+              <input
+                type="text"
+                value={data.city}
+                readOnly
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">State</label>
+              <input
+                type="text"
+                value={data.state}
+                readOnly
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Analysis Date</label>
+              <input
+                type="date"
+                value={data.analysisDate}
+                onChange={(e) => setData(prev => ({ ...prev, analysisDate: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              />
+            </div>
           </div>
         </div>
 
@@ -489,28 +635,28 @@ export default function FNAPage() {
           <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold w-12">#</th>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold">KIDS COLLEGE PLANNING</th>
-                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">YEARS FROM TODAY</th>
-                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">AMOUNT</th>
+                <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
+                <ResizableHeader column="col2" width={columnWidths.col2}>KIDS COLLEGE PLANNING</ResizableHeader>
+                <ResizableHeader column="col3" width={columnWidths.col3}>YEARS FROM TODAY</ResizableHeader>
+                <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="border border-black px-2 py-1 text-sm font-semibold">#1</td>
-                <td className="border border-black p-0">
+                <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#1</td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col2}px` }}>
                   <ExcelCell
                     value={data.child1CollegeName}
-                    onChange={(e: any) => setData(prev => ({ ...prev, child1CollegeName: e.target.value }))}
+                    onChange={(val: string) => setData(prev => ({ ...prev, child1CollegeName: val }))}
                   />
                 </td>
-                <td className="border border-black p-0">
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col3}px` }}>
                   <ExcelCell
                     value={data.child1CollegeYear}
-                    onChange={(e: any) => setData(prev => ({ ...prev, child1CollegeYear: e.target.value }))}
+                    onChange={(val: string) => setData(prev => ({ ...prev, child1CollegeYear: val }))}
                   />
                 </td>
-                <td className="border border-black p-0">
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <ExcelNumberCell
                     value={data.child1CollegeAmount}
                     onChange={(val: string) => handleNumberInput('child1CollegeAmount', val)}
@@ -522,13 +668,13 @@ export default function FNAPage() {
                 <td className="border border-black p-0">
                   <ExcelCell
                     value={data.child2CollegeName}
-                    onChange={(e: any) => setData(prev => ({ ...prev, child2CollegeName: e.target.value }))}
+                    onChange={(val: string) => setData(prev => ({ ...prev, child2CollegeName: val }))}
                   />
                 </td>
                 <td className="border border-black p-0">
                   <ExcelCell
                     value={data.child2CollegeYear}
-                    onChange={(e: any) => setData(prev => ({ ...prev, child2CollegeYear: e.target.value }))}
+                    onChange={(val: string) => setData(prev => ({ ...prev, child2CollegeYear: val }))}
                   />
                 </td>
                 <td className="border border-black p-0">
@@ -547,18 +693,18 @@ export default function FNAPage() {
           <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold w-12">#</th>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold">KIDS WEDDING PLANNING</th>
-                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">YEARS FROM TODAY</th>
-                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">AMOUNT</th>
+                <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
+                <ResizableHeader column="col2" width={columnWidths.col2}>KIDS WEDDING PLANNING</ResizableHeader>
+                <ResizableHeader column="col3" width={columnWidths.col3}>YEARS FROM TODAY</ResizableHeader>
+                <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="border border-black px-2 py-1 text-sm font-semibold">#3</td>
-                <td className="border border-black px-2 py-1 text-sm">{data.child1CollegeName || 'CHILD 1'}</td>
-                <td className="border border-black"></td>
-                <td className="border border-black p-0">
+                <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#3</td>
+                <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>{data.child1CollegeName || 'CHILD 1'}</td>
+                <td className="border border-black" style={{ width: `${columnWidths.col3}px` }}></td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <ExcelNumberCell
                     value={data.child1WeddingAmount}
                     onChange={(val: string) => handleNumberInput('child1WeddingAmount', val)}
@@ -585,23 +731,27 @@ export default function FNAPage() {
           <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold w-12">#</th>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold" colSpan={2}>RETIREMENT PLANNING</th>
-                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">AMOUNT</th>
+                <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold" colSpan={2} style={{ width: `${columnWidths.col2 + columnWidths.col3}px` }}>RETIREMENT PLANNING</th>
+                <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="border border-black px-2 py-1 text-sm font-semibold">#5</td>
+                <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#5</td>
                 <td className="border border-black px-2 py-1 text-sm" colSpan={2}>NUMBER OF YEARS TO RETIREMENT AGE OF 65</td>
-                <td className="border border-black p-0">
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <div className="flex">
                     <input
                       type="text"
                       value={data.currentAge || ''}
-                      onChange={(e) => handleNumberInput('currentAge', e.target.value.replace(/[^0-9]/g, ''))}
-                      className="w-1/2 px-2 py-1 border-r border-black text-sm text-center"
-                      placeholder="Age"
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        setData(prev => ({ ...prev, currentAge: parseInt(val) || 0 }));
+                      }}
+                      className="w-1/2 px-2 py-1 border-r border-black text-sm text-center bg-white"
+                      placeholder="Current Age"
+                      style={{ outline: 'none' }}
                     />
                     <div className="w-1/2 px-2 py-1 bg-gray-100 text-sm text-center font-semibold">
                       {data.yearsToRetirement}
@@ -614,7 +764,9 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm" colSpan={2}>NUMBER OF YEARS IN RETIREMENT (*UNTIL AGE 85 OR 90)</td>
                 <td className="border border-black p-0">
                   <div className="flex">
-                    <div className="w-1/2 px-2 py-1 border-r border-black text-sm text-center">{data.currentAge || ''}</div>
+                    <div className="w-1/2 px-2 py-1 border-r border-black text-sm text-center bg-gray-100">
+                      {data.currentAge || ''}
+                    </div>
                     <div className="w-1/2 px-2 py-1 bg-gray-100 text-sm text-center font-semibold">
                       {data.retirementYears}
                     </div>
@@ -673,18 +825,18 @@ export default function FNAPage() {
           <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold w-12">#</th>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold">HEALTH CARE AND LONG TERM CARE PLANNING</th>
-                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-64">NOTES</th>
-                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">AMOUNT</th>
+                <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
+                <ResizableHeader column="col2" width={columnWidths.col2}>HEALTH CARE AND LONG TERM CARE PLANNING</ResizableHeader>
+                <ResizableHeader column="col3" width={columnWidths.col3}>NOTES</ResizableHeader>
+                <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="border border-black px-2 py-1 text-sm font-semibold">#11</td>
-                <td className="border border-black px-2 py-1 text-sm">HEALTH CARE OUT-OF-POCKET EXPENSES (PLAN FOR ~20+ YRS)</td>
-                <td className="border border-black px-2 py-1 text-xs text-gray-600">~$315K FOR COUPLE IN TODAY'S DOLLARS</td>
-                <td className="border border-black p-0">
+                <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#11</td>
+                <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>HEALTH CARE OUT-OF-POCKET EXPENSES (PLAN FOR ~20+ YRS)</td>
+                <td className="border border-black px-2 py-1 text-xs text-gray-600" style={{ width: `${columnWidths.col3}px` }}>~$315K FOR COUPLE IN TODAY'S DOLLARS</td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <ExcelNumberCell
                     value={data.healthcareExpenses}
                     onChange={(val: string) => handleNumberInput('healthcareExpenses', val)}
@@ -694,7 +846,7 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#12</td>
                 <td className="border border-black px-2 py-1 text-sm">LONG TERM CARE | DISABILITY (PLAN FOR ATLEAST 2+ YRS EACH)</td>
-                <td className="border border-black px-2 py-1 text-xs text-gray-600">(ADD 3% INFLATION FOR FUTURE)</td>
+                <td className="border border-black px-2 py-1 text-xs text-gray-600">(#11 * 0.03 * (#6 * 2))</td>
                 <td className="border border-black p-0">
                   <ExcelNumberCell
                     value={data.longTermCare}
@@ -712,18 +864,18 @@ export default function FNAPage() {
           <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold w-12">#</th>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold">LIFE GOALS PLANNING</th>
-                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-64">NOTES</th>
-                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">AMOUNT</th>
+                <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
+                <ResizableHeader column="col2" width={columnWidths.col2}>LIFE GOALS PLANNING</ResizableHeader>
+                <ResizableHeader column="col3" width={columnWidths.col3}>NOTES</ResizableHeader>
+                <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="border border-black px-2 py-1 text-sm font-semibold">#13</td>
-                <td className="border border-black px-2 py-1 text-sm">TRAVEL BUDGET (TRAVEL TO INDIA | TO KIDS | WORLD TRAVEL)</td>
-                <td className="border border-black px-2 py-1 text-xs text-gray-600">your travel plan expenses after retirement per year</td>
-                <td className="border border-black p-0">
+                <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#13</td>
+                <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>TRAVEL BUDGET (TRAVEL TO INDIA | TO KIDS | WORLD TRAVEL)</td>
+                <td className="border border-black px-2 py-1 text-xs text-gray-600" style={{ width: `${columnWidths.col3}px` }}>your travel plan expenses after retirement per year</td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <ExcelNumberCell
                     value={data.travelBudget}
                     onChange={(val: string) => handleNumberInput('travelBudget', val)}
@@ -769,17 +921,17 @@ export default function FNAPage() {
           <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold w-12">#</th>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold">LEGACY PLANNING</th>
-                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-64">NOTES</th>
-                <th className="border border-black px-2 py-2 text-center text-sm font-bold w-48">AMOUNT</th>
+                <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
+                <ResizableHeader column="col2" width={columnWidths.col2}>LEGACY PLANNING</ResizableHeader>
+                <ResizableHeader column="col3" width={columnWidths.col3}>NOTES</ResizableHeader>
+                <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="border border-black px-2 py-1 text-sm font-semibold">#17</td>
-                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>HEADSTART FUND FOR KIDS PRIMARY HOME OR BUSINESS</td>
-                <td className="border border-black p-0">
+                <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#17</td>
+                <td className="border border-black px-2 py-1 text-sm" colSpan={2} style={{ width: `${columnWidths.col2 + columnWidths.col3}px` }}>HEADSTART FUND FOR KIDS PRIMARY HOME OR BUSINESS</td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <ExcelNumberCell
                     value={data.headstartFund}
                     onChange={(val: string) => handleNumberInput('headstartFund', val)}
