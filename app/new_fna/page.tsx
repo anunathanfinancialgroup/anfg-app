@@ -1570,3 +1570,711 @@ export default function FNAPage() {
 // Assets tab content will be provided separately
 // due to size (31 rows across 6 categories)
 // ============================================
+// ============================================
+// PART 4: COMPLETE ASSETS SECTION
+// ============================================
+// 
+// INSTRUCTIONS TO INTEGRATE:
+// 
+// In your assembled file (Parts 1+2+3), find this section around line 2300:
+// 
+//   {activeTab === 'assets' && (
+//     <>
+//       <div className="text-center py-20">
+//         <p className="text-xl font-semibold text-gray-700 mb-2">Assets Section</p>
+//         <p className="text-gray-500">Assets content will be added here</p>
+//         <p className="text-sm text-gray-400 mt-4">This tab is ready - content being prepared in separate file</p>
+//       </div>
+//     </>
+//   )}
+//
+// REPLACE everything between the <> and </> with the code below
+// (starting from line 23)
+// ============================================
+
+            {/* RETIREMENT PLANNING (USA) - 7 rows */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+              <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+                <thead>
+                  <tr style={{ backgroundColor: COLORS.headerBg }}>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-12">#</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold">RETIREMENT PLANNING (USA)</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HIM</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HER</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-64">NOTES</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">PRESENT VALUE</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">PROJECTED @ 65</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#1</td>
+                    <td className="border border-black px-2 py-1 text-sm">CURRENT 401K | 403B</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ret1_him} onChange={(e) => setAssets(prev => ({ ...prev, ret1_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ret1_her} onChange={(e) => setAssets(prev => ({ ...prev, ret1_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.ret1_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, ret1_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.ret1_present} onChange={(val: string) => handleAssetsNumberInput('ret1_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.ret1_projected} onChange={(val: string) => handleAssetsNumberInput('ret1_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#2</td>
+                    <td className="border border-black px-2 py-1 text-sm">COMPANY MATCH %</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ret2_him} onChange={(e) => setAssets(prev => ({ ...prev, ret2_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ret2_her} onChange={(e) => setAssets(prev => ({ ...prev, ret2_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0" colSpan={3}>
+                      <ExcelTextInput value={assets.ret2_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, ret2_notes: val }))} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#3</td>
+                    <td className="border border-black px-2 py-1 text-sm">ARE YOU MAX FUNDING (~$22.5K)</td>
+                    <td className="border border-black" colSpan={2}></td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.ret3_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, ret3_notes: val }))} />
+                    </td>
+                    <td className="border border-black"></td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.ret3_projected} onChange={(val: string) => handleAssetsNumberInput('ret3_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#4</td>
+                    <td className="border border-black px-2 py-1 text-sm">PREVIOUS 401K | ROLLOVER 401K</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ret4_him} onChange={(e) => setAssets(prev => ({ ...prev, ret4_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ret4_her} onChange={(e) => setAssets(prev => ({ ...prev, ret4_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.ret4_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, ret4_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.ret4_present} onChange={(val: string) => handleAssetsNumberInput('ret4_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.ret4_projected} onChange={(val: string) => handleAssetsNumberInput('ret4_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#5</td>
+                    <td className="border border-black px-2 py-1 text-sm">TRADITIONAL IRA | SEP-IRA [TAX-DEFERRED]</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ret5_him} onChange={(e) => setAssets(prev => ({ ...prev, ret5_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ret5_her} onChange={(e) => setAssets(prev => ({ ...prev, ret5_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.ret5_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, ret5_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.ret5_present} onChange={(val: string) => handleAssetsNumberInput('ret5_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.ret5_projected} onChange={(val: string) => handleAssetsNumberInput('ret5_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#6</td>
+                    <td className="border border-black px-2 py-1 text-sm">ROTH IRA | ROTH 401K [TAX-FREE]</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ret6_him} onChange={(e) => setAssets(prev => ({ ...prev, ret6_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ret6_her} onChange={(e) => setAssets(prev => ({ ...prev, ret6_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.ret6_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, ret6_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.ret6_present} onChange={(val: string) => handleAssetsNumberInput('ret6_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.ret6_projected} onChange={(val: string) => handleAssetsNumberInput('ret6_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#7</td>
+                    <td className="border border-black px-2 py-1 text-sm">ESPP | RSU | ANNUITIES | PENSION</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ret7_him} onChange={(e) => setAssets(prev => ({ ...prev, ret7_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ret7_her} onChange={(e) => setAssets(prev => ({ ...prev, ret7_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.ret7_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, ret7_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.ret7_present} onChange={(val: string) => handleAssetsNumberInput('ret7_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.ret7_projected} onChange={(val: string) => handleAssetsNumberInput('ret7_projected', val)} />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* REAL ESTATE INVESTMENTS (USA) - 4 rows */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+              <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+                <thead>
+                  <tr style={{ backgroundColor: COLORS.headerBg }}>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-12">#</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold">REAL ESTATE INVESTMENTS (USA)</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HIM</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HER</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-64">NOTES</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">PRESENT VALUE</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">PROJECTED @ 65</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#8</td>
+                    <td className="border border-black px-2 py-1 text-sm">PERSONAL HOME</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.re1_him} onChange={(e) => setAssets(prev => ({ ...prev, re1_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.re1_her} onChange={(e) => setAssets(prev => ({ ...prev, re1_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.re1_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, re1_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.re1_present} onChange={(val: string) => handleAssetsNumberInput('re1_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.re1_projected} onChange={(val: string) => handleAssetsNumberInput('re1_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#9</td>
+                    <td className="border border-black px-2 py-1 text-sm">REAL ESTATE PROPERTIES | RENTALS</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.re2_him} onChange={(e) => setAssets(prev => ({ ...prev, re2_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.re2_her} onChange={(e) => setAssets(prev => ({ ...prev, re2_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.re2_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, re2_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.re2_present} onChange={(val: string) => handleAssetsNumberInput('re2_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.re2_projected} onChange={(val: string) => handleAssetsNumberInput('re2_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#10</td>
+                    <td className="border border-black px-2 py-1 text-sm">REAL ESTATE LAND PARCELS</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.re3_him} onChange={(e) => setAssets(prev => ({ ...prev, re3_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.re3_her} onChange={(e) => setAssets(prev => ({ ...prev, re3_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.re3_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, re3_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.re3_present} onChange={(val: string) => handleAssetsNumberInput('re3_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.re3_projected} onChange={(val: string) => handleAssetsNumberInput('re3_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#11</td>
+                    <td className="border border-black px-2 py-1 text-sm">INHERITANCE IN THE USA</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.re4_him} onChange={(e) => setAssets(prev => ({ ...prev, re4_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.re4_her} onChange={(e) => setAssets(prev => ({ ...prev, re4_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.re4_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, re4_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.re4_present} onChange={(val: string) => handleAssetsNumberInput('re4_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.re4_projected} onChange={(val: string) => handleAssetsNumberInput('re4_projected', val)} />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* STOCKS | BUSINESS | INCOME (USA) - 7 rows - CONTINUED IN NEXT MESSAGE */}
+
+
+            {/* STOCKS | BUSINESS | INCOME (USA) - 7 rows */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+              <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+                <thead>
+                  <tr style={{ backgroundColor: COLORS.headerBg }}>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-12">#</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold">STOCKS | BUSINESS | INCOME (USA)</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HIM</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HER</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-64">NOTES</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">PRESENT VALUE</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">PROJECTED @ 65</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#12</td>
+                    <td className="border border-black px-2 py-1 text-sm">STOCKS | MFs | BONDS | ETFs (OUTSIDE OF 401K)</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb1_him} onChange={(e) => setAssets(prev => ({ ...prev, sb1_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb1_her} onChange={(e) => setAssets(prev => ({ ...prev, sb1_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.sb1_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, sb1_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.sb1_present} onChange={(val: string) => handleAssetsNumberInput('sb1_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.sb1_projected} onChange={(val: string) => handleAssetsNumberInput('sb1_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#13</td>
+                    <td className="border border-black px-2 py-1 text-sm">DO YOU OWN A BUSINESS</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb2_him} onChange={(e) => setAssets(prev => ({ ...prev, sb2_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb2_her} onChange={(e) => setAssets(prev => ({ ...prev, sb2_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.sb2_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, sb2_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.sb2_present} onChange={(val: string) => handleAssetsNumberInput('sb2_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.sb2_projected} onChange={(val: string) => handleAssetsNumberInput('sb2_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#14</td>
+                    <td className="border border-black px-2 py-1 text-sm">ALTERNATIVE INVESTMENTS (PRIVATE EQUITY, CROWD FUNDING, ETC.)</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb3_him} onChange={(e) => setAssets(prev => ({ ...prev, sb3_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb3_her} onChange={(e) => setAssets(prev => ({ ...prev, sb3_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.sb3_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, sb3_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.sb3_present} onChange={(val: string) => handleAssetsNumberInput('sb3_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.sb3_projected} onChange={(val: string) => handleAssetsNumberInput('sb3_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#15</td>
+                    <td className="border border-black px-2 py-1 text-sm">CERTIFICATE OF DEPOSITS (BANK CDs)</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb4_him} onChange={(e) => setAssets(prev => ({ ...prev, sb4_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb4_her} onChange={(e) => setAssets(prev => ({ ...prev, sb4_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.sb4_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, sb4_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.sb4_present} onChange={(val: string) => handleAssetsNumberInput('sb4_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.sb4_projected} onChange={(val: string) => handleAssetsNumberInput('sb4_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#16</td>
+                    <td className="border border-black px-2 py-1 text-sm">CASH IN BANK + EMERGENCY FUND</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb5_him} onChange={(e) => setAssets(prev => ({ ...prev, sb5_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb5_her} onChange={(e) => setAssets(prev => ({ ...prev, sb5_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.sb5_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, sb5_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.sb5_present} onChange={(val: string) => handleAssetsNumberInput('sb5_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.sb5_projected} onChange={(val: string) => handleAssetsNumberInput('sb5_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#17</td>
+                    <td className="border border-black px-2 py-1 text-sm">ANNUAL HOUSE-HOLD INCOME</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb6_him} onChange={(e) => setAssets(prev => ({ ...prev, sb6_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb6_her} onChange={(e) => setAssets(prev => ({ ...prev, sb6_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.sb6_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, sb6_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0" colSpan={2}>
+                      <ExcelNumberInput value={assets.sb6_amount} onChange={(val: string) => handleAssetsNumberInput('sb6_amount', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#18</td>
+                    <td className="border border-black px-2 py-1 text-sm">ANNUAL SAVINGS GOING FORWARD</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb7_him} onChange={(e) => setAssets(prev => ({ ...prev, sb7_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.sb7_her} onChange={(e) => setAssets(prev => ({ ...prev, sb7_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.sb7_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, sb7_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.sb7_amount} onChange={(val: string) => handleAssetsNumberInput('sb7_amount', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.sb7_projected} onChange={(val: string) => handleAssetsNumberInput('sb7_projected', val)} />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* FAMILY PROTECTION & INSURANCE - 8 rows - CONTINUED */}
+
+
+            {/* FAMILY PROTECTION & INSURANCE - 8 rows */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+              <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+                <thead>
+                  <tr style={{ backgroundColor: COLORS.headerBg }}>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-12">#</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold">FAMILY PROTECTION & INSURANCE</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HIM</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HER</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-64">NOTES</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">PRESENT CASH VALUE</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">FUTURE LEGACY VALUE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#19</td>
+                    <td className="border border-black px-2 py-1 text-sm">LIFE INSURANCE AT WORK</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp1_him} onChange={(e) => setAssets(prev => ({ ...prev, fp1_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp1_her} onChange={(e) => setAssets(prev => ({ ...prev, fp1_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.fp1_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, fp1_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.fp1_cash} onChange={(val: string) => handleAssetsNumberInput('fp1_cash', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.fp1_legacy} onChange={(val: string) => handleAssetsNumberInput('fp1_legacy', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#20</td>
+                    <td className="border border-black px-2 py-1 text-sm">LIFE INSURANCE OUTSIDE WORK</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp2_him} onChange={(e) => setAssets(prev => ({ ...prev, fp2_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp2_her} onChange={(e) => setAssets(prev => ({ ...prev, fp2_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.fp2_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, fp2_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.fp2_cash} onChange={(val: string) => handleAssetsNumberInput('fp2_cash', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.fp2_legacy} onChange={(val: string) => handleAssetsNumberInput('fp2_legacy', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#21</td>
+                    <td className="border border-black px-2 py-1 text-sm">IS IT CASH VALUE LIFE INSURANCE?</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp3_him} onChange={(e) => setAssets(prev => ({ ...prev, fp3_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp3_her} onChange={(e) => setAssets(prev => ({ ...prev, fp3_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0" colSpan={3}>
+                      <ExcelTextInput value={assets.fp3_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, fp3_notes: val }))} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#22</td>
+                    <td className="border border-black px-2 py-1 text-sm">WHICH COMPANY? HOW LONG?</td>
+                    <td className="border border-black" colSpan={5}>
+                      <ExcelTextInput value={assets.fp4_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, fp4_notes: val }))} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#23</td>
+                    <td className="border border-black px-2 py-1 text-sm">SHORT TERM | LONG TERM DISABILITY AT WORK</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp5_him} onChange={(e) => setAssets(prev => ({ ...prev, fp5_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp5_her} onChange={(e) => setAssets(prev => ({ ...prev, fp5_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0" colSpan={3}>
+                      <ExcelTextInput value={assets.fp5_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, fp5_notes: val }))} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#24</td>
+                    <td className="border border-black px-2 py-1 text-sm">LONG TERM CARE OUTSIDE OF WORK</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp6_him} onChange={(e) => setAssets(prev => ({ ...prev, fp6_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp6_her} onChange={(e) => setAssets(prev => ({ ...prev, fp6_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.fp6_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, fp6_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0" colSpan={2}>
+                      <ExcelNumberInput value={assets.fp6_present} onChange={(val: string) => handleAssetsNumberInput('fp6_present', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#25</td>
+                    <td className="border border-black px-2 py-1 text-sm">HEALTH SAVINGS ACCOUNT (HSA)</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp7_him} onChange={(e) => setAssets(prev => ({ ...prev, fp7_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp7_her} onChange={(e) => setAssets(prev => ({ ...prev, fp7_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.fp7_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, fp7_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.fp7_present} onChange={(val: string) => handleAssetsNumberInput('fp7_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.fp7_projected} onChange={(val: string) => handleAssetsNumberInput('fp7_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#26</td>
+                    <td className="border border-black px-2 py-1 text-sm">MORTGAGE PROTECTION INSURANCE</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp8_him} onChange={(e) => setAssets(prev => ({ ...prev, fp8_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fp8_her} onChange={(e) => setAssets(prev => ({ ...prev, fp8_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0" colSpan={3}>
+                      <ExcelTextInput value={assets.fp8_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, fp8_notes: val }))} />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* COLLEGE PLANNING / ESTATE PLANNING - 2 rows */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+              <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+                <thead>
+                  <tr style={{ backgroundColor: COLORS.headerBg }}>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-12">#</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold">COLLEGE PLANNING / ESTATE PLANNING</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-20">CHILD1</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-20">CHILD2</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-64">NOTES</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">PRESENT VALUE</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">PROJECTED VALUE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#27</td>
+                    <td className="border border-black px-2 py-1 text-sm">529 PLANS | STATE PRE-PAID PLANS</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ce1_child1} onChange={(e) => setAssets(prev => ({ ...prev, ce1_child1: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ce1_child2} onChange={(e) => setAssets(prev => ({ ...prev, ce1_child2: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.ce1_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, ce1_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.ce1_present} onChange={(val: string) => handleAssetsNumberInput('ce1_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.ce1_projected} onChange={(val: string) => handleAssetsNumberInput('ce1_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#28</td>
+                    <td className="border border-black px-2 py-1 text-sm">WILL & TRUST (ESTATE PLANNING)</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ce2_him} onChange={(e) => setAssets(prev => ({ ...prev, ce2_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.ce2_her} onChange={(e) => setAssets(prev => ({ ...prev, ce2_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0" colSpan={3}>
+                      <ExcelTextInput value={assets.ce2_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, ce2_notes: val }))} />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* FOREIGN ASSETS (OUTSIDE OF THE USA) - 2 rows */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+              <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+                <thead>
+                  <tr style={{ backgroundColor: COLORS.headerBg }}>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-12">#</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold">FOREIGN ASSETS (OUTSIDE OF THE USA)</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HIM</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HER</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-64">NOTES</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">PRESENT VALUE</th>
+                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">PROJECTED @ 65</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#29</td>
+                    <td className="border border-black px-2 py-1 text-sm">REAL ESTATE ASSETS</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fa1_him} onChange={(e) => setAssets(prev => ({ ...prev, fa1_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fa1_her} onChange={(e) => setAssets(prev => ({ ...prev, fa1_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.fa1_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, fa1_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.fa1_present} onChange={(val: string) => handleAssetsNumberInput('fa1_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.fa1_projected} onChange={(val: string) => handleAssetsNumberInput('fa1_projected', val)} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-black px-2 py-1 text-sm font-semibold">#30</td>
+                    <td className="border border-black px-2 py-1 text-sm">NON-REAL ESTATE ASSETS (FIXED DEPOSITS, STOCKS, LOANS, JEWELLERY, INVESTMENTS)</td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fa2_him} onChange={(e) => setAssets(prev => ({ ...prev, fa2_him: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black text-center">
+                      <input type="checkbox" checked={assets.fa2_her} onChange={(e) => setAssets(prev => ({ ...prev, fa2_her: e.target.checked }))} className="w-4 h-4" />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelTextInput value={assets.fa2_notes} onChange={(val: string) => setAssets(prev => ({ ...prev, fa2_notes: val }))} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.fa2_present} onChange={(val: string) => handleAssetsNumberInput('fa2_present', val)} />
+                    </td>
+                    <td className="border border-black p-0">
+                      <ExcelNumberInput value={assets.fa2_projected} onChange={(val: string) => handleAssetsNumberInput('fa2_projected', val)} />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* TOTAL ASSETS */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+              <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
+                <tbody>
+                  <tr style={{ backgroundColor: COLORS.headerBg }}>
+                    <td className="border border-black px-4 py-3 text-lg font-bold">TOTAL ASSETS</td>
+                    <td className="border border-black px-4 py-3 text-right text-lg font-bold text-green-700">
+                      Present Value: {formatCurrency(assets.totalPresent)}
+                    </td>
+                    <td className="border border-black px-4 py-3 text-right text-lg font-bold text-blue-700">
+                      Projected @ 65: {formatCurrency(assets.totalProjected)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Compliance Notes */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+              <div className="text-xs space-y-2">
+                <p className="font-semibold">RISK AND COMPLIANCE FROM FOREIGN OR OFF-SHORE ASSETS AND INCOME</p>
+                <p><strong>** FBAR (Foreign Bank Account Report)</strong> - Over $10K Cash Value in Foreign Accounts - Report to US Treasury and No Tax Implications - Ex: Cash in Bank, Stocks, Business, Life Insurance</p>
+                <p><strong>** FATCA (Foreign Account Tax Compliance Act)</strong> - Over $50k Foreign Financial Assets - Report to IRS with applicable Taxes (Form 8938) - Rental, Interest, Stocks, Business</p>
+              </div>
+            </div>
+
+            {/* Disclaimer */}
+            <div className="bg-black text-white text-xs text-center py-3 rounded">
+              DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE
+            </div>
+
+// ============================================
+// END OF PART 4
+// 
+// COMPLETE ASSETS SECTION WITH ALL 31 ROWS:
+// - Retirement Planning (7 rows)
+// - Real Estate (4 rows)
+// - Stocks/Business/Income (7 rows)
+// - Family Protection (8 rows)
+// - College/Estate (2 rows)
+// - Foreign Assets (2 rows)
+// - Total Assets (calculated)
+// - Compliance notes
+// - Disclaimer
+//
+// TO INTEGRATE:
+// 1. Open your assembled file (Parts 1+2+3)
+// 2. Find the Assets placeholder around line 2300
+// 3. Replace the placeholder content with this Part 4 content
+// 4. Save and test!
+// ============================================
