@@ -2244,7 +2244,6 @@ export default function FNAPage() {
                 <p><strong>** FBAR (Foreign Bank Account Report)</strong> - Over $10K Cash Value in Foreign Accounts - Report to US Treasury and No Tax Implications - Ex: Cash in Bank, Stocks, Business, Life Insurance</p>
                 <p><strong>** FATCA (Foreign Account Tax Compliance Act)</strong> - Over $50k Foreign Financial Assets - Report to IRS with applicable Taxes (Form 8938) - Rental, Interest, Stocks, Business</p>
               </div>
-            </div>
             {/* Disclaimer */}
             <div className="bg-black text-white text-xs text-center py-3 rounded">
               DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE
