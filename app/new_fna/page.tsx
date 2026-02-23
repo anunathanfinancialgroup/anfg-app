@@ -603,15 +603,7 @@ export default function FNAPage() {
 // HELPER FUNCTIONS - Will be in Part 2
 // UI COMPONENTS - Will be in Part 2
 
-// ============================================
-// END OF PART 1
-// Continue with Part 2 for helper functions,
-// save logic, and UI component definitions
-// ============================================
 
-// ============================================
-// PART 2 OF 3: Save Logic, Helper Functions, UI Components
-// ============================================
 
   // SAVE FUNCTION - SAVES BOTH GOALS AND ASSETS
   const handleSave = async () => {
@@ -1044,15 +1036,7 @@ export default function FNAPage() {
     );
   };
 
-// ============================================
-// END OF PART 2
-// Continue with Part 3 for the complete JSX
-// (Header, Client Info, Goals Section, Assets Section)
-// ============================================
 
-// ============================================
-// PART 3 OF 3: Complete JSX - Tab Navigation, Goals & Assets
-// ============================================
 
   return (
     <div className="min-h-screen bg-gray-50">
