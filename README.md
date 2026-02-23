@@ -4,7 +4,6 @@
 
 A single FNA page with TWO clickable tab cards:
 
-```
 ┌─────────────────────────────────────────────────────────────┐
 │  Client Information (shared between both tabs)              │
 └─────────────────────────────────────────────────────────────┘
