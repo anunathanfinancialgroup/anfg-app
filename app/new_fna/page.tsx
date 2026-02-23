@@ -1,12 +1,11 @@
 "use client";
 
 /**
- * Financial Need Analysis (FNA) Calculator - Production Ready
- * All issues fixed:
- * - Multi-character input working
- * - Button colors matching dashboard
- * - Clear PDF export
- * - Proper table borders
+ * Financial Need Analysis (FNA) Calculator - Final Production
+ * Fixed:
+ * - All cards have 4 aligned columns
+ * - All cell borders visible
+ * - Retirement card aligned with other cards
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -368,12 +367,6 @@ export default function FNAPage() {
     router.push("/");
   };
 
-  const handleReset = () => {
-    if (confirm("Reset all values?")) {
-      setData(initialData);
-    }
-  };
-
   const handleRefresh = () => {
     loadClients();
     showMessage("Data refreshed", 'success');
@@ -440,7 +433,6 @@ export default function FNAPage() {
     );
   };
 
-  // FIXED: Simple text input without any state issues
   const ExcelTextInput = ({ value, onChange, readOnly = false }: any) => {
     return (
       <input
@@ -458,7 +450,6 @@ export default function FNAPage() {
     );
   };
 
-  // FIXED: Number input that handles currency formatting
   const ExcelNumberInput = ({ value, onChange, readOnly = false, calculated = false }: any) => {
     const [displayValue, setDisplayValue] = useState('');
 
@@ -575,7 +566,7 @@ export default function FNAPage() {
           )}
         </div>
 
-        {/* Client Information Card */}
+        {/* Client Information */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-lg font-bold">Client Information</h3>
@@ -604,98 +595,50 @@ export default function FNAPage() {
             </div>
             <div>
               <label className="block text-sm font-semibold mb-1">Phone Number</label>
-              <input
-                type="text"
-                value={data.clientPhone}
-                readOnly
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50"
-              />
+              <input type="text" value={data.clientPhone} readOnly className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50" />
             </div>
             <div>
               <label className="block text-sm font-semibold mb-1">Email</label>
-              <input
-                type="text"
-                value={data.clientEmail}
-                readOnly
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50"
-              />
+              <input type="text" value={data.clientEmail} readOnly className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50" />
             </div>
           </div>
           <div className="grid grid-cols-4 gap-4 mb-3">
             <div>
               <label className="block text-sm font-semibold mb-1">Spouse Name</label>
-              <input
-                type="text"
-                value={data.spouseName}
-                onChange={(e) => setData(prev => ({ ...prev, spouseName: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
+              <input type="text" value={data.spouseName} onChange={(e) => setData(prev => ({ ...prev, spouseName: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="block text-sm font-semibold mb-1">Spouse Phone</label>
-              <input
-                type="text"
-                value={data.spousePhone}
-                onChange={(e) => setData(prev => ({ ...prev, spousePhone: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
+              <input type="text" value={data.spousePhone} onChange={(e) => setData(prev => ({ ...prev, spousePhone: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="block text-sm font-semibold mb-1">Spouse Email</label>
-              <input
-                type="text"
-                value={data.spouseEmail}
-                onChange={(e) => setData(prev => ({ ...prev, spouseEmail: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
+              <input type="text" value={data.spouseEmail} onChange={(e) => setData(prev => ({ ...prev, spouseEmail: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="block text-sm font-semibold mb-1">Date of Birth</label>
-              <input
-                type="date"
-                value={data.clientDob}
-                readOnly
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50"
-              />
+              <input type="date" value={data.clientDob} readOnly className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50" />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-semibold mb-1">City</label>
-              <input
-                type="text"
-                value={data.city}
-                readOnly
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50"
-              />
+              <input type="text" value={data.city} readOnly className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50" />
             </div>
             <div>
               <label className="block text-sm font-semibold mb-1">State</label>
-              <input
-                type="text"
-                value={data.state}
-                readOnly
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50"
-              />
+              <input type="text" value={data.state} readOnly className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50" />
             </div>
             <div>
               <label className="block text-sm font-semibold mb-1">Analysis Date</label>
-              <input
-                type="date"
-                value={data.analysisDate}
-                onChange={(e) => setData(prev => ({ ...prev, analysisDate: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
+              <input type="date" value={data.analysisDate} onChange={(e) => setData(prev => ({ ...prev, analysisDate: e.target.value }))} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
             </div>
           </div>
         </div>
 
-        {/* College Planning Card */}
+        {/* College Planning */}
         <div className="mb-2 flex justify-end no-print">
-          <button
-            onClick={() => window.open('https://educationdata.org/average-cost-of-college-by-state#tx', '_blank')}
-            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm"
-          >
+          <button onClick={() => window.open('https://educationdata.org/average-cost-of-college-by-state#tx', '_blank')} className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm">
             📚 Cost of College
           </button>
         </div>
@@ -713,55 +656,34 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#1</td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col2}px` }}>
-                  <ExcelTextInput
-                    value={data.child1CollegeName}
-                    onChange={(val: string) => setData(prev => ({ ...prev, child1CollegeName: val }))}
-                  />
+                  <ExcelTextInput value={data.child1CollegeName} onChange={(val: string) => setData(prev => ({ ...prev, child1CollegeName: val }))} />
                 </td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col3}px` }}>
-                  <ExcelTextInput
-                    value={data.child1CollegeYear}
-                    onChange={(val: string) => setData(prev => ({ ...prev, child1CollegeYear: val }))}
-                  />
+                  <ExcelTextInput value={data.child1CollegeYear} onChange={(val: string) => setData(prev => ({ ...prev, child1CollegeYear: val }))} />
                 </td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
-                  <ExcelNumberInput
-                    value={data.child1CollegeAmount}
-                    onChange={(val: string) => handleNumberInput('child1CollegeAmount', val)}
-                  />
+                  <ExcelNumberInput value={data.child1CollegeAmount} onChange={(val: string) => handleNumberInput('child1CollegeAmount', val)} />
                 </td>
               </tr>
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#2</td>
                 <td className="border border-black p-0">
-                  <ExcelTextInput
-                    value={data.child2CollegeName}
-                    onChange={(val: string) => setData(prev => ({ ...prev, child2CollegeName: val }))}
-                  />
+                  <ExcelTextInput value={data.child2CollegeName} onChange={(val: string) => setData(prev => ({ ...prev, child2CollegeName: val }))} />
                 </td>
                 <td className="border border-black p-0">
-                  <ExcelTextInput
-                    value={data.child2CollegeYear}
-                    onChange={(val: string) => setData(prev => ({ ...prev, child2CollegeYear: val }))}
-                  />
+                  <ExcelTextInput value={data.child2CollegeYear} onChange={(val: string) => setData(prev => ({ ...prev, child2CollegeYear: val }))} />
                 </td>
                 <td className="border border-black p-0">
-                  <ExcelNumberInput
-                    value={data.child2CollegeAmount}
-                    onChange={(val: string) => handleNumberInput('child2CollegeAmount', val)}
-                  />
+                  <ExcelNumberInput value={data.child2CollegeAmount} onChange={(val: string) => handleNumberInput('child2CollegeAmount', val)} />
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        {/* Wedding Planning Card */}
+        {/* Wedding Planning */}
         <div className="mb-2 flex justify-end no-print">
-          <button
-            onClick={() => window.open('https://www.zola.com/expert-advice/whats-the-average-cost-of-a-wedding', '_blank')}
-            className="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700 transition-colors text-sm"
-          >
+          <button onClick={() => window.open('https://www.zola.com/expert-advice/whats-the-average-cost-of-a-wedding', '_blank')} className="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700 transition-colors text-sm">
             💒 Wedding Expenses
           </button>
         </div>
@@ -781,10 +703,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>{data.child1CollegeName || 'CHILD 1'}</td>
                 <td className="border border-black" style={{ width: `${columnWidths.col3}px` }}></td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
-                  <ExcelNumberInput
-                    value={data.child1WeddingAmount}
-                    onChange={(val: string) => handleNumberInput('child1WeddingAmount', val)}
-                  />
+                  <ExcelNumberInput value={data.child1WeddingAmount} onChange={(val: string) => handleNumberInput('child1WeddingAmount', val)} />
                 </td>
               </tr>
               <tr>
@@ -792,111 +711,84 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm">{data.child2CollegeName || 'CHILD 2'}</td>
                 <td className="border border-black"></td>
                 <td className="border border-black p-0">
-                  <ExcelNumberInput
-                    value={data.child2WeddingAmount}
-                    onChange={(val: string) => handleNumberInput('child2WeddingAmount', val)}
-                  />
+                  <ExcelNumberInput value={data.child2WeddingAmount} onChange={(val: string) => handleNumberInput('child2WeddingAmount', val)} />
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        {/* Retirement Planning */}
+        {/* Retirement Planning - FIXED: Now 4 columns aligned */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
                 <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold" colSpan={2}>RETIREMENT PLANNING</th>
+                <ResizableHeader column="col2" width={columnWidths.col2}>RETIREMENT PLANNING</ResizableHeader>
+                <ResizableHeader column="col3" width={columnWidths.col3}>NOTES</ResizableHeader>
                 <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#5</td>
-                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>NUMBER OF YEARS TO RETIREMENT AGE OF 65</td>
+                <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>NUMBER OF YEARS TO RETIREMENT AGE OF 65</td>
+                <td className="border border-black" style={{ width: `${columnWidths.col3}px` }}></td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <div className="flex border-0">
-                    <input
-                      type="text"
-                      value={data.currentAge || ''}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/[^0-9]/g, '');
-                        setData(prev => ({ ...prev, currentAge: parseInt(val) || 0 }));
-                      }}
-                      className="w-1/2 px-2 py-1 text-sm text-center bg-white"
-                      placeholder="Current Age"
-                      style={{ outline: 'none', borderRight: '1px solid black' }}
-                    />
-                    <div className="w-1/2 px-2 py-1 bg-gray-100 text-sm text-center font-semibold">
-                      {data.yearsToRetirement}
-                    </div>
+                    <input type="text" value={data.currentAge || ''} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ''); setData(prev => ({ ...prev, currentAge: parseInt(val) || 0 })); }} className="w-1/2 px-2 py-1 text-sm text-center bg-white" placeholder="Current Age" style={{ outline: 'none', borderRight: '1px solid black' }} />
+                    <div className="w-1/2 px-2 py-1 bg-gray-100 text-sm text-center font-semibold">{data.yearsToRetirement}</div>
                   </div>
                 </td>
               </tr>
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#6</td>
-                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>NUMBER OF YEARS IN RETIREMENT (*UNTIL AGE 85 OR 90)</td>
+                <td className="border border-black px-2 py-1 text-sm">NUMBER OF YEARS IN RETIREMENT (*UNTIL AGE 85 OR 90)</td>
+                <td className="border border-black"></td>
                 <td className="border border-black p-0">
                   <div className="flex border-0">
-                    <div className="w-1/2 px-2 py-1 text-sm text-center bg-gray-100" style={{ borderRight: '1px solid black' }}>
-                      {data.currentAge || ''}
-                    </div>
-                    <div className="w-1/2 px-2 py-1 bg-gray-100 text-sm text-center font-semibold">
-                      {data.retirementYears}
-                    </div>
+                    <div className="w-1/2 px-2 py-1 text-sm text-center bg-gray-100" style={{ borderRight: '1px solid black' }}>{data.currentAge || ''}</div>
+                    <div className="w-1/2 px-2 py-1 bg-gray-100 text-sm text-center font-semibold">{data.retirementYears}</div>
                   </div>
                 </td>
               </tr>
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#7</td>
-                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>MONTHLY INCOME NEEDED IN TODAY'S DOLLARS (PRE-TAX)</td>
+                <td className="border border-black px-2 py-1 text-sm">MONTHLY INCOME NEEDED IN TODAY'S DOLLARS (PRE-TAX)</td>
+                <td className="border border-black"></td>
                 <td className="border border-black p-0">
-                  <ExcelNumberInput
-                    value={data.monthlyIncomeNeeded}
-                    onChange={(val: string) => handleNumberInput('monthlyIncomeNeeded', val)}
-                  />
+                  <ExcelNumberInput value={data.monthlyIncomeNeeded} onChange={(val: string) => handleNumberInput('monthlyIncomeNeeded', val)} />
                 </td>
               </tr>
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#8</td>
-                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>MONTHLY RETIREMENT INCOME @ 65 w-INFLATION 3%</td>
+                <td className="border border-black px-2 py-1 text-sm">MONTHLY RETIREMENT INCOME @ 65 w-INFLATION 3%</td>
+                <td className="border border-black"></td>
                 <td className="border border-black p-0">
-                  <ExcelNumberInput
-                    value={data.monthlyRetirementIncome}
-                    readOnly
-                    calculated
-                  />
+                  <ExcelNumberInput value={data.monthlyRetirementIncome} readOnly calculated />
                 </td>
               </tr>
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#9</td>
-                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>ANNUAL RETIREMENT INCOME @ 65 w-INFLATION 3%</td>
+                <td className="border border-black px-2 py-1 text-sm">ANNUAL RETIREMENT INCOME @ 65 w-INFLATION 3%</td>
+                <td className="border border-black"></td>
                 <td className="border border-black p-0">
-                  <ExcelNumberInput
-                    value={data.annualRetirementIncome}
-                    readOnly
-                    calculated
-                  />
+                  <ExcelNumberInput value={data.annualRetirementIncome} readOnly calculated />
                 </td>
               </tr>
               <tr style={{ backgroundColor: COLORS.yellowBg }}>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#10</td>
-                <td className="border border-black px-2 py-1 text-sm font-bold" colSpan={2}>TOTAL RETIREMENT INCOME</td>
+                <td className="border border-black px-2 py-1 text-sm font-bold">TOTAL RETIREMENT INCOME</td>
+                <td className="border border-black"></td>
                 <td className="border border-black p-0">
-                  <ExcelNumberInput
-                    value={data.totalRetirementIncome}
-                    readOnly
-                    calculated
-                  />
+                  <ExcelNumberInput value={data.totalRetirementIncome} readOnly calculated />
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        {/* Healthcare */}
+        {/* Healthcare - FIXED: All borders visible */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
@@ -913,10 +805,7 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>HEALTH CARE OUT-OF-POCKET EXPENSES (PLAN FOR ~20+ YRS)</td>
                 <td className="border border-black px-2 py-1 text-xs text-gray-600" style={{ width: `${columnWidths.col3}px` }}>~$315K FOR COUPLE IN TODAY'S DOLLARS</td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
-                  <ExcelNumberInput
-                    value={data.healthcareExpenses}
-                    onChange={(val: string) => handleNumberInput('healthcareExpenses', val)}
-                  />
+                  <ExcelNumberInput value={data.healthcareExpenses} onChange={(val: string) => handleNumberInput('healthcareExpenses', val)} />
                 </td>
               </tr>
               <tr>
@@ -924,18 +813,14 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm">LONG TERM CARE | DISABILITY (PLAN FOR ATLEAST 2+ YRS EACH)</td>
                 <td className="border border-black px-2 py-1 text-xs text-gray-600">(#11 * 0.03 * (#6 * 2))</td>
                 <td className="border border-black p-0">
-                  <ExcelNumberInput
-                    value={data.longTermCare}
-                    readOnly
-                    calculated
-                  />
+                  <ExcelNumberInput value={data.longTermCare} readOnly calculated />
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        {/* Life Goals */}
+        {/* Life Goals - FIXED: All borders visible */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
@@ -952,47 +837,38 @@ export default function FNAPage() {
                 <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>TRAVEL BUDGET (TRAVEL TO INDIA | TO KIDS | WORLD TRAVEL)</td>
                 <td className="border border-black px-2 py-1 text-xs text-gray-600" style={{ width: `${columnWidths.col3}px` }}>your travel plan expenses after retirement per year</td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
-                  <ExcelNumberInput
-                    value={data.travelBudget}
-                    onChange={(val: string) => handleNumberInput('travelBudget', val)}
-                  />
+                  <ExcelNumberInput value={data.travelBudget} onChange={(val: string) => handleNumberInput('travelBudget', val)} />
                 </td>
               </tr>
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#14</td>
-                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>VACATION HOME | FARM HOUSE | NEW LUXURY HOME</td>
+                <td className="border border-black px-2 py-1 text-sm">VACATION HOME | FARM HOUSE | NEW LUXURY HOME</td>
+                <td className="border border-black"></td>
                 <td className="border border-black p-0">
-                  <ExcelNumberInput
-                    value={data.vacationHome}
-                    onChange={(val: string) => handleNumberInput('vacationHome', val)}
-                  />
+                  <ExcelNumberInput value={data.vacationHome} onChange={(val: string) => handleNumberInput('vacationHome', val)} />
                 </td>
               </tr>
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#15</td>
-                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>CHARITY FOUNDATION | OLD AGE HOME | TEMPLE ETC.,</td>
+                <td className="border border-black px-2 py-1 text-sm">CHARITY FOUNDATION | OLD AGE HOME | TEMPLE ETC.,</td>
+                <td className="border border-black"></td>
                 <td className="border border-black p-0">
-                  <ExcelNumberInput
-                    value={data.charity}
-                    onChange={(val: string) => handleNumberInput('charity', val)}
-                  />
+                  <ExcelNumberInput value={data.charity} onChange={(val: string) => handleNumberInput('charity', val)} />
                 </td>
               </tr>
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#16</td>
-                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>OTHER LIFE GOALS (BOAT | RV | EXOTIC CAR | JEWELLERY ETC.)</td>
+                <td className="border border-black px-2 py-1 text-sm">OTHER LIFE GOALS (BOAT | RV | EXOTIC CAR | JEWELLERY ETC.)</td>
+                <td className="border border-black"></td>
                 <td className="border border-black p-0">
-                  <ExcelNumberInput
-                    value={data.otherGoals}
-                    onChange={(val: string) => handleNumberInput('otherGoals', val)}
-                  />
+                  <ExcelNumberInput value={data.otherGoals} onChange={(val: string) => handleNumberInput('otherGoals', val)} />
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        {/* Legacy */}
+        {/* Legacy - FIXED: All borders visible */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
@@ -1006,32 +882,26 @@ export default function FNAPage() {
             <tbody>
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#17</td>
-                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>HEADSTART FUND FOR KIDS PRIMARY HOME OR BUSINESS</td>
+                <td className="border border-black px-2 py-1 text-sm">HEADSTART FUND FOR KIDS PRIMARY HOME OR BUSINESS</td>
+                <td className="border border-black"></td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
-                  <ExcelNumberInput
-                    value={data.headstartFund}
-                    onChange={(val: string) => handleNumberInput('headstartFund', val)}
-                  />
+                  <ExcelNumberInput value={data.headstartFund} onChange={(val: string) => handleNumberInput('headstartFund', val)} />
                 </td>
               </tr>
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#18</td>
-                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>LEGACY ASSET FOR KIDS | FAMILY LEGACY</td>
+                <td className="border border-black px-2 py-1 text-sm">LEGACY ASSET FOR KIDS | FAMILY LEGACY</td>
+                <td className="border border-black"></td>
                 <td className="border border-black p-0">
-                  <ExcelNumberInput
-                    value={data.familyLegacy}
-                    onChange={(val: string) => handleNumberInput('familyLegacy', val)}
-                  />
+                  <ExcelNumberInput value={data.familyLegacy} onChange={(val: string) => handleNumberInput('familyLegacy', val)} />
                 </td>
               </tr>
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#19</td>
-                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>RETIRE PARENTS | SPECIAL NEEDS KIDS | FAMILY SUPPORT</td>
+                <td className="border border-black px-2 py-1 text-sm">RETIRE PARENTS | SPECIAL NEEDS KIDS | FAMILY SUPPORT</td>
+                <td className="border border-black"></td>
                 <td className="border border-black p-0">
-                  <ExcelNumberInput
-                    value={data.familySupport}
-                    onChange={(val: string) => handleNumberInput('familySupport', val)}
-                  />
+                  <ExcelNumberInput value={data.familySupport} onChange={(val: string) => handleNumberInput('familySupport', val)} />
                 </td>
               </tr>
             </tbody>
