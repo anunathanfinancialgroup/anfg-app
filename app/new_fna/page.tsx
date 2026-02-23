@@ -374,6 +374,150 @@ const initialAssets: AssetsData = {
   totalProjected: 0
 };
 
+
+// ========================================
+// HELPER COMPONENTS (defined outside main component for performance)
+// ========================================
+
+const ResizableHeader = ({ children, column, width }: any) => {
+  const [isResizing, setIsResizing] = useState(false);
+  const startX = useRef(0);
+  const startWidth = useRef(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    startX.current = e.clientX;
+    startWidth.current = width;
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isResizing) {
+        const diff = e.clientX - startX.current;
+        handleColumnResize(column, startWidth.current + diff);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
+  return (
+    <th 
+      className="border border-black px-2 py-2 text-left text-sm font-bold relative"
+      style={{ width: `${width}px`, minWidth: `${width}px` }}
+    >
+      {children}
+      <div
+        className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500"
+        onMouseDown={handleMouseDown}
+        style={{ userSelect: 'none' }}
+      />
+    </th>
+  );
+};
+
+// EXCEL TEXT INPUT - FIXED for multi-character entry
+const ExcelTextInput = ({ value, onChange, readOnly = false }: any) => {
+  const [localValue, setLocalValue] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+
+  const displayValue = isFocused ? localValue : (value || '');
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    setLocalValue(value || '');
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (readOnly) return;
+    setLocalValue(e.target.value);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (!readOnly) {
+      onChange(localValue);
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      value={displayValue}
+      onChange={handleChange}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      readOnly={readOnly}
+      className={`w-full px-2 py-1 text-sm ${readOnly ? 'bg-gray-100' : 'bg-white'}`}
+      style={{ 
+        fontFamily: 'Arial, sans-serif', 
+        outline: 'none',
+        border: 'none'
+      }}
+    />
+  );
+};
+
+// EXCEL NUMBER INPUT - FIXED for multi-digit entry
+const ExcelNumberInput = ({ value, onChange, readOnly = false, calculated = false }: any) => {
+  const [localValue, setLocalValue] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+
+  const displayValue = isFocused 
+    ? localValue 
+    : (value === 0 && !calculated ? '' : formatCurrency(value));
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    setLocalValue(value === 0 ? '' : value.toString());
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (readOnly) return;
+    setLocalValue(e.target.value);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (!readOnly) {
+      onChange(localValue);
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      value={displayValue}
+      onChange={handleChange}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      readOnly={readOnly}
+      className={`w-full px-2 py-1 text-sm text-right ${
+        readOnly || calculated ? 'bg-gray-100 font-semibold' : 'bg-white'
+      }`}
+      style={{ 
+        fontFamily: 'Arial, sans-serif', 
+        outline: 'none',
+        border: 'none'
+      }}
+      placeholder="$0"
+    />
+  );
+};
+
 export default function FNAPage() {
   const router = useRouter();
   const [data, setData] = useState<FNAData>(initialData);
@@ -897,144 +1041,6 @@ export default function FNAPage() {
   };
 
   // RESIZABLE HEADER COMPONENT
-  const ResizableHeader = ({ children, column, width }: any) => {
-    const [isResizing, setIsResizing] = useState(false);
-    const startX = useRef(0);
-    const startWidth = useRef(0);
-
-    const handleMouseDown = (e: React.MouseEvent) => {
-      e.preventDefault();
-      setIsResizing(true);
-      startX.current = e.clientX;
-      startWidth.current = width;
-    };
-
-    useEffect(() => {
-      const handleMouseMove = (e: MouseEvent) => {
-        if (isResizing) {
-          const diff = e.clientX - startX.current;
-          handleColumnResize(column, startWidth.current + diff);
-        }
-      };
-
-      const handleMouseUp = () => {
-        setIsResizing(false);
-      };
-
-      if (isResizing) {
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-      }
-
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-    }, [isResizing]);
-
-    return (
-      <th 
-        className="border border-black px-2 py-2 text-left text-sm font-bold relative"
-        style={{ width: `${width}px`, minWidth: `${width}px` }}
-      >
-        {children}
-        <div
-          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500"
-          onMouseDown={handleMouseDown}
-          style={{ userSelect: 'none' }}
-        />
-      </th>
-    );
-  };
-
-  // EXCEL TEXT INPUT - FIXED for multi-character entry
-  const ExcelTextInput = ({ value, onChange, readOnly = false }: any) => {
-    const [localValue, setLocalValue] = useState('');
-    const [isFocused, setIsFocused] = useState(false);
-
-    const displayValue = isFocused ? localValue : (value || '');
-
-    const handleFocus = () => {
-      setIsFocused(true);
-      setLocalValue(value || '');
-    };
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (readOnly) return;
-      setLocalValue(e.target.value);
-    };
-
-    const handleBlur = () => {
-      setIsFocused(false);
-      if (!readOnly) {
-        onChange(localValue);
-      }
-    };
-
-    return (
-      <input
-        type="text"
-        value={displayValue}
-        onChange={handleChange}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        readOnly={readOnly}
-        className={`w-full px-2 py-1 text-sm ${readOnly ? 'bg-gray-100' : 'bg-white'}`}
-        style={{ 
-          fontFamily: 'Arial, sans-serif', 
-          outline: 'none',
-          border: 'none'
-        }}
-      />
-    );
-  };
-
-  // EXCEL NUMBER INPUT - FIXED for multi-digit entry
-  const ExcelNumberInput = ({ value, onChange, readOnly = false, calculated = false }: any) => {
-    const [localValue, setLocalValue] = useState('');
-    const [isFocused, setIsFocused] = useState(false);
-
-    const displayValue = isFocused 
-      ? localValue 
-      : (value === 0 && !calculated ? '' : formatCurrency(value));
-
-    const handleFocus = () => {
-      setIsFocused(true);
-      setLocalValue(value === 0 ? '' : value.toString());
-    };
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (readOnly) return;
-      setLocalValue(e.target.value);
-    };
-
-    const handleBlur = () => {
-      setIsFocused(false);
-      if (!readOnly) {
-        onChange(localValue);
-      }
-    };
-
-    return (
-      <input
-        type="text"
-        value={displayValue}
-        onChange={handleChange}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        readOnly={readOnly}
-        className={`w-full px-2 py-1 text-sm text-right ${
-          readOnly || calculated ? 'bg-gray-100 font-semibold' : 'bg-white'
-        }`}
-        style={{ 
-          fontFamily: 'Arial, sans-serif', 
-          outline: 'none',
-          border: 'none'
-        }}
-        placeholder="$0"
-      />
-    );
-  };
 
 
 
