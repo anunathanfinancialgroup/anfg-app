@@ -1,16 +1,14 @@
 "use client";
 
 /**
- * Financial Need Analysis (FNA) Calculator - Updated
+ * Financial Need Analysis (FNA) Calculator - Final Version
  * AnuNathan Financial Group
  * 
- * Updates:
- * - Client data auto-populated from client_registrations
- * - Spouse info saved to fna_records
- * - Resizable columns (Excel-style)
- * - Fixed input issues
- * - Auto-populated kid names
- * - Corrected calculations
+ * Features:
+ * - Fixed input (no auto-advance)
+ * - PDF export functionality
+ * - External resource links
+ * - Matching dashboard styling
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -132,15 +130,15 @@ export default function FNAPage() {
   const [data, setData] = useState<FNAData>(initialData);
   const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   
-  // Column widths state (shared across all cards)
   const [columnWidths, setColumnWidths] = useState({
-    col1: 60,   // # column
-    col2: 400,  // Description column
-    col3: 180,  // Years/Notes column
-    col4: 180,  // Amount column
+    col1: 60,
+    col2: 400,
+    col3: 180,
+    col4: 180,
   });
 
   useEffect(() => {
@@ -156,6 +154,7 @@ export default function FNAPage() {
   }, [router]);
 
   const loadClients = async () => {
+    setLoading(true);
     try {
       const { data: clientData, error } = await supabase
         .from('client_registrations')
@@ -166,6 +165,8 @@ export default function FNAPage() {
       setClients(clientData || []);
     } catch (error) {
       console.error('Error loading clients:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -182,15 +183,12 @@ export default function FNAPage() {
         city: client.city || '',
         state: client.state || '',
         clientDob: client.date_of_birth || '',
-        // Spouse phone/email would need to be added to client_registrations table
-        // For now, leaving empty - you can add these fields to the table
         spousePhone: '',
         spouseEmail: ''
       }));
     }
   };
 
-  // Auto-calculate formulas
   useEffect(() => {
     calculateFormulas();
   }, [
@@ -223,8 +221,6 @@ export default function FNAPage() {
       
       const annualRetirementIncome = monthlyRetirementIncome * 12;
       const totalRetirementIncome = annualRetirementIncome * retirementYears;
-      
-      // Updated calculation: #11 * 0.03 * (#6 * 2)
       const longTermCare = prev.healthcareExpenses * 0.03 * (retirementYears * 2);
       
       const totalRequirement = 
@@ -380,15 +376,28 @@ export default function FNAPage() {
     }
   };
 
-  // Column resize handler
+  const handleRefresh = () => {
+    loadClients();
+    showMessage("Data refreshed", 'success');
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      // Use browser's print dialog with PDF option
+      window.print();
+    } catch (error) {
+      console.error('Export error:', error);
+      showMessage("Export failed", 'error');
+    }
+  };
+
   const handleColumnResize = (column: string, newWidth: number) => {
     setColumnWidths(prev => ({
       ...prev,
-      [column]: Math.max(50, newWidth) // Minimum width of 50px
+      [column]: Math.max(50, newWidth)
     }));
   };
 
-  // Resizable column component
   const ResizableHeader = ({ children, column, width }: any) => {
     const [isResizing, setIsResizing] = useState(false);
     const startX = useRef(0);
@@ -439,7 +448,6 @@ export default function FNAPage() {
     );
   };
 
-  // Fixed Excel cell - no onChange in state setter
   const ExcelCell = ({ value, onChange, readOnly = false }: any) => (
     <input
       type="text"
@@ -467,8 +475,16 @@ export default function FNAPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4 mx-4 mt-4">
+      <style jsx global>{`
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
+      {/* Header - Matching Dashboard Style */}
+      <header className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4 mx-4 mt-4 no-print">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Image 
@@ -480,7 +496,7 @@ export default function FNAPage() {
             />
             <div>
               <h1 className="text-xl font-bold text-gray-900">Client Financial Need Analysis</h1>
-              <p className="text-xs text-gray-600">Building careers, protecting families</p>
+              <p className="text-xs text-gray-600">Build your career. Protect their future</p>
             </div>
           </div>
           <button
@@ -493,29 +509,30 @@ export default function FNAPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-4">
-        {/* Action Buttons */}
-        <div className="mb-4 flex gap-3">
+        {/* Action Buttons - Right Aligned like Dashboard */}
+        <div className="mb-4 flex justify-end gap-3 no-print">
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm font-semibold"
+          >
+            🔄 Refresh
+          </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 transition-colors font-semibold"
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 transition-colors font-semibold text-sm"
           >
-            💾 {saving ? "Saving..." : "Save FNA"}
+            {saving ? "Saving..." : "💾 Save"}
           </button>
           <button
-            onClick={handleReset}
-            className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+            onClick={handleExportPDF}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm"
           >
-            🔄 Reset
-          </button>
-          <button
-            onClick={() => window.print()}
-            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-          >
-            🖨️ Print
+            📄 Export
           </button>
           {message && (
-            <div className={`ml-auto px-4 py-2 rounded ${
+            <div className={`px-4 py-2 rounded ${
               messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
             }`}>
               {message}
@@ -525,7 +542,15 @@ export default function FNAPage() {
 
         {/* Client Information Header Card */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-          <h3 className="text-lg font-bold mb-3">Client Information</h3>
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-bold">Client Information</h3>
+            <button
+              onClick={() => window.open('https://www.calculator.net/', '_blank')}
+              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm no-print"
+            >
+              🧮 Calculator
+            </button>
+          </div>
           <div className="grid grid-cols-3 gap-4 mb-3">
             <div>
               <label className="block text-sm font-semibold mb-1">Client Name *</label>
@@ -630,7 +655,15 @@ export default function FNAPage() {
           </div>
         </div>
 
-        {/* Kids College Planning Card */}
+        {/* Kids College Planning Card with Button */}
+        <div className="mb-2 flex justify-end no-print">
+          <button
+            onClick={() => window.open('https://educationdata.org/average-cost-of-college-by-state#tx', '_blank')}
+            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm"
+          >
+            📚 Cost of College
+          </button>
+        </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
             <thead>
@@ -688,7 +721,15 @@ export default function FNAPage() {
           </table>
         </div>
 
-        {/* Kids Wedding Planning Card */}
+        {/* Kids Wedding Planning Card with Button */}
+        <div className="mb-2 flex justify-end no-print">
+          <button
+            onClick={() => window.open('https://www.zola.com/expert-advice/whats-the-average-cost-of-a-wedding', '_blank')}
+            className="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700 transition-colors text-sm"
+          >
+            💒 Wedding Expenses
+          </button>
+        </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <table className="w-full border-collapse" style={{ border: '1px solid black' }}>
             <thead>
@@ -732,7 +773,7 @@ export default function FNAPage() {
             <thead>
               <tr style={{ backgroundColor: COLORS.headerBg }}>
                 <ResizableHeader column="col1" width={columnWidths.col1}>#</ResizableHeader>
-                <th className="border border-black px-2 py-2 text-left text-sm font-bold" colSpan={2} style={{ width: `${columnWidths.col2 + columnWidths.col3}px` }}>RETIREMENT PLANNING</th>
+                <th className="border border-black px-2 py-2 text-left text-sm font-bold" colSpan={2}>RETIREMENT PLANNING</th>
                 <ResizableHeader column="col4" width={columnWidths.col4}>AMOUNT</ResizableHeader>
               </tr>
             </thead>
@@ -930,7 +971,7 @@ export default function FNAPage() {
             <tbody>
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#17</td>
-                <td className="border border-black px-2 py-1 text-sm" colSpan={2} style={{ width: `${columnWidths.col2 + columnWidths.col3}px` }}>HEADSTART FUND FOR KIDS PRIMARY HOME OR BUSINESS</td>
+                <td className="border border-black px-2 py-1 text-sm" colSpan={2}>HEADSTART FUND FOR KIDS PRIMARY HOME OR BUSINESS</td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <ExcelNumberCell
                     value={data.headstartFund}
