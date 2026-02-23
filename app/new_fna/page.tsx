@@ -1551,17 +1551,7 @@ export default function FNAPage() {
           </>
         )}
 
-        {/* ASSETS TAB CONTENT - Coming in next message due to size */}
-        {activeTab === 'assets' && (
-          <>
-            <div className="text-center py-20">
-              <p className="text-xl font-semibold text-gray-700 mb-2">Assets Section</p>
-              <p className="text-gray-500">Assets content will be added here</p>
-              <p className="text-sm text-gray-400 mt-4">This tab is ready - content being prepared in separate file</p>
-            </div>
-          </>
-        )}
-      </main>
+       </main>
     </div>
   );
 }
@@ -2247,7 +2237,6 @@ export default function FNAPage() {
               </table>
             </div>
 
-           
             {/* Compliance Notes */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
               <div className="text-xs space-y-2">
@@ -2256,7 +2245,6 @@ export default function FNAPage() {
                 <p><strong>** FATCA (Foreign Account Tax Compliance Act)</strong> - Over $50k Foreign Financial Assets - Report to IRS with applicable Taxes (Form 8938) - Rental, Interest, Stocks, Business</p>
               </div>
             </div>
-
             {/* Disclaimer */}
             <div className="bg-black text-white text-xs text-center py-3 rounded">
               DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE
