@@ -1,76 +1,172 @@
-# FNA with Two Tab Cards - Implementation Summary
+# Complete FNA Assembly Guide - 3 Parts
 
-## What's Being Created
+## Files You Have
 
-A single FNA page with TWO clickable tab cards:
+1. **fna-complete-part1.tsx** (~700 lines)
+   - Imports, interfaces, initial data
+   - Component setup
+   - State management
+   - Auto-calculations
 
-┌─────────────────────────────────────────────────────────────┐
-│  Client Information (shared between both tabs)              │
-└─────────────────────────────────────────────────────────────┘
+2. **fna-complete-part2.tsx** (~500 lines)
+   - Save function (13 tables)
+   - Helper functions
+   - Input components
+   - Column resizing
 
-┌─────────────────┐  ┌─────────────────┐
-│ 📊 GOALS        │  │ 💰 ASSETS       │  ← Clickable Tabs
-│ (ACTIVE)        │  │                 │
-└─────────────────┘  └─────────────────┘
+3. **fna-complete-part3.tsx** (~1,150 lines)
+   - Complete JSX return statement
+   - Header
+   - Client information
+   - **TWO TAB CARDS** (Goals & Assets)
+   - Complete Goals section
+   - Assets placeholder
 
-┌─────────────────────────────────────────────────────────────┐
-│                                                               │
-│  TAB 1 CONTENT (when Goals tab is clicked):                  │
-│  • Kids College Planning                                      │
-│  • Kids Wedding Planning                                      │
-│  • Retirement Planning                                        │
-│  • Healthcare Planning                                        │
-│  • Life Goals                                                 │
-│  • Legacy Planning                                            │
-│  • TOTAL REQUIREMENT                                          │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
+4. **fna-assets-tables.sql**
+   - Database tables
 
-OR
+## How to Assemble
 
-┌─────────────────────────────────────────────────────────────┐
-│                                                               │
-│  TAB 2 CONTENT (when Assets tab is clicked):                 │
-│  • Retirement Planning Assets (7 rows)                        │
-│  • Real Estate Investments (4 rows)                           │
-│  • Stocks/Business/Income (7 rows)                            │
-│  • Family Protection & Insurance (8 rows)                     │
-│  • College/Estate Planning (2 rows)                           │
-│  • Foreign Assets (2 rows)                                    │
-│  • TOTAL ASSETS                                               │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
+### Step 1: Create New File
+
+```bash
+touch fna-complete-with-tabs.tsx
 ```
 
-## Key Features
+### Step 2: Copy in Order
 
-1. **Single Client Selection** - Select client once, data shared between tabs
-2. **Tab Switching** - Click tabs to switch between Goals and Assets
-3. **Single Save Button** - Saves both Goals and Assets data
-4. **Single Export** - PDF includes both sections
-5. **Clean UI** - Only one section visible at a time
+Open `fna-complete-with-tabs.tsx` and:
 
-## File Being Created
+1. **Copy ALL of Part 1**
+   - Select entire file
+   - Copy and paste
 
-`fna-with-two-tabs.tsx` - Complete file with:
-- Both interfaces
-- Tab state management
-- Both card sections
-- Single save for all data
-- PDF export for both sections
+2. **Copy Part 2 (skip comment headers)**
+   - Start from line 2: `const handleSave = async () => {`
+   - Copy through `const ExcelNumberInput =...`
+   - Paste at end of file
 
-## Total Content
+3. **Copy Part 3 (skip comment headers)**
+   - Start from line 2: `return (`
+   - Copy through the final `}`
+   - Paste at end of file
 
-- **Goals Section**: 19 rows across 7 categories
-- **Assets Section**: 31 rows across 6 categories
-- **Total**: 50 input rows + calculations
+### Step 3: Clean Up
 
-## User Experience
+Remove these comment lines:
+- `// ============================================`
+- `// PART X OF 3...`
+- `// END OF PART X`
+- `// Continue with...`
 
-1. User opens FNA page
-2. Selects client (auto-fills info)
-3. Clicks "GOALS" tab → Sees/fills goals data
-4. Clicks "ASSETS" tab → Sees/fills assets data
-5. Clicks "Save" → Saves everything to 13 tables
-6. Clicks "Export" → Gets PDF with both sections
+### Step 4: Verify Structure
+
+Final file should look like:
+
+```typescript
+"use client";
+
+import React...
+
+const COLORS = {...}
+
+interface Client {...}
+interface FNAData {...}
+interface AssetsData {...}
+
+const initialData = {...}
+const initialAssets = {...}
+
+export default function FNAPage() {
+  const router = useRouter();
+  const [data, setData] = useState...
+  
+  useEffect(() => {...})
+  
+  const handleSave = async () => {...}
+  const handleExportPDF = () => {...}
+  
+  const ResizableHeader = ({...}) => {...}
+  const ExcelTextInput = ({...}) => {...}
+  const ExcelNumberInput = ({...}) => {...}
+  
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Complete UI */}
+    </div>
+  );
+}
+```
+
+## What You'll See
+
+After assembly, the page will have:
+
+✅ Header with logo
+✅ Refresh/Save/Export buttons
+✅ Client information form
+✅ **TWO CLICKABLE TAB CARDS:**
+   - 📊 FINANCIAL GOALS & PLANNING (blue when active)
+   - 💰 ASSETS (blue when active)
+✅ Complete Goals section (working)
+✅ Assets placeholder (ready for content)
+
+## File Size Check
+
+Complete assembled file should be:
+- **Lines:** ~2,350
+- **Size:** ~110 KB
+- **Tab cards:** 2 (working)
+- **Sections:** Goals complete, Assets placeholder
+
+## Deploy & Test
+
+```bash
+# 1. Run database migration
+# In Supabase: fna-assets-tables.sql
+
+# 2. Copy to your app
+cp fna-complete-with-tabs.tsx app/fna/page.tsx
+
+# 3. Test
+npm run dev
+
+# 4. Check:
+# - Can you see two tab buttons?
+# - Does clicking switch tabs?
+# - Does Goals tab show all content?
+# - Does Assets tab show placeholder?
+
+# 5. Deploy
+git add .
+git commit -m "Complete FNA with tab cards"
+git push
+```
+
+## Next Steps
+
+After verifying tabs work:
+
+1. I'll provide the Assets content (31 rows)
+2. You replace the placeholder in Assets tab
+3. Full system complete!
+
+## Quick Test
+
+After assembly:
+1. Open page
+2. See two tab buttons at top
+3. Click "FINANCIAL GOALS & PLANNING" → See all goals content
+4. Click "ASSETS" → See placeholder
+5. Save works (saves goals data)
+
+## Success Criteria
+
+✅ No TypeScript errors
+✅ File compiles
+✅ Two tabs visible
+✅ Tabs are clickable
+✅ Content switches
+✅ Goals tab fully functional
+✅ Assets tab shows placeholder
 
