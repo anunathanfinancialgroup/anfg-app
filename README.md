@@ -163,7 +163,6 @@ After assembly, check these exist:
 ```bash
 cp FNA-COMPLETE-WORKING.tsx app/new_fna/page.tsx
 npm run build
-```
 
 ---
 
