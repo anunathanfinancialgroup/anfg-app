@@ -1,11 +1,15 @@
 "use client";
 
 /**
- * Financial Need Analysis (FNA) Calculator - Final Production
- * Fixed:
- * - All cards have 4 aligned columns
- * - All cell borders visible
- * - Retirement card aligned with other cards
+ * Financial Need Analysis (FNA) Calculator - Complete Fixed Version
+ * 
+ * All fixes applied:
+ * - Input works for multi-character entry
+ * - Plain button styles (no fill colors)
+ * - Decimal values showing in amounts
+ * - Wedding years editable
+ * - Retirement notes editable
+ * - Clean #12 notes field
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -58,7 +62,9 @@ interface FNAData {
   child2CollegeAmount: number;
   
   child1WeddingAmount: number;
+  child1WeddingYear: string;
   child2WeddingAmount: number;
+  child2WeddingYear: string;
   
   currentAge: number;
   yearsToRetirement: number;
@@ -67,6 +73,7 @@ interface FNAData {
   monthlyRetirementIncome: number;
   annualRetirementIncome: number;
   totalRetirementIncome: number;
+  retirementNotes: string;
   
   healthcareExpenses: number;
   longTermCare: number;
@@ -102,7 +109,9 @@ const initialData: FNAData = {
   child2CollegeYear: "",
   child2CollegeAmount: 0,
   child1WeddingAmount: 0,
+  child1WeddingYear: "",
   child2WeddingAmount: 0,
+  child2WeddingYear: "",
   currentAge: 0,
   yearsToRetirement: 0,
   retirementYears: 0,
@@ -110,6 +119,7 @@ const initialData: FNAData = {
   monthlyRetirementIncome: 0,
   annualRetirementIncome: 0,
   totalRetirementIncome: 0,
+  retirementNotes: "",
   healthcareExpenses: 315000,
   longTermCare: 0,
   travelBudget: 0,
@@ -254,7 +264,7 @@ export default function FNAPage() {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 0,
+      minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(value);
   };
@@ -433,6 +443,7 @@ export default function FNAPage() {
     );
   };
 
+  // FIXED: Text input component - works for multi-character entry
   const ExcelTextInput = ({ value, onChange, readOnly = false }: any) => {
     return (
       <input
@@ -450,26 +461,31 @@ export default function FNAPage() {
     );
   };
 
+  // FIXED: Number input component - works for multi-digit entry with decimal display
   const ExcelNumberInput = ({ value, onChange, readOnly = false, calculated = false }: any) => {
-    const [displayValue, setDisplayValue] = useState('');
+    const [localValue, setLocalValue] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
 
-    useEffect(() => {
-      if (value === 0 && !calculated) {
-        setDisplayValue('');
-      } else {
-        setDisplayValue(formatCurrency(value));
-      }
-    }, [value, calculated]);
+    // Show formatted value when not focused, raw value when focused
+    const displayValue = isFocused 
+      ? localValue 
+      : (value === 0 && !calculated ? '' : formatCurrency(value));
+
+    const handleFocus = () => {
+      setIsFocused(true);
+      setLocalValue(value === 0 ? '' : value.toString());
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (readOnly) return;
-      const val = e.target.value;
-      setDisplayValue(val);
+      setLocalValue(e.target.value);
     };
 
     const handleBlur = () => {
-      if (readOnly) return;
-      onChange(displayValue);
+      setIsFocused(false);
+      if (!readOnly) {
+        onChange(localValue);
+      }
     };
 
     return (
@@ -477,6 +493,7 @@ export default function FNAPage() {
         type="text"
         value={displayValue}
         onChange={handleChange}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         readOnly={readOnly}
         className={`w-full px-2 py-1 text-sm text-right ${
@@ -535,25 +552,25 @@ export default function FNAPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-4">
-        {/* Action Buttons */}
+        {/* Action Buttons - FIXED: Plain style */}
         <div className="mb-4 flex justify-end gap-3 no-print">
           <button
             onClick={handleRefresh}
             disabled={loading}
-            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:bg-gray-100 transition-colors text-sm font-semibold"
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm"
           >
             🔄 Refresh
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400 transition-colors font-semibold text-sm"
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm"
           >
             {saving ? "Saving..." : "💾 Save"}
           </button>
           <button
             onClick={handleExportPDF}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-semibold"
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm"
           >
             📄 Export
           </button>
@@ -572,7 +589,7 @@ export default function FNAPage() {
             <h3 className="text-lg font-bold">Client Information</h3>
             <button
               onClick={() => window.open('https://www.calculator.net/', '_blank')}
-              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm no-print"
+              className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm no-print"
             >
               🧮 Calculator
             </button>
@@ -638,7 +655,7 @@ export default function FNAPage() {
 
         {/* College Planning */}
         <div className="mb-2 flex justify-end no-print">
-          <button onClick={() => window.open('https://educationdata.org/average-cost-of-college-by-state#tx', '_blank')} className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm">
+          <button onClick={() => window.open('https://educationdata.org/average-cost-of-college-by-state#tx', '_blank')} className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm">
             📚 Cost of College
           </button>
         </div>
@@ -681,9 +698,9 @@ export default function FNAPage() {
           </table>
         </div>
 
-        {/* Wedding Planning */}
+        {/* Wedding Planning - FIXED: Years editable, decimals showing */}
         <div className="mb-2 flex justify-end no-print">
-          <button onClick={() => window.open('https://www.zola.com/expert-advice/whats-the-average-cost-of-a-wedding', '_blank')} className="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700 transition-colors text-sm">
+          <button onClick={() => window.open('https://www.zola.com/expert-advice/whats-the-average-cost-of-a-wedding', '_blank')} className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm">
             💒 Wedding Expenses
           </button>
         </div>
@@ -701,7 +718,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#3</td>
                 <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>{data.child1CollegeName || 'CHILD 1'}</td>
-                <td className="border border-black" style={{ width: `${columnWidths.col3}px` }}></td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col3}px` }}>
+                  <ExcelTextInput value={data.child1WeddingYear} onChange={(val: string) => setData(prev => ({ ...prev, child1WeddingYear: val }))} />
+                </td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <ExcelNumberInput value={data.child1WeddingAmount} onChange={(val: string) => handleNumberInput('child1WeddingAmount', val)} />
                 </td>
@@ -709,7 +728,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#4</td>
                 <td className="border border-black px-2 py-1 text-sm">{data.child2CollegeName || 'CHILD 2'}</td>
-                <td className="border border-black"></td>
+                <td className="border border-black p-0">
+                  <ExcelTextInput value={data.child2WeddingYear} onChange={(val: string) => setData(prev => ({ ...prev, child2WeddingYear: val }))} />
+                </td>
                 <td className="border border-black p-0">
                   <ExcelNumberInput value={data.child2WeddingAmount} onChange={(val: string) => handleNumberInput('child2WeddingAmount', val)} />
                 </td>
@@ -718,7 +739,7 @@ export default function FNAPage() {
           </table>
         </div>
 
-        {/* Retirement Planning - FIXED: Now 4 columns aligned */}
+        {/* Retirement Planning - FIXED: Notes editable */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
@@ -733,7 +754,9 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold" style={{ width: `${columnWidths.col1}px` }}>#5</td>
                 <td className="border border-black px-2 py-1 text-sm" style={{ width: `${columnWidths.col2}px` }}>NUMBER OF YEARS TO RETIREMENT AGE OF 65</td>
-                <td className="border border-black" style={{ width: `${columnWidths.col3}px` }}></td>
+                <td className="border border-black p-0" style={{ width: `${columnWidths.col3}px` }}>
+                  <ExcelTextInput value={data.retirementNotes} onChange={(val: string) => setData(prev => ({ ...prev, retirementNotes: val }))} />
+                </td>
                 <td className="border border-black p-0" style={{ width: `${columnWidths.col4}px` }}>
                   <div className="flex border-0">
                     <input type="text" value={data.currentAge || ''} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ''); setData(prev => ({ ...prev, currentAge: parseInt(val) || 0 })); }} className="w-1/2 px-2 py-1 text-sm text-center bg-white" placeholder="Current Age" style={{ outline: 'none', borderRight: '1px solid black' }} />
@@ -788,7 +811,7 @@ export default function FNAPage() {
           </table>
         </div>
 
-        {/* Healthcare - FIXED: All borders visible */}
+        {/* Healthcare - FIXED: Removed formula from #12 notes */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
@@ -811,7 +834,7 @@ export default function FNAPage() {
               <tr>
                 <td className="border border-black px-2 py-1 text-sm font-semibold">#12</td>
                 <td className="border border-black px-2 py-1 text-sm">LONG TERM CARE | DISABILITY (PLAN FOR ATLEAST 2+ YRS EACH)</td>
-                <td className="border border-black px-2 py-1 text-xs text-gray-600">(#11 * 0.03 * (#6 * 2))</td>
+                <td className="border border-black"></td>
                 <td className="border border-black p-0">
                   <ExcelNumberInput value={data.longTermCare} readOnly calculated />
                 </td>
@@ -820,7 +843,7 @@ export default function FNAPage() {
           </table>
         </div>
 
-        {/* Life Goals - FIXED: All borders visible */}
+        {/* Life Goals */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
@@ -868,7 +891,7 @@ export default function FNAPage() {
           </table>
         </div>
 
-        {/* Legacy - FIXED: All borders visible */}
+        {/* Legacy */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <table className="w-full" style={{ borderCollapse: 'collapse', border: '2px solid black' }}>
             <thead>
