@@ -284,7 +284,8 @@ ALTER TABLE fna_records ADD COLUMN IF NOT EXISTS calculated_interest_percentage 
 - [ ] Test save/load
 
 ---
-
+npm install html2pdf.js
+npm run build
 **OR use the automated script approach (recommended):**
 
 I can create a single sed/awk script that makes all these changes automatically. Would you like that?
