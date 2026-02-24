@@ -38,14 +38,18 @@ interface FNAData {
   clientDob: string;
   analysisDate: string;
   
-  // College (2 children)
+  // College
   child1CollegeName: string;
+  child1CollegeNotes: string;
   child1CollegeAmount: number;
   child2CollegeName: string;
+  child2CollegeNotes: string;
   child2CollegeAmount: number;
   
-  // Wedding (2 children)
+  // Wedding
+  child1WeddingNotes: string;
   child1WeddingAmount: number;
+  child2WeddingNotes: string;
   child2WeddingAmount: number;
   
   // Retirement
@@ -56,21 +60,33 @@ interface FNAData {
   monthlyRetirementIncome: number;
   annualRetirementIncome: number;
   totalRetirementIncome: number;
+  retirementNote1: string;
+  retirementNote2: string;
+  retirementNote3: string;
   
   // Healthcare
   healthcareExpenses: number;
   longTermCare: number;
+  healthcareNote1: string;
+  healthcareNote2: string;
   
   // Life Goals
   travelBudget: number;
+  travelNotes: string;
   vacationHome: number;
+  vacationNotes: string;
   charity: number;
+  charityNotes: string;
   otherGoals: number;
+  otherGoalsNotes: string;
   
   // Legacy
   headstartFund: number;
+  headstartNotes: string;
   familyLegacy: number;
+  legacyNotes: string;
   familySupport: number;
+  supportNotes: string;
   
   totalRequirement: number;
 }
@@ -96,10 +112,14 @@ const initialData: FNAData = {
   clientDob: "",
   analysisDate: new Date().toISOString().split('T')[0],
   child1CollegeName: "",
+  child1CollegeNotes: "",
   child1CollegeAmount: 0,
   child2CollegeName: "",
+  child2CollegeNotes: "",
   child2CollegeAmount: 0,
+  child1WeddingNotes: "",
   child1WeddingAmount: 0,
+  child2WeddingNotes: "",
   child2WeddingAmount: 0,
   currentAge: 0,
   yearsToRetirement: 0,
@@ -108,15 +128,27 @@ const initialData: FNAData = {
   monthlyRetirementIncome: 0,
   annualRetirementIncome: 0,
   totalRetirementIncome: 0,
+  retirementNote1: "",
+  retirementNote2: "",
+  retirementNote3: "",
   healthcareExpenses: 315000,
   longTermCare: 0,
+  healthcareNote1: "~$315K FOR COUPLE IN TODAY'S DOLLARS",
+  healthcareNote2: "",
   travelBudget: 0,
+  travelNotes: "",
   vacationHome: 0,
+  vacationNotes: "",
   charity: 0,
+  charityNotes: "",
   otherGoals: 0,
+  otherGoalsNotes: "",
   headstartFund: 0,
+  headstartNotes: "",
   familyLegacy: 0,
+  legacyNotes: "",
   familySupport: 0,
+  supportNotes: "",
   totalRequirement: 0
 };
 
@@ -130,13 +162,14 @@ const initialAssets: AssetsData = {
   totalProjected: 0
 };
 
+// Updated to show 2 decimal places
 const formatCurrency = (value: number): string => {
   if (value === 0) return "";
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   }).format(value);
 };
 
@@ -151,7 +184,6 @@ export default function FNAPage() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
 
-  // Auth check
   useEffect(() => {
     const authCookie = document.cookie.split('; ').find(row => row.startsWith('canfs_auth='));
     if (!authCookie) {
@@ -161,7 +193,6 @@ export default function FNAPage() {
     }
   }, [router]);
 
-  // Load clients
   const loadClients = async () => {
     setLoading(true);
     try {
@@ -179,7 +210,6 @@ export default function FNAPage() {
     }
   };
 
-  // Handle client selection
   const handleClientSelect = async (clientId: string) => {
     if (!clientId) {
       setData(initialData);
@@ -201,16 +231,15 @@ export default function FNAPage() {
       state: client.state || '',
       clientDob: client.date_of_birth || '',
       analysisDate: new Date().toISOString().split('T')[0],
+      healthcareNote1: "~$315K FOR COUPLE IN TODAY'S DOLLARS",
     }));
 
     await loadFNAData(clientId);
   };
 
-  // Load FNA data for selected client
   const loadFNAData = async (clientId: string) => {
     setLoading(true);
     try {
-      // Get most recent FNA record
       const { data: fnaRecord, error: fnaError } = await supabase
         .from('fna_records')
         .select('fna_id, analysis_date, spouse_name')
@@ -229,7 +258,6 @@ export default function FNAPage() {
 
       const fnaId = fnaRecord.fna_id;
 
-      // Load all data in parallel
       const [
         { data: collegeData },
         { data: weddingData },
@@ -248,7 +276,6 @@ export default function FNAPage() {
         supabase.from('fna_ast_retirement').select('*').eq('fna_id', fnaId).single()
       ]);
 
-      // Update Goals data
       const child1College = collegeData?.find((c: any) => c.child_number === 1);
       const child2College = collegeData?.find((c: any) => c.child_number === 2);
       const child1Wedding = weddingData?.find((w: any) => w.child_number === 1);
@@ -259,31 +286,28 @@ export default function FNAPage() {
         fnaId: fnaId,
         spouseName: fnaRecord.spouse_name || prev.spouseName,
         analysisDate: fnaRecord.analysis_date || prev.analysisDate,
-        // College
         child1CollegeName: child1College?.child_name || '',
+        child1CollegeNotes: child1College?.notes || '',
         child1CollegeAmount: child1College?.amount || 0,
         child2CollegeName: child2College?.child_name || '',
+        child2CollegeNotes: child2College?.notes || '',
         child2CollegeAmount: child2College?.amount || 0,
-        // Wedding
+        child1WeddingNotes: child1Wedding?.notes || '',
         child1WeddingAmount: child1Wedding?.amount || 0,
+        child2WeddingNotes: child2Wedding?.notes || '',
         child2WeddingAmount: child2Wedding?.amount || 0,
-        // Retirement
         currentAge: retirementData?.current_age || 0,
         monthlyIncomeNeeded: retirementData?.monthly_income_needed || 0,
-        // Healthcare
         healthcareExpenses: healthcareData?.healthcare_expenses || 315000,
-        // Life Goals
         travelBudget: lifeGoalsData?.travel_budget || 0,
         vacationHome: lifeGoalsData?.vacation_home || 0,
         charity: lifeGoalsData?.charity || 0,
         otherGoals: lifeGoalsData?.other_goals || 0,
-        // Legacy
         headstartFund: legacyData?.headstart_fund || 0,
         familyLegacy: legacyData?.family_legacy || 0,
         familySupport: legacyData?.family_support || 0,
       }));
 
-      // Update Assets data
       if (assetsRetirementData) {
         setAssets({
           ret1_him: assetsRetirementData.current_401k_him || false,
@@ -305,7 +329,6 @@ export default function FNAPage() {
     }
   };
 
-  // Auto-calculate retirement values
   useEffect(() => {
     const yearsToRetirement = data.currentAge > 0 ? Math.max(0, 65 - data.currentAge) : 0;
     const retirementYears = data.currentAge > 0 ? Math.max(0, 85 - data.currentAge) : 0;
@@ -362,7 +385,6 @@ export default function FNAPage() {
     data.familySupport
   ]);
 
-  // Save FNA data
   const handleSave = async () => {
     if (!data.clientId) {
       showMessage("Please select a client first", 'error');
@@ -373,7 +395,6 @@ export default function FNAPage() {
     try {
       let fnaId = data.fnaId;
 
-      // Create or update FNA record
       if (!fnaId) {
         const { data: fnaRecord, error: fnaError } = await supabase
           .from('fna_records')
@@ -390,7 +411,6 @@ export default function FNAPage() {
         fnaId = fnaRecord.fna_id;
         setData(prev => ({ ...prev, fnaId }));
       } else {
-        // Update existing record
         await supabase
           .from('fna_records')
           .update({
@@ -401,7 +421,6 @@ export default function FNAPage() {
           .eq('fna_id', fnaId);
       }
 
-      // Delete existing data for this FNA
       await Promise.all([
         supabase.from('fna_college').delete().eq('fna_id', fnaId),
         supabase.from('fna_wedding').delete().eq('fna_id', fnaId),
@@ -412,30 +431,24 @@ export default function FNAPage() {
         supabase.from('fna_ast_retirement').delete().eq('fna_id', fnaId),
       ]);
 
-      // Insert new data
       await Promise.all([
-        // College
         supabase.from('fna_college').insert([
-          { fna_id: fnaId, child_number: 1, child_name: data.child1CollegeName, amount: data.child1CollegeAmount },
-          { fna_id: fnaId, child_number: 2, child_name: data.child2CollegeName, amount: data.child2CollegeAmount }
+          { fna_id: fnaId, child_number: 1, child_name: data.child1CollegeName, notes: data.child1CollegeNotes, amount: data.child1CollegeAmount },
+          { fna_id: fnaId, child_number: 2, child_name: data.child2CollegeName, notes: data.child2CollegeNotes, amount: data.child2CollegeAmount }
         ]),
-        // Wedding
         supabase.from('fna_wedding').insert([
-          { fna_id: fnaId, child_number: 1, amount: data.child1WeddingAmount },
-          { fna_id: fnaId, child_number: 2, amount: data.child2WeddingAmount }
+          { fna_id: fnaId, child_number: 1, notes: data.child1WeddingNotes, amount: data.child1WeddingAmount },
+          { fna_id: fnaId, child_number: 2, notes: data.child2WeddingNotes, amount: data.child2WeddingAmount }
         ]),
-        // Retirement
         supabase.from('fna_retirement').insert([{
           fna_id: fnaId,
           current_age: data.currentAge,
           monthly_income_needed: data.monthlyIncomeNeeded
         }]),
-        // Healthcare
         supabase.from('fna_healthcare').insert([{
           fna_id: fnaId,
           healthcare_expenses: data.healthcareExpenses
         }]),
-        // Life Goals
         supabase.from('fna_life_goals').insert([{
           fna_id: fnaId,
           travel_budget: data.travelBudget,
@@ -443,14 +456,12 @@ export default function FNAPage() {
           charity: data.charity,
           other_goals: data.otherGoals
         }]),
-        // Legacy
         supabase.from('fna_legacy').insert([{
           fna_id: fnaId,
           headstart_fund: data.headstartFund,
           family_legacy: data.familyLegacy,
           family_support: data.familySupport
         }]),
-        // Assets - Retirement
         supabase.from('fna_ast_retirement').insert([{
           fna_id: fnaId,
           current_401k_him: assets.ret1_him,
@@ -483,7 +494,7 @@ export default function FNAPage() {
 
   const handleClear = () => {
     if (confirm('Clear all data? This will reset the form.')) {
-      setData({ ...initialData, clientId: data.clientId, clientName: data.clientName, clientPhone: data.clientPhone, clientEmail: data.clientEmail });
+      setData({ ...initialData, clientId: data.clientId, clientName: data.clientName, clientPhone: data.clientPhone, clientEmail: data.clientEmail, healthcareNote1: "~$315K FOR COUPLE IN TODAY'S DOLLARS" });
       setAssets(initialAssets);
       showMessage("Form cleared", 'success');
     }
@@ -496,7 +507,6 @@ export default function FNAPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header Card */}
       <header className="bg-white rounded-lg shadow-md border border-gray-200 p-4 mb-4 mx-4 mt-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -530,7 +540,6 @@ export default function FNAPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-4">
-        {/* Save Button & Messages */}
         <div className="mb-4 flex justify-end gap-3">
           <button
             onClick={handleSave}
@@ -548,7 +557,6 @@ export default function FNAPage() {
           )}
         </div>
 
-        {/* Client Information Card */}
         <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5 mb-4">
           <h3 className="text-xl font-bold mb-4 pb-2 border-b">📋 Client Information</h3>
           <div className="grid grid-cols-3 gap-4 mb-4">
@@ -570,21 +578,11 @@ export default function FNAPage() {
             </div>
             <div>
               <label className="block text-sm font-bold mb-2 text-gray-700">Phone Number</label>
-              <input 
-                type="text" 
-                value={data.clientPhone} 
-                readOnly 
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100" 
-              />
+              <input type="text" value={data.clientPhone} readOnly className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100" />
             </div>
             <div>
               <label className="block text-sm font-bold mb-2 text-gray-700">Email</label>
-              <input 
-                type="text" 
-                value={data.clientEmail} 
-                readOnly 
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100" 
-              />
+              <input type="text" value={data.clientEmail} readOnly className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100" />
             </div>
           </div>
           <div className="grid grid-cols-4 gap-4">
@@ -599,21 +597,11 @@ export default function FNAPage() {
             </div>
             <div>
               <label className="block text-sm font-bold mb-2 text-gray-700">City</label>
-              <input 
-                type="text" 
-                value={data.city} 
-                readOnly 
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100" 
-              />
+              <input type="text" value={data.city} readOnly className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100" />
             </div>
             <div>
               <label className="block text-sm font-bold mb-2 text-gray-700">State</label>
-              <input 
-                type="text" 
-                value={data.state} 
-                readOnly 
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100" 
-              />
+              <input type="text" value={data.state} readOnly className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100" />
             </div>
             <div>
               <label className="block text-sm font-bold mb-2 text-gray-700">Analysis Date</label>
@@ -627,7 +615,6 @@ export default function FNAPage() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
         <div className="mb-4 flex gap-2">
           <button
             onClick={() => setActiveTab('goals')}
@@ -651,10 +638,9 @@ export default function FNAPage() {
           </button>
         </div>
 
-        {/* GOALS TAB */}
         {activeTab === 'goals' && (
           <div className="space-y-4">
-            {/* College Planning Card */}
+            {/* College Planning */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
                 🎓 KIDS COLLEGE PLANNING
@@ -664,6 +650,7 @@ export default function FNAPage() {
                   <tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold">CHILD NAME</th>
+                    <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
                   </tr>
                 </thead>
@@ -682,10 +669,19 @@ export default function FNAPage() {
                     <td className="border border-black p-0">
                       <input
                         type="text"
+                        value={data.child1CollegeNotes}
+                        onChange={(e) => setData(prev => ({ ...prev, child1CollegeNotes: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
                         value={data.child1CollegeAmount > 0 ? formatCurrency(data.child1CollegeAmount) : ''}
                         onChange={(e) => handleNumberInput('child1CollegeAmount', e.target.value)}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                   </tr>
@@ -703,10 +699,19 @@ export default function FNAPage() {
                     <td className="border border-black p-0">
                       <input
                         type="text"
+                        value={data.child2CollegeNotes}
+                        onChange={(e) => setData(prev => ({ ...prev, child2CollegeNotes: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
                         value={data.child2CollegeAmount > 0 ? formatCurrency(data.child2CollegeAmount) : ''}
                         onChange={(e) => handleNumberInput('child2CollegeAmount', e.target.value)}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                   </tr>
@@ -714,7 +719,7 @@ export default function FNAPage() {
               </table>
             </div>
 
-            {/* Wedding Card */}
+            {/* Wedding */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
                 💒 KIDS WEDDING
@@ -724,6 +729,7 @@ export default function FNAPage() {
                   <tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
+                    <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
                   </tr>
                 </thead>
@@ -734,10 +740,19 @@ export default function FNAPage() {
                     <td className="border border-black p-0">
                       <input
                         type="text"
+                        value={data.child1WeddingNotes}
+                        onChange={(e) => setData(prev => ({ ...prev, child1WeddingNotes: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
                         value={data.child1WeddingAmount > 0 ? formatCurrency(data.child1WeddingAmount) : ''}
                         onChange={(e) => handleNumberInput('child1WeddingAmount', e.target.value)}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                   </tr>
@@ -747,10 +762,19 @@ export default function FNAPage() {
                     <td className="border border-black p-0">
                       <input
                         type="text"
+                        value={data.child2WeddingNotes}
+                        onChange={(e) => setData(prev => ({ ...prev, child2WeddingNotes: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
                         value={data.child2WeddingAmount > 0 ? formatCurrency(data.child2WeddingAmount) : ''}
                         onChange={(e) => handleNumberInput('child2WeddingAmount', e.target.value)}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                   </tr>
@@ -758,7 +782,7 @@ export default function FNAPage() {
               </table>
             </div>
 
-            {/* Retirement Planning Card */}
+            {/* Retirement Planning */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
                 🏖️ RETIREMENT PLANNING
@@ -768,6 +792,7 @@ export default function FNAPage() {
                   <tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
+                    <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
                   </tr>
                 </thead>
@@ -777,17 +802,38 @@ export default function FNAPage() {
                     <td className="border border-black px-3 py-2 text-sm">CURRENT AGE</td>
                     <td className="border border-black p-0">
                       <input
-                        type="number"
+                        type="text"
+                        value={data.retirementNote1}
+                        onChange={(e) => setData(prev => ({ ...prev, retirementNote1: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
+                    <td className="border border-black p-0">
+                      <select
                         value={data.currentAge || ''}
                         onChange={(e) => setData(prev => ({ ...prev, currentAge: parseInt(e.target.value) || 0 }))}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="0"
-                      />
+                      >
+                        <option value="">Select Age</option>
+                        {Array.from({ length: 120 }, (_, i) => i + 1).map(age => (
+                          <option key={age} value={age}>{age}</option>
+                        ))}
+                      </select>
                     </td>
                   </tr>
                   <tr>
                     <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#6</td>
                     <td className="border border-black px-3 py-2 text-sm">YEARS TO RETIREMENT (65 - CURRENT AGE)</td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
+                        value={data.retirementNote2}
+                        onChange={(e) => setData(prev => ({ ...prev, retirementNote2: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
                     <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
                       {data.yearsToRetirement}
                     </td>
@@ -795,6 +841,15 @@ export default function FNAPage() {
                   <tr>
                     <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#7</td>
                     <td className="border border-black px-3 py-2 text-sm">RETIREMENT YEARS (85 - CURRENT AGE)</td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
+                        value={data.retirementNote3}
+                        onChange={(e) => setData(prev => ({ ...prev, retirementNote3: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
                     <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
                       {data.retirementYears}
                     </td>
@@ -802,19 +857,25 @@ export default function FNAPage() {
                   <tr>
                     <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#8</td>
                     <td className="border border-black px-3 py-2 text-sm">MONTHLY INCOME NEEDED (TODAY'S DOLLARS)</td>
+                    <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
+                      Today's dollars
+                    </td>
                     <td className="border border-black p-0">
                       <input
                         type="text"
                         value={data.monthlyIncomeNeeded > 0 ? formatCurrency(data.monthlyIncomeNeeded) : ''}
                         onChange={(e) => handleNumberInput('monthlyIncomeNeeded', e.target.value)}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                   </tr>
                   <tr>
                     <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#9</td>
                     <td className="border border-black px-3 py-2 text-sm">MONTHLY INCOME NEEDED (AT RETIREMENT @ 3%)</td>
+                    <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
+                      Auto-calculated with 3% inflation
+                    </td>
                     <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
                       {formatCurrency(data.monthlyRetirementIncome)}
                     </td>
@@ -822,6 +883,9 @@ export default function FNAPage() {
                   <tr>
                     <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#10</td>
                     <td className="border border-black px-3 py-2 text-sm">ANNUAL RETIREMENT INCOME NEEDED</td>
+                    <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
+                      Monthly × 12
+                    </td>
                     <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
                       {formatCurrency(data.annualRetirementIncome)}
                     </td>
@@ -829,6 +893,9 @@ export default function FNAPage() {
                   <tr>
                     <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#11</td>
                     <td className="border border-black px-3 py-2 text-sm font-bold">TOTAL RETIREMENT INCOME NEEDED</td>
+                    <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
+                      Annual × Retirement Years
+                    </td>
                     <td className="border border-black px-3 py-2 text-sm text-right font-bold bg-blue-100">
                       {formatCurrency(data.totalRetirementIncome)}
                     </td>
@@ -837,7 +904,7 @@ export default function FNAPage() {
               </table>
             </div>
 
-            {/* Healthcare Card */}
+            {/* Healthcare */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
                 🏥 HEALTHCARE PLANNING
@@ -847,26 +914,45 @@ export default function FNAPage() {
                   <tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
+                    <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#12</td>
-                    <td className="border border-black px-3 py-2 text-sm">HEALTHCARE EXPENSES (~$315K FOR COUPLE)</td>
+                    <td className="border border-black px-3 py-2 text-sm">HEALTHCARE EXPENSES</td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
+                        value={data.healthcareNote1}
+                        onChange={(e) => setData(prev => ({ ...prev, healthcareNote1: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="~$315K FOR COUPLE IN TODAY'S DOLLARS"
+                      />
+                    </td>
                     <td className="border border-black p-0">
                       <input
                         type="text"
                         value={data.healthcareExpenses > 0 ? formatCurrency(data.healthcareExpenses) : ''}
                         onChange={(e) => handleNumberInput('healthcareExpenses', e.target.value)}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$315,000"
+                        placeholder="$315,000.00"
                       />
                     </td>
                   </tr>
                   <tr>
                     <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#13</td>
-                    <td className="border border-black px-3 py-2 text-sm">LONG-TERM CARE (3% OF HEALTHCARE × YEARS × 2)</td>
+                    <td className="border border-black px-3 py-2 text-sm">LONG-TERM CARE</td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
+                        value={data.healthcareNote2}
+                        onChange={(e) => setData(prev => ({ ...prev, healthcareNote2: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="3% of healthcare × years × 2"
+                      />
+                    </td>
                     <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
                       {formatCurrency(data.longTermCare)}
                     </td>
@@ -875,7 +961,7 @@ export default function FNAPage() {
               </table>
             </div>
 
-            {/* Life Goals Card */}
+            {/* Life Goals */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
                 🌟 LIFE GOALS
@@ -885,6 +971,7 @@ export default function FNAPage() {
                   <tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
+                    <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
                   </tr>
                 </thead>
@@ -895,10 +982,19 @@ export default function FNAPage() {
                     <td className="border border-black p-0">
                       <input
                         type="text"
+                        value={data.travelNotes}
+                        onChange={(e) => setData(prev => ({ ...prev, travelNotes: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
                         value={data.travelBudget > 0 ? formatCurrency(data.travelBudget) : ''}
                         onChange={(e) => handleNumberInput('travelBudget', e.target.value)}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                   </tr>
@@ -908,10 +1004,19 @@ export default function FNAPage() {
                     <td className="border border-black p-0">
                       <input
                         type="text"
+                        value={data.vacationNotes}
+                        onChange={(e) => setData(prev => ({ ...prev, vacationNotes: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
                         value={data.vacationHome > 0 ? formatCurrency(data.vacationHome) : ''}
                         onChange={(e) => handleNumberInput('vacationHome', e.target.value)}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                   </tr>
@@ -921,10 +1026,19 @@ export default function FNAPage() {
                     <td className="border border-black p-0">
                       <input
                         type="text"
+                        value={data.charityNotes}
+                        onChange={(e) => setData(prev => ({ ...prev, charityNotes: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
                         value={data.charity > 0 ? formatCurrency(data.charity) : ''}
                         onChange={(e) => handleNumberInput('charity', e.target.value)}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                   </tr>
@@ -934,10 +1048,19 @@ export default function FNAPage() {
                     <td className="border border-black p-0">
                       <input
                         type="text"
+                        value={data.otherGoalsNotes}
+                        onChange={(e) => setData(prev => ({ ...prev, otherGoalsNotes: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
                         value={data.otherGoals > 0 ? formatCurrency(data.otherGoals) : ''}
                         onChange={(e) => handleNumberInput('otherGoals', e.target.value)}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                   </tr>
@@ -945,7 +1068,7 @@ export default function FNAPage() {
               </table>
             </div>
 
-            {/* Legacy Card */}
+            {/* Legacy */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
                 🎁 LEGACY PLANNING
@@ -955,6 +1078,7 @@ export default function FNAPage() {
                   <tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
+                    <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
                   </tr>
                 </thead>
@@ -965,10 +1089,19 @@ export default function FNAPage() {
                     <td className="border border-black p-0">
                       <input
                         type="text"
+                        value={data.headstartNotes}
+                        onChange={(e) => setData(prev => ({ ...prev, headstartNotes: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
                         value={data.headstartFund > 0 ? formatCurrency(data.headstartFund) : ''}
                         onChange={(e) => handleNumberInput('headstartFund', e.target.value)}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                   </tr>
@@ -978,10 +1111,19 @@ export default function FNAPage() {
                     <td className="border border-black p-0">
                       <input
                         type="text"
+                        value={data.legacyNotes}
+                        onChange={(e) => setData(prev => ({ ...prev, legacyNotes: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
                         value={data.familyLegacy > 0 ? formatCurrency(data.familyLegacy) : ''}
                         onChange={(e) => handleNumberInput('familyLegacy', e.target.value)}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                   </tr>
@@ -991,10 +1133,19 @@ export default function FNAPage() {
                     <td className="border border-black p-0">
                       <input
                         type="text"
+                        value={data.supportNotes}
+                        onChange={(e) => setData(prev => ({ ...prev, supportNotes: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        placeholder="Add notes..."
+                      />
+                    </td>
+                    <td className="border border-black p-0">
+                      <input
+                        type="text"
                         value={data.familySupport > 0 ? formatCurrency(data.familySupport) : ''}
                         onChange={(e) => handleNumberInput('familySupport', e.target.value)}
                         className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                   </tr>
@@ -1002,7 +1153,7 @@ export default function FNAPage() {
               </table>
             </div>
 
-            {/* Total Requirement Card */}
+            {/* Total Requirement */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
                 <tbody>
@@ -1016,17 +1167,14 @@ export default function FNAPage() {
               </table>
             </div>
 
-            {/* Disclaimer */}
             <div className="bg-black text-white text-center py-3 rounded-lg font-medium">
               ⚠️ DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE
             </div>
           </div>
         )}
 
-        {/* ASSETS TAB */}
         {activeTab === 'assets' && (
           <div className="space-y-4">
-            {/* Retirement Assets Card */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
                 🏦 RETIREMENT PLANNING (USA)
@@ -1081,7 +1229,7 @@ export default function FNAPage() {
                           setAssets(prev => ({ ...prev, ret1_present: val, totalPresent: val }));
                         }}
                         className="w-full px-2 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                     <td className="border border-black p-0">
@@ -1093,7 +1241,7 @@ export default function FNAPage() {
                           setAssets(prev => ({ ...prev, ret1_projected: val, totalProjected: val }));
                         }}
                         className="w-full px-2 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="$0"
+                        placeholder="$0.00"
                       />
                     </td>
                   </tr>
@@ -1101,7 +1249,6 @@ export default function FNAPage() {
               </table>
             </div>
 
-            {/* Total Assets Card */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
                 <tbody>
@@ -1120,7 +1267,6 @@ export default function FNAPage() {
               </table>
             </div>
 
-            {/* Disclaimer */}
             <div className="bg-black text-white text-center py-3 rounded-lg font-medium">
               ⚠️ DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE
             </div>
