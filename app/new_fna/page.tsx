@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from '@supabase/supabase-js';
@@ -96,6 +96,19 @@ interface AssetsData {
   totalProjected: number;
 }
 
+interface CardVisibility {
+  clientInfo: boolean;
+  college: boolean;
+  wedding: boolean;
+  retirement: boolean;
+  healthcare: boolean;
+  lifeGoals: boolean;
+  legacy: boolean;
+  totalReq: boolean;
+  assetsRetirement: boolean;
+  totalAssets: boolean;
+}
+
 const initialData: FNAData = {
   clientId: "",
   clientName: "",
@@ -167,7 +180,6 @@ const formatCurrency = (value: number): string => {
   }).format(value);
 };
 
-// ✅ CurrencyInput component - allows full number entry without cursor jumping
 const CurrencyInput: React.FC<{
   value: number;
   onChange: (value: number) => void;
@@ -237,6 +249,7 @@ const CurrencyInput: React.FC<{
 
 export default function FNAPage() {
   const router = useRouter();
+  const contentRef = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<FNAData>(initialData);
   const [assets, setAssets] = useState<AssetsData>(initialAssets);
   const [activeTab, setActiveTab] = useState<'goals' | 'assets'>('goals');
@@ -245,6 +258,20 @@ export default function FNAPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
+  const [exporting, setExporting] = useState(false);
+  
+  const [cardVisibility, setCardVisibility] = useState<CardVisibility>({
+    clientInfo: true,
+    college: false,
+    wedding: false,
+    retirement: false,
+    healthcare: false,
+    lifeGoals: false,
+    legacy: false,
+    totalReq: false,
+    assetsRetirement: false,
+    totalAssets: false,
+  });
 
   useEffect(() => {
     const authCookie = document.cookie.split('; ').find(row => row.startsWith('canfs_auth='));
@@ -616,10 +643,81 @@ export default function FNAPage() {
   };
 
   const handleClear = () => {
-    if (confirm('Clear all data? This will reset the form.')) {
-      setData({ ...initialData, clientId: data.clientId, clientName: data.clientName, clientPhone: data.clientPhone, clientEmail: data.clientEmail, healthcareNote1: "~$315K FOR COUPLE IN TODAY'S DOLLARS" });
+    if (confirm('Clear all data? This will reset the form except Client Information.')) {
+      setData(prev => ({
+        ...initialData,
+        clientId: prev.clientId,
+        clientName: prev.clientName,
+        clientPhone: prev.clientPhone,
+        clientEmail: prev.clientEmail,
+        spouseName: prev.spouseName,
+        city: prev.city,
+        state: prev.state,
+        clientDob: prev.clientDob,
+        analysisDate: prev.analysisDate,
+        healthcareNote1: "~$315K FOR COUPLE IN TODAY'S DOLLARS"
+      }));
       setAssets(initialAssets);
-      showMessage("Form cleared", 'success');
+      showMessage("Form cleared (Client Information retained)", 'success');
+    }
+  };
+
+  const handleShowAllCards = () => {
+    setCardVisibility({
+      clientInfo: true,
+      college: true,
+      wedding: true,
+      retirement: true,
+      healthcare: true,
+      lifeGoals: true,
+      legacy: true,
+      totalReq: true,
+      assetsRetirement: true,
+      totalAssets: true,
+    });
+  };
+
+  const toggleCard = (card: keyof CardVisibility) => {
+    setCardVisibility(prev => ({
+      ...prev,
+      [card]: !prev[card]
+    }));
+  };
+
+  const handleExportPDF = async () => {
+    if (!data.clientName) {
+      showMessage("Please select a client first", 'error');
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      
+      const element = contentRef.current;
+      if (!element) return;
+
+      const today = new Date();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      const yyyy = today.getFullYear();
+      const filename = `${data.clientName.replace(/\s/g, '_')}_FNA_${mm}-${dd}-${yyyy}.pdf`;
+
+      const opt = {
+        margin: 0.5,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+
+      await html2pdf().set(opt).from(element).save();
+      showMessage('✅ PDF exported successfully!', 'success');
+    } catch (error: any) {
+      console.error('Export error:', error);
+      showMessage(`❌ Export failed: ${error.message}`, 'error');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -642,6 +740,12 @@ export default function FNAPage() {
           </div>
           <div className="flex gap-2">
             <button
+              onClick={handleShowAllCards}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors font-medium"
+            >
+              📊 Show Cards
+            </button>
+            <button
               onClick={handleClear}
               className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors font-medium"
             >
@@ -657,8 +761,15 @@ export default function FNAPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-4">
+      <main className="max-w-7xl mx-auto px-4 py-4" ref={contentRef}>
         <div className="mb-4 flex justify-end gap-3">
+          <button
+            onClick={handleExportPDF}
+            disabled={exporting || !data.clientId}
+            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold shadow-md"
+          >
+            {exporting ? "📄 Exporting..." : "📄 Export PDF"}
+          </button>
           <button
             onClick={handleSave}
             disabled={saving || loading || !data.clientId}
@@ -676,7 +787,17 @@ export default function FNAPage() {
         </div>
 
         <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5 mb-4">
-          <h3 className="text-xl font-bold mb-4 pb-2 border-b">📋 Client Information</h3>
+          <div className="flex items-center justify-between mb-4 pb-2 border-b">
+            <h3 className="text-xl font-bold">📋 Client Information</h3>
+            <a
+              href="https://www.calculator.net/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors font-medium"
+            >
+              🧮 Calculator
+            </a>
+          </div>
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-sm font-bold mb-2 text-gray-700">Client Name *</label>
@@ -759,514 +880,605 @@ export default function FNAPage() {
         {activeTab === 'goals' && (
           <div className="space-y-4">
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                🎓 KIDS COLLEGE PLANNING
-              </h3>
-              <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: COLORS.headerBg }}>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold">CHILD NAME</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#1</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.child1CollegeName}
-                        onChange={(e) => setData(prev => ({ ...prev, child1CollegeName: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Enter child's name"
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.child1CollegeNotes}
-                        onChange={(e) => setData(prev => ({ ...prev, child1CollegeNotes: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={data.child1CollegeAmount}
-                        onChange={(val) => setData(prev => ({ ...prev, child1CollegeAmount: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#2</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.child2CollegeName}
-                        onChange={(e) => setData(prev => ({ ...prev, child2CollegeName: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Enter child's name"
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.child2CollegeNotes}
-                        onChange={(e) => setData(prev => ({ ...prev, child2CollegeNotes: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={data.child2CollegeAmount}
-                        onChange={(val) => setData(prev => ({ ...prev, child2CollegeAmount: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
+                    🎓 KIDS COLLEGE PLANNING
+                  </h3>
+                  <button
+                    onClick={() => toggleCard('college')}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                  >
+                    {cardVisibility.college ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <a
+                  href="https://educationdata.org/average-cost-of-college-by-state#tx"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors font-medium"
+                >
+                  💰 Cost of College
+                </a>
+              </div>
+              {cardVisibility.college && (
+                <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: COLORS.headerBg }}>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold">CHILD NAME</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#1</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.child1CollegeName}
+                          onChange={(e) => setData(prev => ({ ...prev, child1CollegeName: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Enter child's name"
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.child1CollegeNotes}
+                          onChange={(e) => setData(prev => ({ ...prev, child1CollegeNotes: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.child1CollegeAmount}
+                          onChange={(val) => setData(prev => ({ ...prev, child1CollegeAmount: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#2</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.child2CollegeName}
+                          onChange={(e) => setData(prev => ({ ...prev, child2CollegeName: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Enter child's name"
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.child2CollegeNotes}
+                          onChange={(e) => setData(prev => ({ ...prev, child2CollegeNotes: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.child2CollegeAmount}
+                          onChange={(val) => setData(prev => ({ ...prev, child2CollegeAmount: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                💒 KIDS WEDDING
-              </h3>
-              <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: COLORS.headerBg }}>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold">CHILD NAME</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#3</td>
-                    <td className="border border-black px-3 py-2 text-sm bg-gray-50">
-                      {data.child1CollegeName || '(From College #1)'}
-                    </td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.child1WeddingNotes}
-                        onChange={(e) => setData(prev => ({ ...prev, child1WeddingNotes: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={data.child1WeddingAmount}
-                        onChange={(val) => setData(prev => ({ ...prev, child1WeddingAmount: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#4</td>
-                    <td className="border border-black px-3 py-2 text-sm bg-gray-50">
-                      {data.child2CollegeName || '(From College #2)'}
-                    </td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.child2WeddingNotes}
-                        onChange={(e) => setData(prev => ({ ...prev, child2WeddingNotes: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={data.child2WeddingAmount}
-                        onChange={(val) => setData(prev => ({ ...prev, child2WeddingAmount: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
+                    💒 KIDS WEDDING
+                  </h3>
+                  <button
+                    onClick={() => toggleCard('wedding')}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                  >
+                    {cardVisibility.wedding ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <a
+                  href="https://www.zola.com/expert-advice/whats-the-average-cost-of-a-wedding"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors font-medium"
+                >
+                  💍 Wedding Expenses
+                </a>
+              </div>
+              {cardVisibility.wedding && (
+                <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: COLORS.headerBg }}>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold">CHILD NAME</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#3</td>
+                      <td className="border border-black px-3 py-2 text-sm bg-gray-50">
+                        {data.child1CollegeName || '(From College #1)'}
+                      </td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.child1WeddingNotes}
+                          onChange={(e) => setData(prev => ({ ...prev, child1WeddingNotes: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.child1WeddingAmount}
+                          onChange={(val) => setData(prev => ({ ...prev, child1WeddingAmount: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#4</td>
+                      <td className="border border-black px-3 py-2 text-sm bg-gray-50">
+                        {data.child2CollegeName || '(From College #2)'}
+                      </td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.child2WeddingNotes}
+                          onChange={(e) => setData(prev => ({ ...prev, child2WeddingNotes: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.child2WeddingAmount}
+                          onChange={(val) => setData(prev => ({ ...prev, child2WeddingAmount: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                🏖️ RETIREMENT PLANNING
-              </h3>
-              <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: COLORS.headerBg }}>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#5</td>
-                    <td className="border border-black px-3 py-2 text-sm">CURRENT AGE</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.retirementNote1}
-                        onChange={(e) => setData(prev => ({ ...prev, retirementNote1: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <select
-                        value={data.currentAge || ''}
-                        onChange={(e) => setData(prev => ({ ...prev, currentAge: parseInt(e.target.value) || 0 }))}
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      >
-                        <option value="">Select Age</option>
-                        {Array.from({ length: 120 }, (_, i) => i + 1).map(age => (
-                          <option key={age} value={age}>{age}</option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#6</td>
-                    <td className="border border-black px-3 py-2 text-sm">YEARS TO RETIREMENT (65 - CURRENT AGE)</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.retirementNote2}
-                        onChange={(e) => setData(prev => ({ ...prev, retirementNote2: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
-                      {data.yearsToRetirement}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#7</td>
-                    <td className="border border-black px-3 py-2 text-sm">RETIREMENT YEARS (85 - CURRENT AGE)</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.retirementNote3}
-                        onChange={(e) => setData(prev => ({ ...prev, retirementNote3: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
-                      {data.retirementYears}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#8</td>
-                    <td className="border border-black px-3 py-2 text-sm">MONTHLY INCOME NEEDED (TODAY'S DOLLARS)</td>
-                    <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
-                      Today's dollars
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={data.monthlyIncomeNeeded}
-                        onChange={(val) => setData(prev => ({ ...prev, monthlyIncomeNeeded: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#9</td>
-                    <td className="border border-black px-3 py-2 text-sm">MONTHLY INCOME NEEDED (AT RETIREMENT @ 3%)</td>
-                    <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
-                      Auto-calculated with 3% inflation
-                    </td>
-                    <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
-                      {formatCurrency(data.monthlyRetirementIncome)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#10</td>
-                    <td className="border border-black px-3 py-2 text-sm">ANNUAL RETIREMENT INCOME NEEDED</td>
-                    <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
-                      Monthly × 12
-                    </td>
-                    <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
-                      {formatCurrency(data.annualRetirementIncome)}
-                    </td>
-                  </tr>
-                  <tr style={{ backgroundColor: COLORS.lightYellowBg }}>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#11</td>
-                    <td className="border border-black px-3 py-2 text-sm font-bold">TOTAL RETIREMENT INCOME NEEDED</td>
-                    <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
-                      Annual × Retirement Years
-                    </td>
-                    <td className="border border-black px-3 py-2 text-sm text-right font-bold">
-                      {formatCurrency(data.totalRetirementIncome)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="flex items-center gap-3 mb-3">
+                <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
+                  🏖️ RETIREMENT PLANNING
+                </h3>
+                <button
+                  onClick={() => toggleCard('retirement')}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                >
+                  {cardVisibility.retirement ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {cardVisibility.retirement && (
+                <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: COLORS.headerBg }}>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#5</td>
+                      <td className="border border-black px-3 py-2 text-sm">CURRENT AGE</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.retirementNote1}
+                          onChange={(e) => setData(prev => ({ ...prev, retirementNote1: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <select
+                          value={data.currentAge || ''}
+                          onChange={(e) => setData(prev => ({ ...prev, currentAge: parseInt(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        >
+                          <option value="">Select Age</option>
+                          {Array.from({ length: 120 }, (_, i) => i + 1).map(age => (
+                            <option key={age} value={age}>{age}</option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#6</td>
+                      <td className="border border-black px-3 py-2 text-sm">YEARS TO RETIREMENT (65 - CURRENT AGE)</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.retirementNote2}
+                          onChange={(e) => setData(prev => ({ ...prev, retirementNote2: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
+                        {data.yearsToRetirement}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#7</td>
+                      <td className="border border-black px-3 py-2 text-sm">RETIREMENT YEARS (85 - CURRENT AGE)</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.retirementNote3}
+                          onChange={(e) => setData(prev => ({ ...prev, retirementNote3: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
+                        {data.retirementYears}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#8</td>
+                      <td className="border border-black px-3 py-2 text-sm">MONTHLY INCOME NEEDED (TODAY'S DOLLARS)</td>
+                      <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
+                        Today's dollars
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.monthlyIncomeNeeded}
+                          onChange={(val) => setData(prev => ({ ...prev, monthlyIncomeNeeded: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#9</td>
+                      <td className="border border-black px-3 py-2 text-sm">MONTHLY INCOME NEEDED (AT RETIREMENT @ 3%)</td>
+                      <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
+                        Auto-calculated with 3% inflation
+                      </td>
+                      <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
+                        {formatCurrency(data.monthlyRetirementIncome)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#10</td>
+                      <td className="border border-black px-3 py-2 text-sm">ANNUAL RETIREMENT INCOME NEEDED</td>
+                      <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
+                        Monthly × 12
+                      </td>
+                      <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
+                        {formatCurrency(data.annualRetirementIncome)}
+                      </td>
+                    </tr>
+                    <tr style={{ backgroundColor: COLORS.lightYellowBg }}>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#11</td>
+                      <td className="border border-black px-3 py-2 text-sm font-bold">TOTAL RETIREMENT INCOME NEEDED</td>
+                      <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
+                        Annual × Retirement Years
+                      </td>
+                      <td className="border border-black px-3 py-2 text-sm text-right font-bold">
+                        {formatCurrency(data.totalRetirementIncome)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                🏥 HEALTHCARE PLANNING
-              </h3>
-              <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: COLORS.headerBg }}>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#12</td>
-                    <td className="border border-black px-3 py-2 text-sm">HEALTHCARE EXPENSES</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.healthcareNote1}
-                        onChange={(e) => setData(prev => ({ ...prev, healthcareNote1: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="~$315K FOR COUPLE IN TODAY'S DOLLARS"
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={data.healthcareExpenses}
-                        onChange={(val) => setData(prev => ({ ...prev, healthcareExpenses: val }))}
-                        placeholder="$315,000.00"
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#13</td>
-                    <td className="border border-black px-3 py-2 text-sm">LONG-TERM CARE</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.healthcareNote2}
-                        onChange={(e) => setData(prev => ({ ...prev, healthcareNote2: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="3% of healthcare × years × 2"
-                      />
-                    </td>
-                    <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
-                      {formatCurrency(data.longTermCare)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="flex items-center gap-3 mb-3">
+                <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
+                  🏥 HEALTHCARE PLANNING
+                </h3>
+                <button
+                  onClick={() => toggleCard('healthcare')}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                >
+                  {cardVisibility.healthcare ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {cardVisibility.healthcare && (
+                <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: COLORS.headerBg }}>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#12</td>
+                      <td className="border border-black px-3 py-2 text-sm">HEALTHCARE EXPENSES</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.healthcareNote1}
+                          onChange={(e) => setData(prev => ({ ...prev, healthcareNote1: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="~$315K FOR COUPLE IN TODAY'S DOLLARS"
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.healthcareExpenses}
+                          onChange={(val) => setData(prev => ({ ...prev, healthcareExpenses: val }))}
+                          placeholder="$315,000.00"
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#13</td>
+                      <td className="border border-black px-3 py-2 text-sm">LONG-TERM CARE</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.healthcareNote2}
+                          onChange={(e) => setData(prev => ({ ...prev, healthcareNote2: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="3% of healthcare × years × 2"
+                        />
+                      </td>
+                      <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
+                        {formatCurrency(data.longTermCare)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                🌟 LIFE GOALS
-              </h3>
-              <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: COLORS.headerBg }}>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#14</td>
-                    <td className="border border-black px-3 py-2 text-sm">TRAVEL BUDGET</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.travelNotes}
-                        onChange={(e) => setData(prev => ({ ...prev, travelNotes: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={data.travelBudget}
-                        onChange={(val) => setData(prev => ({ ...prev, travelBudget: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#15</td>
-                    <td className="border border-black px-3 py-2 text-sm">VACATION HOME</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.vacationNotes}
-                        onChange={(e) => setData(prev => ({ ...prev, vacationNotes: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={data.vacationHome}
-                        onChange={(val) => setData(prev => ({ ...prev, vacationHome: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#16</td>
-                    <td className="border border-black px-3 py-2 text-sm">CHARITY / GIVING</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.charityNotes}
-                        onChange={(e) => setData(prev => ({ ...prev, charityNotes: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={data.charity}
-                        onChange={(val) => setData(prev => ({ ...prev, charity: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#17</td>
-                    <td className="border border-black px-3 py-2 text-sm">OTHER GOALS</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.otherGoalsNotes}
-                        onChange={(e) => setData(prev => ({ ...prev, otherGoalsNotes: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={data.otherGoals}
-                        onChange={(val) => setData(prev => ({ ...prev, otherGoals: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="flex items-center gap-3 mb-3">
+                <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
+                  🌟 LIFE GOALS
+                </h3>
+                <button
+                  onClick={() => toggleCard('lifeGoals')}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                >
+                  {cardVisibility.lifeGoals ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {cardVisibility.lifeGoals && (
+                <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: COLORS.headerBg }}>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#14</td>
+                      <td className="border border-black px-3 py-2 text-sm">TRAVEL BUDGET</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.travelNotes}
+                          onChange={(e) => setData(prev => ({ ...prev, travelNotes: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.travelBudget}
+                          onChange={(val) => setData(prev => ({ ...prev, travelBudget: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#15</td>
+                      <td className="border border-black px-3 py-2 text-sm">VACATION HOME</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.vacationNotes}
+                          onChange={(e) => setData(prev => ({ ...prev, vacationNotes: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.vacationHome}
+                          onChange={(val) => setData(prev => ({ ...prev, vacationHome: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#16</td>
+                      <td className="border border-black px-3 py-2 text-sm">CHARITY / GIVING</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.charityNotes}
+                          onChange={(e) => setData(prev => ({ ...prev, charityNotes: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.charity}
+                          onChange={(val) => setData(prev => ({ ...prev, charity: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#17</td>
+                      <td className="border border-black px-3 py-2 text-sm">OTHER GOALS</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.otherGoalsNotes}
+                          onChange={(e) => setData(prev => ({ ...prev, otherGoalsNotes: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.otherGoals}
+                          onChange={(val) => setData(prev => ({ ...prev, otherGoals: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                🎁 LEGACY PLANNING
-              </h3>
-              <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: COLORS.headerBg }}>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#18</td>
-                    <td className="border border-black px-3 py-2 text-sm">HEADSTART FUND FOR GRANDKIDS</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.headstartNotes}
-                        onChange={(e) => setData(prev => ({ ...prev, headstartNotes: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={data.headstartFund}
-                        onChange={(val) => setData(prev => ({ ...prev, headstartFund: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#19</td>
-                    <td className="border border-black px-3 py-2 text-sm">FAMILY LEGACY</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.legacyNotes}
-                        onChange={(e) => setData(prev => ({ ...prev, legacyNotes: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={data.familyLegacy}
-                        onChange={(val) => setData(prev => ({ ...prev, familyLegacy: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#20</td>
-                    <td className="border border-black px-3 py-2 text-sm">FAMILY SUPPORT</td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={data.supportNotes}
-                        onChange={(e) => setData(prev => ({ ...prev, supportNotes: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={data.familySupport}
-                        onChange={(val) => setData(prev => ({ ...prev, familySupport: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="flex items-center gap-3 mb-3">
+                <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
+                  🎁 LEGACY PLANNING
+                </h3>
+                <button
+                  onClick={() => toggleCard('legacy')}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                >
+                  {cardVisibility.legacy ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {cardVisibility.legacy && (
+                <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: COLORS.headerBg }}>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
+                      <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#18</td>
+                      <td className="border border-black px-3 py-2 text-sm">HEADSTART FUND FOR GRANDKIDS</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.headstartNotes}
+                          onChange={(e) => setData(prev => ({ ...prev, headstartNotes: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.headstartFund}
+                          onChange={(val) => setData(prev => ({ ...prev, headstartFund: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#19</td>
+                      <td className="border border-black px-3 py-2 text-sm">FAMILY LEGACY</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.legacyNotes}
+                          onChange={(e) => setData(prev => ({ ...prev, legacyNotes: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.familyLegacy}
+                          onChange={(val) => setData(prev => ({ ...prev, familyLegacy: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#20</td>
+                      <td className="border border-black px-3 py-2 text-sm">FAMILY SUPPORT</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={data.supportNotes}
+                          onChange={(e) => setData(prev => ({ ...prev, supportNotes: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.familySupport}
+                          onChange={(val) => setData(prev => ({ ...prev, familySupport: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
-                <tbody>
-                  <tr style={{ backgroundColor: COLORS.yellowBg }}>
-                    <td className="border border-black px-4 py-4 text-xl font-bold">💰 TOTAL REQUIREMENT</td>
-                    <td className="border border-black px-4 py-4 text-right text-2xl font-bold text-green-700">
-                      {formatCurrency(data.totalRequirement)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="flex items-center gap-3 mb-3">
+                <h3 className="font-bold text-lg">💰 TOTAL REQUIREMENT</h3>
+                <button
+                  onClick={() => toggleCard('totalReq')}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                >
+                  {cardVisibility.totalReq ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {cardVisibility.totalReq && (
+                <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
+                  <tbody>
+                    <tr style={{ backgroundColor: COLORS.yellowBg }}>
+                      <td className="border border-black px-4 py-4 text-xl font-bold">💰 TOTAL REQUIREMENT</td>
+                      <td className="border border-black px-4 py-4 text-right text-2xl font-bold text-green-700">
+                        {formatCurrency(data.totalRequirement)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div className="bg-black text-white text-center py-3 rounded-lg font-medium">
@@ -1278,87 +1490,108 @@ export default function FNAPage() {
         {activeTab === 'assets' && (
           <div className="space-y-4">
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <h3 className="font-bold text-lg mb-3 px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                🏦 RETIREMENT PLANNING (USA)
-              </h3>
-              <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: COLORS.headerBg }}>
-                    <th className="border border-black px-2 py-2 text-sm font-bold w-12">#</th>
-                    <th className="border border-black px-2 py-2 text-sm font-bold">DESCRIPTION</th>
-                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HIM</th>
-                    <th className="border border-black px-2 py-2 text-sm font-bold w-16">HER</th>
-                    <th className="border border-black px-2 py-2 text-sm font-bold w-48">NOTES</th>
-                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">PRESENT VALUE</th>
-                    <th className="border border-black px-2 py-2 text-sm font-bold w-40">PROJECTED @ 65</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border border-black px-2 py-2 text-sm text-center font-semibold">#1</td>
-                    <td className="border border-black px-2 py-2 text-sm">CURRENT 401K | 403B</td>
-                    <td className="border border-black text-center">
-                      <input
-                        type="checkbox"
-                        checked={assets.ret1_him}
-                        onChange={(e) => setAssets(prev => ({ ...prev, ret1_him: e.target.checked }))}
-                        className="w-5 h-5"
-                      />
-                    </td>
-                    <td className="border border-black text-center">
-                      <input
-                        type="checkbox"
-                        checked={assets.ret1_her}
-                        onChange={(e) => setAssets(prev => ({ ...prev, ret1_her: e.target.checked }))}
-                        className="w-5 h-5"
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <input
-                        type="text"
-                        value={assets.ret1_notes}
-                        onChange={(e) => setAssets(prev => ({ ...prev, ret1_notes: e.target.value }))}
-                        className="w-full px-2 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        placeholder="Add notes..."
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={assets.ret1_present}
-                        onChange={(val) => setAssets(prev => ({ ...prev, ret1_present: val, totalPresent: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-2 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                    <td className="border border-black p-0">
-                      <CurrencyInput
-                        value={assets.ret1_projected}
-                        onChange={(val) => setAssets(prev => ({ ...prev, ret1_projected: val, totalProjected: val }))}
-                        placeholder="$0.00"
-                        className="w-full px-2 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="flex items-center gap-3 mb-3">
+                <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
+                  🏦 RETIREMENT PLANNING (USA)
+                </h3>
+                <button
+                  onClick={() => toggleCard('assetsRetirement')}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                >
+                  {cardVisibility.assetsRetirement ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {cardVisibility.assetsRetirement && (
+                <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: COLORS.headerBg }}>
+                      <th className="border border-black px-2 py-2 text-sm font-bold w-12">#</th>
+                      <th className="border border-black px-2 py-2 text-sm font-bold">DESCRIPTION</th>
+                      <th className="border border-black px-2 py-2 text-sm font-bold w-16">HIM</th>
+                      <th className="border border-black px-2 py-2 text-sm font-bold w-16">HER</th>
+                      <th className="border border-black px-2 py-2 text-sm font-bold w-48">NOTES</th>
+                      <th className="border border-black px-2 py-2 text-sm font-bold w-40">PRESENT VALUE</th>
+                      <th className="border border-black px-2 py-2 text-sm font-bold w-40">PROJECTED @ 65</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border border-black px-2 py-2 text-sm text-center font-semibold">#1</td>
+                      <td className="border border-black px-2 py-2 text-sm">CURRENT 401K | 403B</td>
+                      <td className="border border-black text-center">
+                        <input
+                          type="checkbox"
+                          checked={assets.ret1_him}
+                          onChange={(e) => setAssets(prev => ({ ...prev, ret1_him: e.target.checked }))}
+                          className="w-5 h-5"
+                        />
+                      </td>
+                      <td className="border border-black text-center">
+                        <input
+                          type="checkbox"
+                          checked={assets.ret1_her}
+                          onChange={(e) => setAssets(prev => ({ ...prev, ret1_her: e.target.checked }))}
+                          className="w-5 h-5"
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="text"
+                          value={assets.ret1_notes}
+                          onChange={(e) => setAssets(prev => ({ ...prev, ret1_notes: e.target.value }))}
+                          className="w-full px-2 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          placeholder="Add notes..."
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={assets.ret1_present}
+                          onChange={(val) => setAssets(prev => ({ ...prev, ret1_present: val, totalPresent: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-2 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={assets.ret1_projected}
+                          onChange={(val) => setAssets(prev => ({ ...prev, ret1_projected: val, totalProjected: val }))}
+                          placeholder="$0.00"
+                          className="w-full px-2 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
-                <tbody>
-                  <tr style={{ backgroundColor: COLORS.yellowBg }}>
-                    <td className="border border-black px-4 py-4 text-xl font-bold">💰 TOTAL ASSETS</td>
-                    <td className="border border-black px-4 py-4">
-                      <div className="text-right text-lg font-bold text-green-700">
-                        Present Value: {formatCurrency(assets.totalPresent)}
-                      </div>
-                      <div className="text-right text-lg font-bold text-blue-700 mt-1">
-                        Projected @ 65: {formatCurrency(assets.totalProjected)}
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="flex items-center gap-3 mb-3">
+                <h3 className="font-bold text-lg">💰 TOTAL ASSETS</h3>
+                <button
+                  onClick={() => toggleCard('totalAssets')}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                >
+                  {cardVisibility.totalAssets ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {cardVisibility.totalAssets && (
+                <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
+                  <tbody>
+                    <tr style={{ backgroundColor: COLORS.yellowBg }}>
+                      <td className="border border-black px-4 py-4 text-xl font-bold">💰 TOTAL ASSETS</td>
+                      <td className="border border-black px-4 py-4">
+                        <div className="text-right text-lg font-bold text-green-700">
+                          Present Value: {formatCurrency(assets.totalPresent)}
+                        </div>
+                        <div className="text-right text-lg font-bold text-blue-700 mt-1">
+                          Projected @ 65: {formatCurrency(assets.totalProjected)}
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div className="bg-black text-white text-center py-3 rounded-lg font-medium">
