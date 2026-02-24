@@ -684,42 +684,29 @@ export default function FNAPage() {
     }));
   };
 
-  const handleExportPDF = async () => {
-    if (!data.clientName) {
-      showMessage("Please select a client first", 'error');
-      return;
-    }
+  const handleExportPDF = () => {
+  if (!data.clientName) {
+    showMessage("Please select a client first", 'error');
+    return;
+  }
 
-    setExporting(true);
-    try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      
-      const element = contentRef.current;
-      if (!element) return;
-
-      const today = new Date();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      const yyyy = today.getFullYear();
-      const filename = `${data.clientName.replace(/\s/g, '_')}_FNA_${mm}-${dd}-${yyyy}.pdf`;
-
-      const opt = {
-        margin: 0.5,
-        filename: filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-      };
-
-      await html2pdf().set(opt).from(element).save();
-      showMessage('✅ PDF exported successfully!', 'success');
-    } catch (error: any) {
-      console.error('Export error:', error);
-      showMessage(`❌ Export failed: ${error.message}`, 'error');
-    } finally {
-      setExporting(false);
-    }
-  };
+  const today = new Date();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  const yyyy = today.getFullYear();
+  const suggestedFilename = `${data.clientName.replace(/\s/g, '_')}_FNA_${mm}-${dd}-${yyyy}`;
+  
+  const originalTitle = document.title;
+  document.title = suggestedFilename;
+  
+  window.print();
+  
+  setTimeout(() => {
+    document.title = originalTitle;
+  }, 1000);
+  
+  showMessage('💡 Use "Save as PDF" in the print dialog', 'success');
+};
 
   return (
     <div className="min-h-screen bg-gray-50">
