@@ -12,6 +12,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const COLORS = {
   headerBg: '#BDD7EE',
   yellowBg: '#FFFF00',
+  lightYellowBg: '#FFFACD', // Light yellow for #11
 };
 
 interface Client {
@@ -38,7 +39,6 @@ interface FNAData {
   clientDob: string;
   analysisDate: string;
   
-  // College
   child1CollegeName: string;
   child1CollegeNotes: string;
   child1CollegeAmount: number;
@@ -46,13 +46,11 @@ interface FNAData {
   child2CollegeNotes: string;
   child2CollegeAmount: number;
   
-  // Wedding
   child1WeddingNotes: string;
   child1WeddingAmount: number;
   child2WeddingNotes: string;
   child2WeddingAmount: number;
   
-  // Retirement
   currentAge: number;
   yearsToRetirement: number;
   retirementYears: number;
@@ -64,13 +62,11 @@ interface FNAData {
   retirementNote2: string;
   retirementNote3: string;
   
-  // Healthcare
   healthcareExpenses: number;
   longTermCare: number;
   healthcareNote1: string;
   healthcareNote2: string;
   
-  // Life Goals
   travelBudget: number;
   travelNotes: string;
   vacationHome: number;
@@ -80,7 +76,6 @@ interface FNAData {
   otherGoals: number;
   otherGoalsNotes: string;
   
-  // Legacy
   headstartFund: number;
   headstartNotes: string;
   familyLegacy: number;
@@ -162,7 +157,6 @@ const initialAssets: AssetsData = {
   totalProjected: 0
 };
 
-// Updated to show 2 decimal places
 const formatCurrency = (value: number): string => {
   if (value === 0) return "";
   return new Intl.NumberFormat('en-US', {
@@ -395,6 +389,7 @@ export default function FNAPage() {
     try {
       let fnaId = data.fnaId;
 
+      // Create or update master FNA record
       if (!fnaId) {
         const { data: fnaRecord, error: fnaError } = await supabase
           .from('fna_records')
@@ -411,7 +406,8 @@ export default function FNAPage() {
         fnaId = fnaRecord.fna_id;
         setData(prev => ({ ...prev, fnaId }));
       } else {
-        await supabase
+        // Update existing master record
+        const { error: updateError } = await supabase
           .from('fna_records')
           .update({
             analysis_date: data.analysisDate,
@@ -419,8 +415,11 @@ export default function FNAPage() {
             updated_at: new Date().toISOString()
           })
           .eq('fna_id', fnaId);
+
+        if (updateError) throw updateError;
       }
 
+      // Delete old child records
       await Promise.all([
         supabase.from('fna_college').delete().eq('fna_id', fnaId),
         supabase.from('fna_wedding').delete().eq('fna_id', fnaId),
@@ -431,46 +430,116 @@ export default function FNAPage() {
         supabase.from('fna_ast_retirement').delete().eq('fna_id', fnaId),
       ]);
 
-      await Promise.all([
-        supabase.from('fna_college').insert([
-          { fna_id: fnaId, child_number: 1, child_name: data.child1CollegeName, notes: data.child1CollegeNotes, amount: data.child1CollegeAmount },
-          { fna_id: fnaId, child_number: 2, child_name: data.child2CollegeName, notes: data.child2CollegeNotes, amount: data.child2CollegeAmount }
-        ]),
-        supabase.from('fna_wedding').insert([
-          { fna_id: fnaId, child_number: 1, notes: data.child1WeddingNotes, amount: data.child1WeddingAmount },
-          { fna_id: fnaId, child_number: 2, notes: data.child2WeddingNotes, amount: data.child2WeddingAmount }
-        ]),
-        supabase.from('fna_retirement').insert([{
+      // Insert new child records with fna_id as foreign key
+      const insertPromises = [];
+
+      // College - only if there's data
+      if (data.child1CollegeName || data.child1CollegeAmount > 0) {
+        insertPromises.push(
+          supabase.from('fna_college').insert({
+            fna_id: fnaId,
+            child_number: 1,
+            child_name: data.child1CollegeName,
+            notes: data.child1CollegeNotes,
+            amount: data.child1CollegeAmount
+          })
+        );
+      }
+      if (data.child2CollegeName || data.child2CollegeAmount > 0) {
+        insertPromises.push(
+          supabase.from('fna_college').insert({
+            fna_id: fnaId,
+            child_number: 2,
+            child_name: data.child2CollegeName,
+            notes: data.child2CollegeNotes,
+            amount: data.child2CollegeAmount
+          })
+        );
+      }
+
+      // Wedding - only if there's data
+      if (data.child1WeddingAmount > 0) {
+        insertPromises.push(
+          supabase.from('fna_wedding').insert({
+            fna_id: fnaId,
+            child_number: 1,
+            child_name: data.child1CollegeName, // Use college name
+            notes: data.child1WeddingNotes,
+            amount: data.child1WeddingAmount
+          })
+        );
+      }
+      if (data.child2WeddingAmount > 0) {
+        insertPromises.push(
+          supabase.from('fna_wedding').insert({
+            fna_id: fnaId,
+            child_number: 2,
+            child_name: data.child2CollegeName, // Use college name
+            notes: data.child2WeddingNotes,
+            amount: data.child2WeddingAmount
+          })
+        );
+      }
+
+      // Retirement
+      insertPromises.push(
+        supabase.from('fna_retirement').insert({
           fna_id: fnaId,
           current_age: data.currentAge,
           monthly_income_needed: data.monthlyIncomeNeeded
-        }]),
-        supabase.from('fna_healthcare').insert([{
+        })
+      );
+
+      // Healthcare
+      insertPromises.push(
+        supabase.from('fna_healthcare').insert({
           fna_id: fnaId,
           healthcare_expenses: data.healthcareExpenses
-        }]),
-        supabase.from('fna_life_goals').insert([{
+        })
+      );
+
+      // Life Goals
+      insertPromises.push(
+        supabase.from('fna_life_goals').insert({
           fna_id: fnaId,
           travel_budget: data.travelBudget,
           vacation_home: data.vacationHome,
           charity: data.charity,
           other_goals: data.otherGoals
-        }]),
-        supabase.from('fna_legacy').insert([{
+        })
+      );
+
+      // Legacy
+      insertPromises.push(
+        supabase.from('fna_legacy').insert({
           fna_id: fnaId,
           headstart_fund: data.headstartFund,
           family_legacy: data.familyLegacy,
           family_support: data.familySupport
-        }]),
-        supabase.from('fna_ast_retirement').insert([{
+        })
+      );
+
+      // Assets
+      insertPromises.push(
+        supabase.from('fna_ast_retirement').insert({
           fna_id: fnaId,
           current_401k_him: assets.ret1_him,
           current_401k_her: assets.ret1_her,
           current_401k_notes: assets.ret1_notes,
           current_401k_present_value: assets.ret1_present,
           current_401k_projected_value: assets.ret1_projected
-        }])
-      ]);
+        })
+      );
+
+      // Execute all inserts
+      const results = await Promise.all(insertPromises);
+      
+      // Check for errors
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) {
+        console.error('Insert errors:', errors);
+        throw new Error('Some records failed to save');
+      }
 
       showMessage('✅ FNA saved successfully!', 'success');
     } catch (error: any) {
@@ -728,7 +797,7 @@ export default function FNAPage() {
                 <thead>
                   <tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
-                    <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
+                    <th className="border border-black px-3 py-2 text-sm font-bold">CHILD NAME</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
                     <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
                   </tr>
@@ -736,7 +805,9 @@ export default function FNAPage() {
                 <tbody>
                   <tr>
                     <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#3</td>
-                    <td className="border border-black px-3 py-2 text-sm">CHILD 1 WEDDING</td>
+                    <td className="border border-black px-3 py-2 text-sm bg-gray-50">
+                      {data.child1CollegeName || '(From College #1)'}
+                    </td>
                     <td className="border border-black p-0">
                       <input
                         type="text"
@@ -758,7 +829,9 @@ export default function FNAPage() {
                   </tr>
                   <tr>
                     <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#4</td>
-                    <td className="border border-black px-3 py-2 text-sm">CHILD 2 WEDDING</td>
+                    <td className="border border-black px-3 py-2 text-sm bg-gray-50">
+                      {data.child2CollegeName || '(From College #2)'}
+                    </td>
                     <td className="border border-black p-0">
                       <input
                         type="text"
@@ -890,13 +963,13 @@ export default function FNAPage() {
                       {formatCurrency(data.annualRetirementIncome)}
                     </td>
                   </tr>
-                  <tr>
+                  <tr style={{ backgroundColor: COLORS.lightYellowBg }}>
                     <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#11</td>
                     <td className="border border-black px-3 py-2 text-sm font-bold">TOTAL RETIREMENT INCOME NEEDED</td>
                     <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
                       Annual × Retirement Years
                     </td>
-                    <td className="border border-black px-3 py-2 text-sm text-right font-bold bg-blue-100">
+                    <td className="border border-black px-3 py-2 text-sm text-right font-bold">
                       {formatCurrency(data.totalRetirementIncome)}
                     </td>
                   </tr>
