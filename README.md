@@ -1,235 +1,290 @@
-# 🚀 Deployment Instructions - FNA-COMPLETE-ALL-FEATURES.tsx
+# 🚀 Complete Deployment Package - FNA with New Client Fields
 
-## ✅ Complete File Ready!
+## ✅ What's Been Added:
 
-**File:** FNA-COMPLETE-ALL-FEATURES.tsx  
-**Size:** 1,605 lines  
-**All Features Included:** ✅
+### New Client Information Fields (Row 3):
+1. **Date of Birth** - Date picker
+2. **Planned Retirement Age** - Dropdown (50-107, default 65)
+3. **Interest% to calculate** - Dropdown (3%-15%, default 6%)
+4. **Note** - Text input
 
----
-
-## 📦 Step 1: Install Required Package
-
-```bash
-npm install html2pdf.js
+### Database Columns Required:
+```sql
+ALTER TABLE fna_records ADD COLUMN dob DATE;
+ALTER TABLE fna_records ADD COLUMN notes TEXT;
+ALTER TABLE fna_records ADD COLUMN planned_retirement_age INTEGER DEFAULT 65;
+ALTER TABLE fna_records ADD COLUMN calculated_interest_percentage INTEGER DEFAULT 6;
 ```
 
 ---
 
-## 🔧 Step 2: Deploy the File
+## 📦 Files Provided:
 
-```bash
-# Backup current file
-cp app/new_fna/page.tsx app/new_fna/page.tsx.backup
-
-# Deploy new file
-cp FNA-COMPLETE-ALL-FEATURES.tsx app/new_fna/page.tsx
-
-# Build
-npm run build
-
-# Start dev server
-npm run dev
-```
+1. **FNA-WITH-NEW-CLIENT-FIELDS.tsx** (partial - first 1000 lines)
+2. **FNA-COMPLETE-ALL-FEATURES.tsx** (complete base file)
+3. **NEW-FIELDS-SUMMARY.md** (detailed specifications)
 
 ---
 
-## ✨ All New Features Included:
+## 🔧 Manual Integration Steps:
 
-### 1. ✅ External Link Buttons
-- **Calculator** button on Client Information card → Opens calculator.net
-- **Cost of College** button on College Planning card → Opens education data
-- **Wedding Expenses** button on Wedding card → Opens Zola
+Since the complete file is very large (~1700 lines), here's how to integrate the new fields into your existing `FNA-COMPLETE-ALL-FEATURES.tsx`:
 
-### 2. ✅ Show/Hide Buttons
-- Each card has a Show/Hide toggle button
-- Default state: All cards HIDDEN except Client Information
-- Click "Show" to expand, "Hide" to collapse
+### Step 1: Update FNAData Interface
 
-### 3. ✅ Show Cards Button (Header)
-- Click to expand ALL cards at once
-- Located in header next to Clear and Logout
+Add these fields to the `FNAData` interface (around line 30):
 
-### 4. ✅ Clear Button - Keeps Client Info
-- Clears all form data EXCEPT Client Information
-- Client details are preserved
-
-### 5. ✅ Export PDF
-- Creates PDF with filename: `ClientName_FNA_mm-dd-yyyy.pdf`
-- Example: `John_Doe_FNA_02-24-2026.pdf`
-- Green button next to Save button
-
-### 6. ✅ All Previous Features
-- CurrencyInput (fixed amount entry)
-- Child names auto-copy from College to Wedding
-- Row #11 light yellow highlight
-- Notes columns everywhere
-- Decimal formatting
-- Age dropdown
-- All calculations working
-- Save/Load working
-
----
-
-## 🧪 Testing Checklist:
-
-### Test 1: Show Cards Button
-- [ ] Click "📊 Show Cards" in header
-- [ ] All cards expand at once ✅
-
-### Test 2: Individual Show/Hide
-- [ ] Click "Show" on College card → Content appears
-- [ ] Click "Hide" on College card → Content disappears
-- [ ] Repeat for other cards
-
-### Test 3: Default State
-- [ ] Refresh page
-- [ ] Only Client Information visible
-- [ ] All other cards hidden ✅
-
-### Test 4: External Links
-- [ ] Click "🧮 Calculator" → Opens calculator.net in new tab
-- [ ] Click "💰 Cost of College" → Opens education data in new tab
-- [ ] Click "💍 Wedding Expenses" → Opens Zola in new tab
-
-### Test 5: Clear Button
-- [ ] Enter data in College (#1)
-- [ ] Enter data in Retirement
-- [ ] Click "🗑️ Clear"
-- [ ] Client Information still there ✅
-- [ ] All other data cleared ✅
-
-### Test 6: Export PDF
-- [ ] Select client "John Doe"
-- [ ] Click "📄 Export PDF"
-- [ ] File downloads as `John_Doe_FNA_02-24-2026.pdf` ✅
-
-### Test 7: Amount Input (Previous Fix)
-- [ ] Click amount field
-- [ ] Type "50000"
-- [ ] All digits entered ✅
-- [ ] Tab out → Shows "$50,000.00" ✅
-
-### Test 8: Save/Load
-- [ ] Enter data
-- [ ] Click "💾 Save FNA"
-- [ ] Success message appears
-- [ ] No 400 errors in console ✅
-
----
-
-## 📋 Card Visibility Keys:
-
-| Card | Default State | Key Name |
-|------|---------------|----------|
-| Client Information | Visible | `clientInfo` |
-| College Planning | Hidden | `college` |
-| Wedding | Hidden | `wedding` |
-| Retirement Planning | Hidden | `retirement` |
-| Healthcare | Hidden | `healthcare` |
-| Life Goals | Hidden | `lifeGoals` |
-| Legacy | Hidden | `legacy` |
-| Total Requirement | Hidden | `totalReq` |
-| Assets Retirement | Hidden | `assetsRetirement` |
-| Total Assets | Hidden | `totalAssets` |
-
----
-
-## 🎨 UI Layout:
-
-### Header:
-```
-[Logo] [Title]                    [Show Cards] [Clear] [Logout ➜]
-```
-
-### Action Buttons:
-```
-[📄 Export PDF] [💾 Save FNA]
-```
-
-### Card Example:
-```
-┌─────────────────────────────────────────────────────┐
-│ 🎓 KIDS COLLEGE PLANNING  [Show/Hide]  [💰 Cost...] │
-├─────────────────────────────────────────────────────┤
-│ [Content - visible/hidden based on toggle]          │
-└─────────────────────────────────────────────────────┘
-```
-
----
-
-## 🔍 Troubleshooting:
-
-### Issue: PDF export fails
-**Solution:** Make sure html2pdf.js is installed:
-```bash
-npm install html2pdf.js
-```
-
-### Issue: Cards don't hide/show
-**Solution:** Check React state - make sure cardVisibility state exists
-
-### Issue: External links don't work
-**Solution:** Check that target="_blank" and rel="noopener noreferrer" are present
-
-### Issue: Clear doesn't keep client info
-**Solution:** Verify the handleClear function preserves client fields
-
----
-
-## 📝 Key Code Sections:
-
-### Card Visibility State:
 ```typescript
-const [cardVisibility, setCardVisibility] = useState<CardVisibility>({
-  clientInfo: true,  // Always visible
-  college: false,    // Hidden by default
-  wedding: false,
-  // ... etc
-});
+interface FNAData {
+  // ... existing fields
+  
+  // ADD THESE NEW FIELDS:
+  dob: string;
+  notes: string;
+  plannedRetirementAge: number;
+  calculatedInterestPercentage: number;
+  
+  // ... rest of fields
+}
 ```
 
-### Show All Cards:
+### Step 2: Update initialData
+
+Add defaults to `initialData` (around line 112):
+
 ```typescript
-const handleShowAllCards = () => {
-  setCardVisibility({
-    clientInfo: true,
-    college: true,
-    wedding: true,
-    // ... all set to true
-  });
+const initialData: FNAData = {
+  // ... existing fields
+  
+  // ADD THESE:
+  dob: "",
+  notes: "",
+  plannedRetirementAge: 65,
+  calculatedInterestPercentage: 6,
+  
+  // ... rest of fields
 };
 ```
 
-### Export PDF:
+### Step 3: Update handleClientSelect
+
+Add new defaults when selecting client (around line 340):
+
 ```typescript
-const handleExportPDF = async () => {
-  const html2pdf = (await import('html2pdf.js')).default;
-  const filename = `${clientName}_FNA_${mm}-${dd}-${yyyy}.pdf`;
-  await html2pdf().set(opt).from(element).save();
-};
+setData(prev => ({
+  ...initialData,
+  // ... existing fields
+  plannedRetirementAge: 65,
+  calculatedInterestPercentage: 6,
+}));
+```
+
+### Step 4: Update loadFNAData
+
+Load new fields from database (around line 350):
+
+```typescript
+const { data: fnaRecord, error: fnaError } = await supabase
+  .from('fna_records')
+  .select('fna_id, analysis_date, spouse_name, dob, notes, planned_retirement_age, calculated_interest_percentage')
+  // ...rest
+
+// Later in the same function:
+setData(prev => ({
+  ...prev,
+  dob: fnaRecord.dob || '',
+  notes: fnaRecord.notes || '',
+  plannedRetirementAge: fnaRecord.planned_retirement_age || 65,
+  calculatedInterestPercentage: fnaRecord.calculated_interest_percentage || 6,
+  // ...rest
+}));
+```
+
+### Step 5: Add Asset Recalculation useEffect
+
+Add this BEFORE the existing useEffect hooks (around line 450):
+
+```typescript
+// Recalculate assets when interest percentage changes
+useEffect(() => {
+  if (assets.ret1_present > 0 && data.currentAge > 0 && data.plannedRetirementAge > 0) {
+    const yearsToRetirement = Math.max(0, data.plannedRetirementAge - data.currentAge);
+    const interestRate = data.calculatedInterestPercentage / 100;
+    const projectedValue = assets.ret1_present * Math.pow(1 + interestRate, yearsToRetirement);
+    
+    setAssets(prev => ({
+      ...prev,
+      ret1_projected: projectedValue,
+      totalProjected: projectedValue
+    }));
+  }
+}, [data.calculatedInterestPercentage, data.currentAge, data.plannedRetirementAge, assets.ret1_present]);
+```
+
+### Step 6: Update handleSave
+
+Update insert/update to include new fields (around line 550):
+
+```typescript
+// For INSERT:
+.insert([{
+  client_id: data.clientId,
+  analysis_date: data.analysisDate,
+  spouse_name: data.spouseName,
+  dob: data.dob,
+  notes: data.notes,
+  planned_retirement_age: data.plannedRetirementAge,
+  calculated_interest_percentage: data.calculatedInterestPercentage
+}])
+
+// For UPDATE:
+.update({
+  analysis_date: data.analysisDate,
+  spouse_name: data.spouseName,
+  dob: data.dob,
+  notes: data.notes,
+  planned_retirement_age: data.plannedRetirementAge,
+  calculated_interest_percentage: data.calculatedInterestPercentage,
+  updated_at: new Date().toISOString()
+})
+```
+
+### Step 7: Update handleClear
+
+Preserve new fields when clearing (around line 680):
+
+```typescript
+setData(prev => ({
+  ...initialData,
+  clientId: prev.clientId,
+  // ... existing preserved fields
+  dob: prev.dob,
+  notes: prev.notes,
+  plannedRetirementAge: prev.plannedRetirementAge,
+  calculatedInterestPercentage: prev.calculatedInterestPercentage,
+  healthcareNote1: "~$315K FOR COUPLE IN TODAY'S DOLLARS"
+}));
+```
+
+### Step 8: Update Client Information Card JSX
+
+Add Row 3 after the existing Row 2 (around line 850):
+
+```typescript
+{/* Row 3 - NEW FIELDS */}
+<div className="grid grid-cols-4 gap-4">
+  <div>
+    <label className="block text-sm font-bold mb-2 text-gray-700">Date of Birth</label>
+    <input 
+      type="date" 
+      value={data.dob} 
+      onChange={(e) => setData(prev => ({ ...prev, dob: e.target.value }))}
+      className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" 
+    />
+  </div>
+  <div>
+    <label className="block text-sm font-bold mb-2 text-gray-700">Planned Retirement Age</label>
+    <select
+      value={data.plannedRetirementAge}
+      onChange={(e) => setData(prev => ({ ...prev, plannedRetirementAge: parseInt(e.target.value) || 65 }))}
+      className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+    >
+      {Array.from({ length: 58 }, (_, i) => i + 50).map(age => (
+        <option key={age} value={age}>{age}</option>
+      ))}
+    </select>
+  </div>
+  <div>
+    <label className="block text-sm font-bold mb-2 text-gray-700">Interest% to calculate</label>
+    <select
+      value={data.calculatedInterestPercentage}
+      onChange={(e) => setData(prev => ({ ...prev, calculatedInterestPercentage: parseInt(e.target.value) }))}
+      className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+    >
+      {[3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(percent => (
+        <option key={percent} value={percent}>{percent}%</option>
+      ))}
+    </select>
+  </div>
+  <div>
+    <label className="block text-sm font-bold mb-2 text-gray-700">Note</label>
+    <input 
+      type="text" 
+      value={data.notes} 
+      onChange={(e) => setData(prev => ({ ...prev, notes: e.target.value }))}
+      className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" 
+      placeholder="Add notes..."
+    />
+  </div>
+</div>
 ```
 
 ---
 
-## ✅ Ready to Deploy!
+## 🧪 Testing the Interest Calculation:
 
-**Everything is in one file, ready to use!**
-
-Just follow the 2 steps:
-1. Install html2pdf.js
-2. Copy file and build
-
-**No manual edits needed!** 🎉
+1. Select a client
+2. Set Current Age = 45
+3. Set Planned Retirement Age = 65 (20 years)
+4. Go to Assets tab
+5. Enter Present Value = $100,000
+6. Change "Interest% to calculate" from 6% to 10%
+7. Watch Projected Value recalculate instantly:
+   - 6% → $320,714
+   - 10% → $672,750
 
 ---
 
-## 📞 Support:
+## 📝 Quick Reference:
 
-If you encounter any issues:
-1. Check console for errors
-2. Verify html2pdf.js is installed
-3. Make sure all imports are correct
-4. Test in fresh browser window
+### Client Information Card Layout:
 
-**The file is complete and tested!** ✅
+```
+Row 1: [Client Name] [Phone] [Email]
+Row 2: [Spouse] [City] [State] [Analysis Date]
+Row 3: [DOB] [Retirement Age] [Interest%] [Note]  ← NEW!
+```
+
+### Interest Calculation Formula:
+
+```
+Projected Value = Present Value × (1 + rate)^years
+Where:
+- rate = calculatedInterestPercentage / 100
+- years = plannedRetirementAge - currentAge
+```
+
+---
+
+## ⚠️ Database Migration:
+
+Before deploying, run:
+
+```sql
+ALTER TABLE fna_records ADD COLUMN IF NOT EXISTS dob DATE;
+ALTER TABLE fna_records ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE fna_records ADD COLUMN IF NOT EXISTS planned_retirement_age INTEGER DEFAULT 65;
+ALTER TABLE fna_records ADD COLUMN IF NOT EXISTS calculated_interest_percentage INTEGER DEFAULT 6;
+```
+
+---
+
+## ✅ Deployment Checklist:
+
+- [ ] Add database columns
+- [ ] Update interface
+- [ ] Update initialData
+- [ ] Update handleClientSelect
+- [ ] Update loadFNAData
+- [ ] Add recalculation useEffect
+- [ ] Update handleSave (insert & update)
+- [ ] Update handleClear
+- [ ] Add Row 3 to Client Info card JSX
+- [ ] Test interest calculation
+- [ ] Test save/load
+
+---
+
+**OR use the automated script approach (recommended):**
+
+I can create a single sed/awk script that makes all these changes automatically. Would you like that?
