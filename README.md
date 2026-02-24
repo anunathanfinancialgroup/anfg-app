@@ -1,249 +1,180 @@
-# ✅ FNA Save/Load Issue - FIXED!
+# ✅ FNA Updates - Notes & Decimals Added
 
-## 🔧 What Was Broken
+## 🎯 Changes Made
 
-**Problem:** Data was saving but not loading when you selected a client after logout/login.
+### 1. **Notes Column Added to ALL Goals Sections** 📝
 
-**Root Cause:** The load function wasn't properly querying the database or updating the state.
+Every Goals table now has a **NOTES** column (48px width) for additional information.
 
----
+**Sections with Notes:**
+- ✅ College Planning (#1-2)
+- ✅ Wedding (#3-4)
+- ✅ Retirement Planning (#5-11)
+- ✅ Healthcare (#12-13)
+- ✅ Life Goals (#14-17)
+- ✅ Legacy Planning (#18-20)
 
-## ✅ What's Fixed in FNA-COMPLETE-FIXED.tsx
+**Example:**
+```
+| # | DESCRIPTION | NOTES | AMOUNT |
+|---|-------------|-------|--------|
+| #1 | Child Name  | Notes | $0.00  |
+```
 
-### 1. **Proper Save Functionality** 💾
-- Creates new FNA record if client doesn't have one (`fnaId` is stored)
-- Updates existing FNA record if one exists
-- Deletes old data before inserting new (prevents duplicates)
-- Saves to ALL database tables:
-  - `fna_records` (main record)
-  - `fna_college` (2 children)
-  - `fna_wedding` (2 children)
-  - `fna_retirement` (age, income)
-  - `fna_healthcare` (expenses)
-  - `fna_life_goals` (travel, vacation, charity, other)
-  - `fna_legacy` (headstart, family legacy, support)
-  - `fna_ast_retirement` (401k data)
+### 2. **Default Notes Text** 💡
 
-### 2. **Proper Load Functionality** 📥
-- When you select a client, it:
-  1. Finds the most recent FNA record for that client
-  2. Gets the `fna_id`
-  3. Queries ALL related tables using that `fna_id`
-  4. Updates the state with loaded data
-  5. Shows success message when done
+Some rows have helpful default text in the Notes field:
 
-**Key Fix:**
+**#12 Healthcare Expenses:**
+- Default: `~$315K FOR COUPLE IN TODAY'S DOLLARS`
+
+**#8-11 Retirement (in italic gray text):**
+- #8: "Today's dollars"
+- #9: "Auto-calculated with 3% inflation"
+- #10: "Monthly × 12"
+- #11: "Annual × Retirement Years"
+
+### 3. **Decimal Points on All Amounts** 💵
+
+**Before:** `$50000`  
+**After:** `$50,000.00`
+
+Changed `formatCurrency` function:
 ```typescript
-// Before (broken):
-const { data, error } = await supabase.from('fna_records')
-  .select('*')
-  .eq('client_id', clientId)
-  // Missing: .single() or proper handling
+minimumFractionDigits: 2,  // Always show .00
+maximumFractionDigits: 2
+```
 
-// After (fixed):
-const { data: fnaRecord, error } = await supabase
-  .from('fna_records')
-  .select('fna_id, analysis_date, spouse_name')
-  .eq('client_id', clientId)
-  .order('created_at', { ascending: false })
-  .limit(1)
-  .single();  // ✅ Gets single record
+**Placeholder text updated:**
+- Old: `$0`
+- New: `$0.00`
 
-const fnaId = fnaRecord.fna_id;  // ✅ Use this to load all data
+### 4. **Age Dropdown (1-120)** 🔢
+
+**Row #5 - Current Age:**
+
+**Before:** Number input (could type decimals, negatives, etc.)
+
+**After:** Dropdown selector
+- Range: 1 to 120
+- No decimals allowed
+- No invalid values
+- Clean selection interface
+
+**Code:**
+```jsx
+<select
+  value={data.currentAge || ''}
+  onChange={(e) => setData(prev => ({ ...prev, currentAge: parseInt(e.target.value) || 0 }))}
+  className="w-full px-3 py-2 text-sm text-right..."
+>
+  <option value="">Select Age</option>
+  {Array.from({ length: 120 }, (_, i) => i + 1).map(age => (
+    <option key={age} value={age}>{age}</option>
+  ))}
+</select>
 ```
 
 ---
 
-## 📦 Complete Features Included
+## 📊 Updated Table Structure
 
-### Header Card 🎯
-- **Logo:** AnuNathan Financial Group logo
-- **Clear Button:** Resets form (keeps client selected)
-- **Logout Button:** Logs out and redirects to login
+### Example: College Planning
 
-### Client Details Card 📋
-- **Client Selector:** Dropdown with all clients
-- Auto-loads: Phone, Email, City, State, DOB
-- **Editable:** Spouse Name, Analysis Date
-- **Auto-saves/loads:** All client data when saved
+| # | CHILD NAME | NOTES | AMOUNT |
+|---|------------|-------|--------|
+| #1 | [Input] | [Input for notes] | $0.00 |
+| #2 | [Input] | [Input for notes] | $0.00 |
 
-### Goals Tab - ALL 20 Rows 📊
+### Example: Retirement Planning
 
-**1. College Planning Card (2 rows)**
-- #1: Child 1 Name + Amount
-- #2: Child 2 Name + Amount
-
-**2. Wedding Card (2 rows)**
-- #3: Child 1 Wedding Amount
-- #4: Child 2 Wedding Amount
-
-**3. Retirement Planning Card (7 rows)**
-- #5: Current Age (input)
-- #6: Years to Retirement (calculated: 65 - age)
-- #7: Retirement Years (calculated: 85 - age)
-- #8: Monthly Income Needed (input, today's $)
-- #9: Monthly Income at Retirement (calculated @ 3% inflation)
-- #10: Annual Retirement Income (calculated)
-- #11: Total Retirement Income (calculated)
-
-**4. Healthcare Card (2 rows)**
-- #12: Healthcare Expenses (default $315K)
-- #13: Long-term Care (calculated: 3% × years × 2)
-
-**5. Life Goals Card (4 rows)**
-- #14: Travel Budget
-- #15: Vacation Home
-- #16: Charity/Giving
-- #17: Other Goals
-
-**6. Legacy Card (3 rows)**
-- #18: Headstart Fund for Grandkids
-- #19: Family Legacy
-- #20: Family Support
-
-**7. Total Requirement (auto-calculated)**
-- Sums ALL goals above
-- Shows in yellow highlight card
-
-### Assets Tab 💰
-
-**Retirement Planning Card**
-- #1: Current 401K/403B
-  - HIM checkbox
-  - HER checkbox
-  - Notes field
-  - Present Value
-  - Projected @ 65
-
-**Total Assets Card**
-- Present Value (sum)
-- Projected @ 65 (sum)
+| # | DESCRIPTION | NOTES | AMOUNT |
+|---|-------------|-------|--------|
+| #5 | CURRENT AGE | [Input] | [Dropdown: 1-120] |
+| #6 | YEARS TO RETIREMENT | [Input] | 0 (calc) |
+| #7 | RETIREMENT YEARS | [Input] | 0 (calc) |
+| #8 | MONTHLY INCOME NEEDED | Today's dollars | $0.00 |
+| #9 | MONTHLY AT RETIREMENT | Auto-calc @ 3% | $0.00 (calc) |
+| #10 | ANNUAL RETIREMENT | Monthly × 12 | $0.00 (calc) |
+| #11 | **TOTAL RETIREMENT** | Annual × Years | **$0.00** (calc) |
 
 ---
 
-## 🚀 How to Use
+## 🔄 Save/Load Support
 
-### First Time Setup
-1. **Deploy:**
-   ```bash
-   cp FNA-COMPLETE-FIXED.tsx app/new_fna/page.tsx
-   npm run build
-   ```
+Notes are automatically **saved and loaded** with the FNA data:
 
-2. **Login** to your app
-
-3. **Select a Client** from dropdown
-
-4. **Enter Data** in Goals and/or Assets tabs
-
-5. **Click Save** - You'll see "✅ FNA saved successfully!"
-
-### Loading Existing Data
-1. **Login** to your app
-
-2. **Select a Client** from dropdown
-
-3. **Data automatically loads!** You'll see "FNA data loaded successfully!"
-
-4. **Edit** any fields
-
-5. **Click Save** to update
+**Database Fields Added:**
+- `fna_college.notes`
+- `fna_wedding.notes`
+- College/Wedding: Saved per child
+- Other sections: Part of existing records
 
 ---
 
 ## 🎨 Visual Improvements
 
-- ✅ **Card-based layout** - Each section in its own card
-- ✅ **Color-coded headers** - Blue headers for easy scanning
-- ✅ **Rounded corners** - Modern design
-- ✅ **Shadow effects** - Visual depth
-- ✅ **Yellow highlight** - Total requirement stands out
-- ✅ **Hover effects** - Buttons respond to interaction
-- ✅ **Focus states** - Input fields highlight when editing
-- ✅ **Success/Error messages** - Clear feedback
+**Notes Column:**
+- Width: 192px (48 in Tailwind = w-48)
+- Placeholder: "Add notes..."
+- Focus: Blue ring on focus
+- Style: Same as other inputs
 
----
+**Decimal Formatting:**
+- All currency shows: `$1,234.56`
+- Empty fields show: `$0.00` placeholder
+- Consistent formatting throughout
 
-## 🔄 Save/Load Flow
-
-```
-User Flow:
-1. Login → 2. Select Client → 3. Auto-load data → 4. Edit → 5. Save
-
-Save Flow:
-Select Client → Enter/Edit Data → Click "💾 Save FNA" → 
-  ↓
-Create/Update fna_records →
-  ↓
-Delete old data (if exists) →
-  ↓
-Insert new data to 8 tables →
-  ↓
-Show "✅ FNA saved successfully!"
-
-Load Flow:
-Select Client →
-  ↓
-Query fna_records (get fna_id) →
-  ↓
-Query all 8 tables with fna_id →
-  ↓
-Update state with loaded data →
-  ↓
-Show "FNA data loaded successfully!"
-```
+**Age Dropdown:**
+- Right-aligned (like numbers)
+- Clear "Select Age" placeholder
+- Full range 1-120
+- No scrolling issues
 
 ---
 
 ## 📝 Testing Checklist
 
-- [ ] Deploy FNA-COMPLETE-FIXED.tsx
-- [ ] Login
+- [ ] Deploy FNA-WITH-NOTES-DECIMALS.tsx
 - [ ] Select a client
-- [ ] Enter data in Goals tab
-- [ ] Enter data in Assets tab
-- [ ] Click Save - verify success message
-- [ ] Logout
-- [ ] Login again
-- [ ] Select same client
-- [ ] **Verify data appears!** ✅
-- [ ] Edit some data
-- [ ] Click Save again
+- [ ] Enter child name + notes for college
+- [ ] Enter amounts - verify decimals show (.00)
+- [ ] Select age from dropdown - verify only 1-120
+- [ ] Add notes to different sections
+- [ ] Save
 - [ ] Logout/Login
-- [ ] Select client - verify updated data loads
+- [ ] Select same client
+- [ ] **Verify notes appear** ✅
+- [ ] **Verify amounts show with decimals** ✅
+- [ ] **Verify age dropdown works** ✅
 
 ---
 
-## 🐛 If Data Still Doesn't Load
+## 🚀 Deploy
 
-1. **Check browser console** (F12) for errors
-2. **Verify database tables exist:**
-   - fna_records
-   - fna_college
-   - fna_wedding
-   - fna_retirement
-   - fna_healthcare
-   - fna_life_goals
-   - fna_legacy
-   - fna_ast_retirement
-
-3. **Check Supabase logs** - See if queries are running
-
-4. **Check the success message** - Does it say "FNA data loaded successfully"?
+```bash
+cp FNA-WITH-NOTES-DECIMALS.tsx app/new_fna/page.tsx
+npm run build
+```
 
 ---
 
-## 💡 Key Improvements
+## 📋 Complete Features List
 
-1. ✅ **Fixed save/load** - Main issue resolved
-2. ✅ **All 20 Goals rows** - Complete functionality
-3. ✅ **Header with logo** - Professional look
-4. ✅ **Client details card** - All info visible
-5. ✅ **Card-based design** - Organized and clean
-6. ✅ **Auto-calculations** - Retirement, healthcare, total
-7. ✅ **Clear button** - Reset form easily
-8. ✅ **Better feedback** - Success/error messages
+✅ Header with logo  
+✅ Client selection & details card  
+✅ Save/Load functionality  
+✅ Two tabs (Goals/Assets)  
+✅ **ALL 20 Goals rows with Notes column**  
+✅ **Decimal formatting on all amounts**  
+✅ **Age dropdown (1-120)**  
+✅ Auto-calculations (retirement, healthcare, total)  
+✅ Default notes text where helpful  
+✅ Assets section with 1 row  
+✅ Total requirement (yellow highlight)  
+✅ Clear button  
+✅ Success/error messages  
 
 ---
 
-**Deploy this file and your save/load will work!** 🎉
+**Everything is ready to deploy!** 🎉
