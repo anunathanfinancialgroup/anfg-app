@@ -1228,7 +1228,8 @@ export default function FNAPage() {
                   Total Assets: {fmt(totalPresent)}&nbsp;&nbsp;|&nbsp;&nbsp;
                   Total Liabilities: {fmt(totalLiabilities)}&nbsp;&nbsp;|&nbsp;&nbsp;
                   Net Worth: <span style={{ color: netWorth >= 0 ? '#15803d' : '#dc2626' }}>{fmt(netWorth)}</span>&nbsp;&nbsp;|&nbsp;&nbsp;
-                  Total Planning: {fmt(data.totalRequirement)}
+                  Total Planning: {fmt(data.totalRequirement)}&nbsp;&nbsp;|&nbsp;&nbsp;
+                  Gap: {fmt(netWorth)} - {fmt(data.totalRequirement)}
                 </span>
               );
             })()}
