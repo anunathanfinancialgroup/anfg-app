@@ -125,12 +125,10 @@ const initialData: FNAData = {
   state: "",
   clientDob: "",
   analysisDate: new Date().toISOString().split('T')[0],
-  // NEW FIELDS
   dob: "",
   notes: "",
   plannedRetirementAge: 65,
   calculatedInterestPercentage: 6,
-  // existing fields
   child1CollegeName: "",
   child1CollegeNotes: "",
   child1CollegeAmount: 0,
@@ -220,44 +218,28 @@ const CurrencyInput: React.FC<{
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target.value;
-    const sanitized = input.replace(/[^0-9.-]/g, '');
-    setDisplayValue(sanitized);
+    setDisplayValue(e.target.value.replace(/[^0-9.-]/g, ''));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (
-      e.key === 'Backspace' ||
-      e.key === 'Delete' ||
-      e.key === 'Tab' ||
-      e.key === 'Escape' ||
-      e.key === 'Enter' ||
-      e.key === '.' ||
-      e.key === '-' ||
-      e.key === 'ArrowLeft' ||
-      e.key === 'ArrowRight' ||
-      (e.key >= '0' && e.key <= '9')
-    ) {
-      return;
-    }
-    if (!e.ctrlKey && !e.metaKey) {
-      e.preventDefault();
-    }
+      e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab' ||
+      e.key === 'Escape' || e.key === 'Enter' || e.key === '.' || e.key === '-' ||
+      e.key === 'ArrowLeft' || e.key === 'ArrowRight' || (e.key >= '0' && e.key <= '9')
+    ) return;
+    if (!e.ctrlKey && !e.metaKey) e.preventDefault();
   };
 
   return (
-    <input
-      type="text"
-      value={displayValue}
-      onChange={handleChange}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
-      onKeyDown={handleKeyDown}
-      placeholder={placeholder}
-      className={className}
-    />
+    <input type="text" value={displayValue} onChange={handleChange}
+      onFocus={handleFocus} onBlur={handleBlur} onKeyDown={handleKeyDown}
+      placeholder={placeholder} className={className} />
   );
 };
+
+// ── Shared button style constants ─────────────────────────────────────────────
+const btnOutline = "px-2.5 py-1 text-xs font-medium rounded border border-gray-300 text-gray-600 bg-white hover:bg-gray-50 transition-colors";
+const btnBlue    = "px-3 py-1.5 text-xs font-semibold rounded border border-blue-600 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm";
 
 export default function FNAPage() {
   const router = useRouter();
@@ -270,28 +252,17 @@ export default function FNAPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
-  const [exporting, setExporting] = useState(false);
 
   const [cardVisibility, setCardVisibility] = useState<CardVisibility>({
-    clientInfo: true,
-    college: false,
-    wedding: false,
-    retirement: false,
-    healthcare: false,
-    lifeGoals: false,
-    legacy: false,
-    totalReq: false,
-    assetsRetirement: false,
-    totalAssets: false,
+    clientInfo: true, college: false, wedding: false, retirement: false,
+    healthcare: false, lifeGoals: false, legacy: false, totalReq: false,
+    assetsRetirement: false, totalAssets: false,
   });
 
   useEffect(() => {
     const authCookie = document.cookie.split('; ').find(row => row.startsWith('canfs_auth='));
-    if (!authCookie) {
-      router.push('/');
-    } else {
-      loadClients();
-    }
+    if (!authCookie) router.push('/');
+    else loadClients();
   }, [router]);
 
   const loadClients = async () => {
@@ -301,10 +272,9 @@ export default function FNAPage() {
         .from('client_registrations')
         .select('id, first_name, last_name, phone, email, spouse_name, city, state, date_of_birth')
         .order('first_name', { ascending: true });
-
       if (error) throw error;
       setClients(clientData || []);
-    } catch (error: any) {
+    } catch {
       showMessage('Error loading clients', 'error');
     } finally {
       setLoading(false);
@@ -312,15 +282,9 @@ export default function FNAPage() {
   };
 
   const handleClientSelect = async (clientId: string) => {
-    if (!clientId) {
-      setData(initialData);
-      setAssets(initialAssets);
-      return;
-    }
-
+    if (!clientId) { setData(initialData); setAssets(initialAssets); return; }
     const client = clients.find(c => c.id === clientId);
     if (!client) return;
-
     setData(prev => ({
       ...initialData,
       clientId: client.id,
@@ -336,7 +300,6 @@ export default function FNAPage() {
       plannedRetirementAge: 65,
       calculatedInterestPercentage: 6,
     }));
-
     await loadFNAData(clientId);
   };
 
@@ -348,25 +311,14 @@ export default function FNAPage() {
         .select('fna_id, analysis_date, spouse_name, dob, notes, planned_retirement_age, calculated_interest_percentage')
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
+        .limit(1).maybeSingle();
       if (fnaError) throw fnaError;
-
-      if (!fnaRecord) {
-        showMessage('No existing FNA data for this client', 'error');
-        return;
-      }
+      if (!fnaRecord) { showMessage('No existing FNA data for this client', 'error'); return; }
 
       const fnaId = fnaRecord.fna_id;
-
       const [
-        { data: collegeData },
-        { data: weddingData },
-        { data: retirementData },
-        { data: healthcareData },
-        { data: lifeGoalsData },
-        { data: legacyData },
+        { data: collegeData }, { data: weddingData }, { data: retirementData },
+        { data: healthcareData }, { data: lifeGoalsData }, { data: legacyData },
         { data: assetsRetirementData }
       ] = await Promise.all([
         supabase.from('fna_college').select('*').eq('fna_id', fnaId),
@@ -384,8 +336,7 @@ export default function FNAPage() {
       const child2Wedding = weddingData?.find((w: any) => w.child_number === 2);
 
       setData(prev => ({
-        ...prev,
-        fnaId: fnaId,
+        ...prev, fnaId,
         spouseName: fnaRecord.spouse_name || prev.spouseName,
         analysisDate: fnaRecord.analysis_date || prev.analysisDate,
         dob: fnaRecord.dob || '',
@@ -425,7 +376,6 @@ export default function FNAPage() {
           totalProjected: assetsRetirementData.current_401k_projected_value || 0,
         });
       }
-
       showMessage('FNA data loaded successfully!', 'success');
     } catch (error: any) {
       console.error('Load error:', error);
@@ -435,87 +385,50 @@ export default function FNAPage() {
     }
   };
 
-  // Recalculate assets when interest percentage or retirement age changes
+  // Auto-recalculate projected value
   useEffect(() => {
     if (assets.ret1_present > 0 && data.currentAge > 0 && data.plannedRetirementAge > 0) {
-      const yearsToRetirement = Math.max(0, data.plannedRetirementAge - data.currentAge);
-      const interestRate = data.calculatedInterestPercentage / 100;
-      const projectedValue = assets.ret1_present * Math.pow(1 + interestRate, yearsToRetirement);
-
-      setAssets(prev => ({
-        ...prev,
-        ret1_projected: projectedValue,
-        totalProjected: projectedValue
-      }));
+      const years = Math.max(0, data.plannedRetirementAge - data.currentAge);
+      const rate  = data.calculatedInterestPercentage / 100;
+      const projected = assets.ret1_present * Math.pow(1 + rate, years);
+      setAssets(prev => ({ ...prev, ret1_projected: projected, totalProjected: projected }));
     }
   }, [data.calculatedInterestPercentage, data.currentAge, data.plannedRetirementAge, assets.ret1_present]);
 
   useEffect(() => {
-    const yearsToRetirement = data.currentAge > 0 ? Math.max(0, 65 - data.currentAge) : 0;
-    const retirementYears = data.currentAge > 0 ? Math.max(0, 85 - data.currentAge) : 0;
-
-    const inflationRate = 0.03;
-    const monthlyRetirementIncome = data.monthlyIncomeNeeded > 0 && yearsToRetirement > 0
-      ? data.monthlyIncomeNeeded * Math.pow(1 + inflationRate, yearsToRetirement)
-      : 0;
-
-    const annualRetirementIncome = monthlyRetirementIncome * 12;
-    const totalRetirementIncome = annualRetirementIncome * retirementYears;
-    const longTermCare = data.healthcareExpenses * 0.03 * (retirementYears * 2);
-
-    const totalRequirement =
-      data.child1CollegeAmount +
-      data.child2CollegeAmount +
-      data.child1WeddingAmount +
-      data.child2WeddingAmount +
-      totalRetirementIncome +
-      data.healthcareExpenses +
-      longTermCare +
-      data.travelBudget +
-      data.vacationHome +
-      data.charity +
-      data.otherGoals +
-      data.headstartFund +
-      data.familyLegacy +
-      data.familySupport;
+    const ytr = data.currentAge > 0 ? Math.max(0, 65 - data.currentAge) : 0;
+    const rYrs = data.currentAge > 0 ? Math.max(0, 85 - data.currentAge) : 0;
+    const mri = data.monthlyIncomeNeeded > 0 && ytr > 0
+      ? data.monthlyIncomeNeeded * Math.pow(1.03, ytr) : 0;
+    const ari  = mri * 12;
+    const tri  = ari * rYrs;
+    const ltc  = data.healthcareExpenses * 0.03 * (rYrs * 2);
+    const total =
+      data.child1CollegeAmount + data.child2CollegeAmount +
+      data.child1WeddingAmount + data.child2WeddingAmount +
+      tri + data.healthcareExpenses + ltc +
+      data.travelBudget + data.vacationHome + data.charity + data.otherGoals +
+      data.headstartFund + data.familyLegacy + data.familySupport;
 
     setData(prev => ({
       ...prev,
-      yearsToRetirement,
-      retirementYears,
-      monthlyRetirementIncome,
-      annualRetirementIncome,
-      totalRetirementIncome,
-      longTermCare,
-      totalRequirement
+      yearsToRetirement: ytr, retirementYears: rYrs,
+      monthlyRetirementIncome: mri, annualRetirementIncome: ari,
+      totalRetirementIncome: tri, longTermCare: ltc, totalRequirement: total
     }));
   }, [
-    data.currentAge,
-    data.monthlyIncomeNeeded,
-    data.healthcareExpenses,
-    data.child1CollegeAmount,
-    data.child2CollegeAmount,
-    data.child1WeddingAmount,
-    data.child2WeddingAmount,
-    data.travelBudget,
-    data.vacationHome,
-    data.charity,
-    data.otherGoals,
-    data.headstartFund,
-    data.familyLegacy,
-    data.familySupport
+    data.currentAge, data.monthlyIncomeNeeded, data.healthcareExpenses,
+    data.child1CollegeAmount, data.child2CollegeAmount,
+    data.child1WeddingAmount, data.child2WeddingAmount,
+    data.travelBudget, data.vacationHome, data.charity, data.otherGoals,
+    data.headstartFund, data.familyLegacy, data.familySupport
   ]);
 
   const handleSave = async () => {
-    if (!data.clientId) {
-      showMessage("Please select a client first", 'error');
-      return;
-    }
-
+    if (!data.clientId) { showMessage("Please select a client first", 'error'); return; }
     setSaving(true);
     try {
       let fnaId = data.fnaId;
-
       if (!fnaId) {
         const { data: fnaRecord, error: fnaError } = await supabase
           .from('fna_records')
@@ -527,27 +440,20 @@ export default function FNAPage() {
             notes: data.notes || null,
             planned_retirement_age: data.plannedRetirementAge,
             calculated_interest_percentage: data.calculatedInterestPercentage,
-          }])
-          .select()
-          .single();
-
+          }]).select().single();
         if (fnaError) throw fnaError;
         fnaId = fnaRecord.fna_id;
         setData(prev => ({ ...prev, fnaId }));
       } else {
-        const { error: updateError } = await supabase
-          .from('fna_records')
-          .update({
-            analysis_date: data.analysisDate,
-            spouse_name: data.spouseName,
-            dob: data.dob || null,
-            notes: data.notes || null,
-            planned_retirement_age: data.plannedRetirementAge,
-            calculated_interest_percentage: data.calculatedInterestPercentage,
-            updated_at: new Date().toISOString()
-          })
-          .eq('fna_id', fnaId);
-
+        const { error: updateError } = await supabase.from('fna_records').update({
+          analysis_date: data.analysisDate,
+          spouse_name: data.spouseName,
+          dob: data.dob || null,
+          notes: data.notes || null,
+          planned_retirement_age: data.plannedRetirementAge,
+          calculated_interest_percentage: data.calculatedInterestPercentage,
+          updated_at: new Date().toISOString()
+        }).eq('fna_id', fnaId);
         if (updateError) throw updateError;
       }
 
@@ -561,110 +467,26 @@ export default function FNAPage() {
         supabase.from('fna_ast_retirement').delete().eq('fna_id', fnaId),
       ]);
 
-      const insertPromises = [];
+      const ins = [];
+      if (data.child1CollegeName || data.child1CollegeAmount > 0)
+        ins.push(supabase.from('fna_college').insert({ fna_id: fnaId, child_number: 1, child_name: data.child1CollegeName || '', notes: data.child1CollegeNotes || '', amount: data.child1CollegeAmount || 0 }));
+      if (data.child2CollegeName || data.child2CollegeAmount > 0)
+        ins.push(supabase.from('fna_college').insert({ fna_id: fnaId, child_number: 2, child_name: data.child2CollegeName || '', notes: data.child2CollegeNotes || '', amount: data.child2CollegeAmount || 0 }));
+      if (data.child1WeddingAmount > 0)
+        ins.push(supabase.from('fna_wedding').insert({ fna_id: fnaId, child_number: 1, child_name: data.child1CollegeName || '', notes: data.child1WeddingNotes || '', amount: data.child1WeddingAmount || 0 }));
+      if (data.child2WeddingAmount > 0)
+        ins.push(supabase.from('fna_wedding').insert({ fna_id: fnaId, child_number: 2, child_name: data.child2CollegeName || '', notes: data.child2WeddingNotes || '', amount: data.child2WeddingAmount || 0 }));
+      ins.push(supabase.from('fna_retirement').insert({ fna_id: fnaId, current_age: data.currentAge || 0, monthly_income_needed: data.monthlyIncomeNeeded || 0 }));
+      ins.push(supabase.from('fna_healthcare').insert({ fna_id: fnaId, healthcare_expenses: data.healthcareExpenses || 0 }));
+      ins.push(supabase.from('fna_life_goals').insert({ fna_id: fnaId, travel_budget: data.travelBudget || 0, vacation_home: data.vacationHome || 0, charity: data.charity || 0, other_goals: data.otherGoals || 0 }));
+      ins.push(supabase.from('fna_legacy').insert({ fna_id: fnaId, headstart_fund: data.headstartFund || 0, family_legacy: data.familyLegacy || 0, family_support: data.familySupport || 0 }));
+      ins.push(supabase.from('fna_ast_retirement').insert({ fna_id: fnaId, current_401k_him: assets.ret1_him || false, current_401k_her: assets.ret1_her || false, current_401k_notes: assets.ret1_notes || '', current_401k_present_value: assets.ret1_present || 0, current_401k_projected_value: assets.ret1_projected || 0 }));
 
-      if (data.child1CollegeName || data.child1CollegeAmount > 0) {
-        insertPromises.push(
-          supabase.from('fna_college').insert({
-            fna_id: fnaId,
-            child_number: 1,
-            child_name: data.child1CollegeName || '',
-            notes: data.child1CollegeNotes || '',
-            amount: data.child1CollegeAmount || 0
-          })
-        );
-      }
-      if (data.child2CollegeName || data.child2CollegeAmount > 0) {
-        insertPromises.push(
-          supabase.from('fna_college').insert({
-            fna_id: fnaId,
-            child_number: 2,
-            child_name: data.child2CollegeName || '',
-            notes: data.child2CollegeNotes || '',
-            amount: data.child2CollegeAmount || 0
-          })
-        );
-      }
-
-      if (data.child1WeddingAmount > 0) {
-        insertPromises.push(
-          supabase.from('fna_wedding').insert({
-            fna_id: fnaId,
-            child_number: 1,
-            child_name: data.child1CollegeName || '',
-            notes: data.child1WeddingNotes || '',
-            amount: data.child1WeddingAmount || 0
-          })
-        );
-      }
-      if (data.child2WeddingAmount > 0) {
-        insertPromises.push(
-          supabase.from('fna_wedding').insert({
-            fna_id: fnaId,
-            child_number: 2,
-            child_name: data.child2CollegeName || '',
-            notes: data.child2WeddingNotes || '',
-            amount: data.child2WeddingAmount || 0
-          })
-        );
-      }
-
-      insertPromises.push(
-        supabase.from('fna_retirement').insert({
-          fna_id: fnaId,
-          current_age: data.currentAge || 0,
-          monthly_income_needed: data.monthlyIncomeNeeded || 0
-        })
-      );
-
-      insertPromises.push(
-        supabase.from('fna_healthcare').insert({
-          fna_id: fnaId,
-          healthcare_expenses: data.healthcareExpenses || 0
-        })
-      );
-
-      insertPromises.push(
-        supabase.from('fna_life_goals').insert({
-          fna_id: fnaId,
-          travel_budget: data.travelBudget || 0,
-          vacation_home: data.vacationHome || 0,
-          charity: data.charity || 0,
-          other_goals: data.otherGoals || 0
-        })
-      );
-
-      insertPromises.push(
-        supabase.from('fna_legacy').insert({
-          fna_id: fnaId,
-          headstart_fund: data.headstartFund || 0,
-          family_legacy: data.familyLegacy || 0,
-          family_support: data.familySupport || 0
-        })
-      );
-
-      insertPromises.push(
-        supabase.from('fna_ast_retirement').insert({
-          fna_id: fnaId,
-          current_401k_him: assets.ret1_him || false,
-          current_401k_her: assets.ret1_her || false,
-          current_401k_notes: assets.ret1_notes || '',
-          current_401k_present_value: assets.ret1_present || 0,
-          current_401k_projected_value: assets.ret1_projected || 0
-        })
-      );
-
-      const results = await Promise.all(insertPromises);
-
+      const results = await Promise.all(ins);
       const errors = results.filter(r => r.error);
-      if (errors.length > 0) {
-        console.error('Insert errors:', errors);
-        throw new Error(`Failed to save ${errors.length} record(s)`);
-      }
-
+      if (errors.length > 0) throw new Error(`Failed to save ${errors.length} record(s)`);
       showMessage('✅ FNA saved successfully!', 'success');
     } catch (error: any) {
-      console.error('Save error:', error);
       showMessage(`❌ Save failed: ${error.message}`, 'error');
     } finally {
       setSaving(false);
@@ -686,17 +508,11 @@ export default function FNAPage() {
     if (confirm('Clear all data? This will reset the form except Client Information.')) {
       setData(prev => ({
         ...initialData,
-        clientId: prev.clientId,
-        clientName: prev.clientName,
-        clientPhone: prev.clientPhone,
-        clientEmail: prev.clientEmail,
-        spouseName: prev.spouseName,
-        city: prev.city,
-        state: prev.state,
-        clientDob: prev.clientDob,
-        analysisDate: prev.analysisDate,
-        dob: prev.dob,
-        notes: prev.notes,
+        clientId: prev.clientId, clientName: prev.clientName,
+        clientPhone: prev.clientPhone, clientEmail: prev.clientEmail,
+        spouseName: prev.spouseName, city: prev.city, state: prev.state,
+        clientDob: prev.clientDob, analysisDate: prev.analysisDate,
+        dob: prev.dob, notes: prev.notes,
         plannedRetirementAge: prev.plannedRetirementAge,
         calculatedInterestPercentage: prev.calculatedInterestPercentage,
         healthcareNote1: "~$315K FOR COUPLE IN TODAY'S DOLLARS"
@@ -706,584 +522,383 @@ export default function FNAPage() {
     }
   };
 
-  const handleShowAllCards = () => {
+  // Show all cards; if a client is selected, refresh its data too
+  const handleShowAllCards = async () => {
     setCardVisibility({
-      clientInfo: true,
-      college: true,
-      wedding: true,
-      retirement: true,
-      healthcare: true,
-      lifeGoals: true,
-      legacy: true,
-      totalReq: true,
-      assetsRetirement: true,
-      totalAssets: true,
+      clientInfo: true, college: true, wedding: true, retirement: true,
+      healthcare: true, lifeGoals: true, legacy: true, totalReq: true,
+      assetsRetirement: true, totalAssets: true,
     });
+    if (data.clientId) {
+      await loadFNAData(data.clientId);
+    }
   };
 
   const toggleCard = (card: keyof CardVisibility) => {
-    setCardVisibility(prev => ({
-      ...prev,
-      [card]: !prev[card]
-    }));
+    setCardVisibility(prev => ({ ...prev, [card]: !prev[card] }));
   };
 
-  const handleExportPDF = async () => {
-    if (!data.clientName) {
-      showMessage("Please select a client first", 'error');
-      return;
-    }
+  // ── Reusable card header ───────────────────────────────────────────────────
+  const CardHeader = ({
+    emoji, title, cardKey, extra
+  }: { emoji: string; title: string; cardKey: keyof CardVisibility; extra?: React.ReactNode }) => (
+    <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center gap-1.5">
+        <h3 className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: COLORS.headerBg }}>
+          {emoji} {title}
+        </h3>
+        <button onClick={() => toggleCard(cardKey)} className={btnOutline}>
+          {cardVisibility[cardKey] ? 'Hide' : 'Show'}
+        </button>
+      </div>
+      {extra}
+    </div>
+  );
 
-    setExporting(true);
-    try {
-      const html2pdf = (await import('html2pdf.js')).default;
-
-      const element = contentRef.current;
-      if (!element) return;
-
-      const today = new Date();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      const yyyy = today.getFullYear();
-      const filename = `${data.clientName.replace(/\s/g, '_')}_FNA_${mm}-${dd}-${yyyy}.pdf`;
-
-      const opt = {
-        margin: 0.5,
-        filename: filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-      };
-
-      await html2pdf().set(opt).from(element).save();
-      showMessage('✅ PDF exported successfully!', 'success');
-    } catch (error: any) {
-      console.error('Export error:', error);
-      showMessage(`❌ Export failed: ${error.message}`, 'error');
-    } finally {
-      setExporting(false);
-    }
-  };
+  // ── Shared table header row ────────────────────────────────────────────────
+  const TableHead4 = ({ col2 = "DESCRIPTION" }: { col2?: string }) => (
+    <thead>
+      <tr style={{ backgroundColor: COLORS.headerBg }}>
+        <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
+        <th className="border border-black px-2 py-1 text-xs font-bold">{col2}</th>
+        <th className="border border-black px-2 py-1 text-xs font-bold w-44">NOTES</th>
+        <th className="border border-black px-2 py-1 text-xs font-bold w-36">AMOUNT</th>
+      </tr>
+    </thead>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white rounded-lg shadow-md border border-gray-200 p-4 mb-4 mx-4 mt-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Image
-              src="/anunathan-logo.png"
-              alt="AnuNathan Financial Group"
-              width={70}
-              height={70}
-              className="object-contain"
-            />
+
+      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
+      <header className="bg-white shadow-sm border-b border-gray-200 px-3 py-2 mb-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          {/* Logo + Title */}
+          <div className="flex items-center gap-2">
+            <Image src="/anunathan-logo.png" alt="AnuNathan Financial Group"
+              width={44} height={44} className="object-contain" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Client Financial Need Analysis</h1>
-              <p className="text-sm text-gray-600">Build your career. Protect their future</p>
+              <h1 className="text-sm font-bold text-gray-900 leading-tight">
+                Client Financial Need Analysis
+              </h1>
+              <p className="text-xs text-gray-400">Build your career. Protect their future</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleShowAllCards}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors font-medium"
-            >
-              📊 Show Cards
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button onClick={handleShowAllCards} disabled={loading} className={btnOutline}>
+              📊 {loading ? 'Loading…' : 'Show Cards'}
             </button>
-            <button
-              onClick={handleClear}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors font-medium"
-            >
-              🗑️ Clear
+            <button onClick={handleClear} className={btnOutline}>
+              🗑 Clear
             </button>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors font-medium"
-            >
+            <button onClick={handleSave} disabled={saving || loading || !data.clientId} className={btnBlue}>
+              {saving ? '💾 Saving…' : '💾 Save FNA'}
+            </button>
+            <button onClick={handleLogout} className={btnOutline}>
               Logout ➜
             </button>
+
+            {message && (
+              <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                messageType === 'success'
+                  ? 'bg-green-100 text-green-800 border border-green-300'
+                  : 'bg-red-100 text-red-800 border border-red-300'
+              }`}>{message}</span>
+            )}
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-4" ref={contentRef}>
-        <div className="mb-4 flex justify-end gap-3">
-          <button
-            onClick={handleExportPDF}
-            disabled={exporting || !data.clientId}
-            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold shadow-md"
-          >
-            {exporting ? "📄 Exporting..." : "📄 Export PDF"}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || loading || !data.clientId}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold shadow-md"
-          >
-            {saving ? "💾 Saving..." : "💾 Save FNA"}
-          </button>
-          {message && (
-            <div className={`px-4 py-3 rounded-lg font-medium ${
-              messageType === 'success' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-red-100 text-red-800 border border-red-300'
-            }`}>
-              {message}
-            </div>
-          )}
-        </div>
+      <main className="max-w-7xl mx-auto px-3 pb-6" ref={contentRef}>
 
-        {/* ── CLIENT INFORMATION CARD ── */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5 mb-4">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b">
-            <h3 className="text-xl font-bold">📋 Client Information</h3>
-            <a
-              href="https://www.calculator.net/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors font-medium"
-            >
-              🧮 Calculator
-            </a>
-          </div>
+        {/* ── CLIENT INFORMATION ──────────────────────────────────────────── */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
+          <h3 className="text-xs font-bold text-gray-800 mb-2 pb-1 border-b">📋 Client Information</h3>
 
           {/* Row 1 */}
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-3 gap-2 mb-2">
             <div>
-              <label className="block text-sm font-bold mb-2 text-gray-700">Client Name *</label>
-              <select
-                value={data.clientId}
-                onChange={(e) => handleClientSelect(e.target.value)}
-                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Client Name *</label>
+              <select value={data.clientId} onChange={(e) => handleClientSelect(e.target.value)}
                 disabled={loading}
-              >
+                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none">
                 <option value="">-- Select Client --</option>
-                {clients.map(client => (
-                  <option key={client.id} value={client.id}>
-                    {client.first_name} {client.last_name}
-                  </option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-bold mb-2 text-gray-700">Phone Number</label>
-              <input type="text" value={data.clientPhone} readOnly className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100" />
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Phone Number</label>
+              <input type="text" value={data.clientPhone} readOnly
+                className="w-full border border-gray-200 rounded px-2 py-1 text-xs bg-gray-100" />
             </div>
             <div>
-              <label className="block text-sm font-bold mb-2 text-gray-700">Email</label>
-              <input type="text" value={data.clientEmail} readOnly className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100" />
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Email</label>
+              <input type="text" value={data.clientEmail} readOnly
+                className="w-full border border-gray-200 rounded px-2 py-1 text-xs bg-gray-100" />
             </div>
           </div>
 
           {/* Row 2 */}
-          <div className="grid grid-cols-4 gap-4 mb-4">
+          <div className="grid grid-cols-4 gap-2 mb-2">
             <div>
-              <label className="block text-sm font-bold mb-2 text-gray-700">Spouse Name</label>
-              <input
-                type="text"
-                value={data.spouseName}
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Spouse Name</label>
+              <input type="text" value={data.spouseName}
                 onChange={(e) => setData(prev => ({ ...prev, spouseName: e.target.value }))}
-                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              />
+                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none" />
             </div>
             <div>
-              <label className="block text-sm font-bold mb-2 text-gray-700">City</label>
-              <input type="text" value={data.city} readOnly className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100" />
+              <label className="block text-xs font-semibold mb-1 text-gray-600">City</label>
+              <input type="text" value={data.city} readOnly
+                className="w-full border border-gray-200 rounded px-2 py-1 text-xs bg-gray-100" />
             </div>
             <div>
-              <label className="block text-sm font-bold mb-2 text-gray-700">State</label>
-              <input type="text" value={data.state} readOnly className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100" />
+              <label className="block text-xs font-semibold mb-1 text-gray-600">State</label>
+              <input type="text" value={data.state} readOnly
+                className="w-full border border-gray-200 rounded px-2 py-1 text-xs bg-gray-100" />
             </div>
             <div>
-              <label className="block text-sm font-bold mb-2 text-gray-700">Analysis Date</label>
-              <input
-                type="date"
-                value={data.analysisDate}
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Analysis Date</label>
+              <input type="date" value={data.analysisDate}
                 onChange={(e) => setData(prev => ({ ...prev, analysisDate: e.target.value }))}
-                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              />
+                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none" />
             </div>
           </div>
 
           {/* Row 3 – NEW FIELDS */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-4 gap-2">
             <div>
-              <label className="block text-sm font-bold mb-2 text-gray-700">Date of Birth</label>
-              <input
-                type="date"
-                value={data.dob}
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Date of Birth</label>
+              <input type="date" value={data.dob}
                 onChange={(e) => setData(prev => ({ ...prev, dob: e.target.value }))}
-                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              />
+                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none" />
             </div>
             <div>
-              <label className="block text-sm font-bold mb-2 text-gray-700">Planned Retirement Age</label>
-              <select
-                value={data.plannedRetirementAge}
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Planned Retirement Age</label>
+              <select value={data.plannedRetirementAge}
                 onChange={(e) => setData(prev => ({ ...prev, plannedRetirementAge: parseInt(e.target.value) || 65 }))}
-                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              >
+                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none">
                 {Array.from({ length: 58 }, (_, i) => i + 50).map(age => (
                   <option key={age} value={age}>{age}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-bold mb-2 text-gray-700">Interest% to calculate</label>
-              <select
-                value={data.calculatedInterestPercentage}
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Interest% to calculate</label>
+              <select value={data.calculatedInterestPercentage}
                 onChange={(e) => setData(prev => ({ ...prev, calculatedInterestPercentage: parseInt(e.target.value) }))}
-                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              >
-                {[3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(percent => (
-                  <option key={percent} value={percent}>{percent}%</option>
+                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none">
+                {[3,4,5,6,7,8,9,10,11,12,13,14,15].map(p => (
+                  <option key={p} value={p}>{p}%</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-bold mb-2 text-gray-700">Note</label>
-              <input
-                type="text"
-                value={data.notes}
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Note</label>
+              <input type="text" value={data.notes}
                 onChange={(e) => setData(prev => ({ ...prev, notes: e.target.value }))}
-                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 placeholder="Add notes..."
-              />
+                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none" />
             </div>
           </div>
         </div>
 
-        {/* ── TAB BUTTONS ── */}
-        <div className="mb-4 flex gap-2">
-          <button
-            onClick={() => setActiveTab('goals')}
-            className={`flex-1 px-6 py-4 rounded-lg font-bold transition-all text-lg ${
+        {/* ── TAB BUTTONS ─────────────────────────────────────────────────── */}
+        <div className="mb-3 flex gap-2">
+          <button onClick={() => setActiveTab('goals')}
+            className={`flex-1 px-3 py-1.5 rounded font-semibold text-xs transition-all ${
               activeTab === 'goals'
-                ? 'bg-blue-600 text-white shadow-lg transform scale-105'
-                : 'bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            📊 FINANCIAL GOALS & PLANNING
+                ? 'bg-blue-600 text-white shadow'
+                : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+            }`}>
+            📊 FINANCIAL GOALS &amp; PLANNING
           </button>
-          <button
-            onClick={() => setActiveTab('assets')}
-            className={`flex-1 px-6 py-4 rounded-lg font-bold transition-all text-lg ${
+          <button onClick={() => setActiveTab('assets')}
+            className={`flex-1 px-3 py-1.5 rounded font-semibold text-xs transition-all ${
               activeTab === 'assets'
-                ? 'bg-blue-600 text-white shadow-lg transform scale-105'
-                : 'bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50'
-            }`}
-          >
+                ? 'bg-blue-600 text-white shadow'
+                : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+            }`}>
             💰 ASSETS
           </button>
         </div>
 
-        {/* ── GOALS TAB ── */}
+        {/* ══════════════════════════════════════════════════════════════════
+            GOALS TAB
+        ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'goals' && (
-          <div className="space-y-4">
+          <div className="space-y-3">
+
             {/* College */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                    🎓 KIDS COLLEGE PLANNING
-                  </h3>
-                  <button
-                    onClick={() => toggleCard('college')}
-                    className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                  >
-                    {cardVisibility.college ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-                <a
-                  href="https://educationdata.org/average-cost-of-college-by-state#tx"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors font-medium"
-                >
-                  💰 Cost of College
-                </a>
-              </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <CardHeader emoji="🎓" title="KIDS COLLEGE PLANNING" cardKey="college"
+                extra={
+                  <a href="https://educationdata.org/average-cost-of-college-by-state#tx"
+                    target="_blank" rel="noopener noreferrer" className={btnOutline}>
+                    💰 Cost of College
+                  </a>
+                }
+              />
               {cardVisibility.college && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: COLORS.headerBg }}>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold">CHILD NAME</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold">CHILD NAME</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-44">NOTES</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-36">AMOUNT</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#1</td>
-                      <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.child1CollegeName}
-                          onChange={(e) => setData(prev => ({ ...prev, child1CollegeName: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Enter child's name"
-                        />
-                      </td>
-                      <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.child1CollegeNotes}
-                          onChange={(e) => setData(prev => ({ ...prev, child1CollegeNotes: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
-                      </td>
-                      <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={data.child1CollegeAmount}
-                          onChange={(val) => setData(prev => ({ ...prev, child1CollegeAmount: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#2</td>
-                      <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.child2CollegeName}
-                          onChange={(e) => setData(prev => ({ ...prev, child2CollegeName: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Enter child's name"
-                        />
-                      </td>
-                      <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.child2CollegeNotes}
-                          onChange={(e) => setData(prev => ({ ...prev, child2CollegeNotes: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
-                      </td>
-                      <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={data.child2CollegeAmount}
-                          onChange={(val) => setData(prev => ({ ...prev, child2CollegeAmount: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
-                      </td>
-                    </tr>
+                    {[
+                      { n:'#1', nameFld:'child1CollegeName', name:data.child1CollegeName, notesFld:'child1CollegeNotes', notes:data.child1CollegeNotes, amtFld:'child1CollegeAmount', amt:data.child1CollegeAmount },
+                      { n:'#2', nameFld:'child2CollegeName', name:data.child2CollegeName, notesFld:'child2CollegeNotes', notes:data.child2CollegeNotes, amtFld:'child2CollegeAmount', amt:data.child2CollegeAmount },
+                    ].map(row => (
+                      <tr key={row.n}>
+                        <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{row.n}</td>
+                        <td className="border border-black p-0">
+                          <input type="text" value={row.name} placeholder="Enter child's name"
+                            onChange={(e) => setData(prev => ({ ...prev, [row.nameFld]: e.target.value }))}
+                            className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                        </td>
+                        <td className="border border-black p-0">
+                          <input type="text" value={row.notes} placeholder="Add notes..."
+                            onChange={(e) => setData(prev => ({ ...prev, [row.notesFld]: e.target.value }))}
+                            className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                        </td>
+                        <td className="border border-black p-0">
+                          <CurrencyInput value={row.amt} placeholder="$0.00"
+                            onChange={(val) => setData(prev => ({ ...prev, [row.amtFld]: val }))}
+                            className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               )}
             </div>
 
             {/* Wedding */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                    💒 KIDS WEDDING
-                  </h3>
-                  <button
-                    onClick={() => toggleCard('wedding')}
-                    className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                  >
-                    {cardVisibility.wedding ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-                <a
-                  href="https://www.zola.com/expert-advice/whats-the-average-cost-of-a-wedding"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors font-medium"
-                >
-                  💍 Wedding Expenses
-                </a>
-              </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <CardHeader emoji="💒" title="KIDS WEDDING" cardKey="wedding"
+                extra={
+                  <a href="https://www.zola.com/expert-advice/whats-the-average-cost-of-a-wedding"
+                    target="_blank" rel="noopener noreferrer" className={btnOutline}>
+                    💍 Wedding Expenses
+                  </a>
+                }
+              />
               {cardVisibility.wedding && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: COLORS.headerBg }}>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold">CHILD NAME</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold">CHILD NAME</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-44">NOTES</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-36">AMOUNT</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#3</td>
-                      <td className="border border-black px-3 py-2 text-sm bg-gray-50">
-                        {data.child1CollegeName || '(From College #1)'}
-                      </td>
-                      <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.child1WeddingNotes}
-                          onChange={(e) => setData(prev => ({ ...prev, child1WeddingNotes: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
-                      </td>
-                      <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={data.child1WeddingAmount}
-                          onChange={(val) => setData(prev => ({ ...prev, child1WeddingAmount: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#4</td>
-                      <td className="border border-black px-3 py-2 text-sm bg-gray-50">
-                        {data.child2CollegeName || '(From College #2)'}
-                      </td>
-                      <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.child2WeddingNotes}
-                          onChange={(e) => setData(prev => ({ ...prev, child2WeddingNotes: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
-                      </td>
-                      <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={data.child2WeddingAmount}
-                          onChange={(val) => setData(prev => ({ ...prev, child2WeddingAmount: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
-                      </td>
-                    </tr>
+                    {[
+                      { n:'#3', label: data.child1CollegeName || '(From College #1)', notesFld:'child1WeddingNotes', notes:data.child1WeddingNotes, amtFld:'child1WeddingAmount', amt:data.child1WeddingAmount },
+                      { n:'#4', label: data.child2CollegeName || '(From College #2)', notesFld:'child2WeddingNotes', notes:data.child2WeddingNotes, amtFld:'child2WeddingAmount', amt:data.child2WeddingAmount },
+                    ].map(row => (
+                      <tr key={row.n}>
+                        <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{row.n}</td>
+                        <td className="border border-black px-2 py-1 text-xs bg-gray-50">{row.label}</td>
+                        <td className="border border-black p-0">
+                          <input type="text" value={row.notes} placeholder="Add notes..."
+                            onChange={(e) => setData(prev => ({ ...prev, [row.notesFld]: e.target.value }))}
+                            className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                        </td>
+                        <td className="border border-black p-0">
+                          <CurrencyInput value={row.amt} placeholder="$0.00"
+                            onChange={(val) => setData(prev => ({ ...prev, [row.amtFld]: val }))}
+                            className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               )}
             </div>
 
             {/* Retirement */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                  🏖️ RETIREMENT PLANNING
-                </h3>
-                <button
-                  onClick={() => toggleCard('retirement')}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                >
-                  {cardVisibility.retirement ? 'Hide' : 'Show'}
-                </button>
-              </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <CardHeader emoji="🏖️" title="RETIREMENT PLANNING" cardKey="retirement" />
               {cardVisibility.retirement && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: COLORS.headerBg }}>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
-                    </tr>
-                  </thead>
+                  <TableHead4 />
                   <tbody>
                     <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#5</td>
-                      <td className="border border-black px-3 py-2 text-sm">CURRENT AGE</td>
+                      <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#5</td>
+                      <td className="border border-black px-2 py-1 text-xs">CURRENT AGE</td>
                       <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.retirementNote1}
+                        <input type="text" value={data.retirementNote1} placeholder="Add notes..."
                           onChange={(e) => setData(prev => ({ ...prev, retirementNote1: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
+                          className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
                       </td>
                       <td className="border border-black p-0">
-                        <select
-                          value={data.currentAge || ''}
+                        <select value={data.currentAge || ''}
                           onChange={(e) => setData(prev => ({ ...prev, currentAge: parseInt(e.target.value) || 0 }))}
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        >
+                          className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300">
                           <option value="">Select Age</option>
-                          {Array.from({ length: 120 }, (_, i) => i + 1).map(age => (
-                            <option key={age} value={age}>{age}</option>
+                          {Array.from({ length: 120 }, (_, i) => i + 1).map(a => (
+                            <option key={a} value={a}>{a}</option>
                           ))}
                         </select>
                       </td>
                     </tr>
                     <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#6</td>
-                      <td className="border border-black px-3 py-2 text-sm">YEARS TO RETIREMENT (65 - CURRENT AGE)</td>
+                      <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#6</td>
+                      <td className="border border-black px-2 py-1 text-xs">YEARS TO RETIREMENT (65 - CURRENT AGE)</td>
                       <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.retirementNote2}
+                        <input type="text" value={data.retirementNote2} placeholder="Add notes..."
                           onChange={(e) => setData(prev => ({ ...prev, retirementNote2: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
+                          className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
                       </td>
-                      <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
-                        {data.yearsToRetirement}
-                      </td>
+                      <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{data.yearsToRetirement}</td>
                     </tr>
                     <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#7</td>
-                      <td className="border border-black px-3 py-2 text-sm">RETIREMENT YEARS (85 - CURRENT AGE)</td>
+                      <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#7</td>
+                      <td className="border border-black px-2 py-1 text-xs">RETIREMENT YEARS (85 - CURRENT AGE)</td>
                       <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.retirementNote3}
+                        <input type="text" value={data.retirementNote3} placeholder="Add notes..."
                           onChange={(e) => setData(prev => ({ ...prev, retirementNote3: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
+                          className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
                       </td>
-                      <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
-                        {data.retirementYears}
-                      </td>
+                      <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{data.retirementYears}</td>
                     </tr>
                     <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#8</td>
-                      <td className="border border-black px-3 py-2 text-sm">MONTHLY INCOME NEEDED (TODAY'S DOLLARS)</td>
-                      <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
-                        Today's dollars
-                      </td>
+                      <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#8</td>
+                      <td className="border border-black px-2 py-1 text-xs">MONTHLY INCOME NEEDED (TODAY'S DOLLARS)</td>
+                      <td className="border border-black px-2 py-1 text-xs text-gray-400 italic">Today's dollars</td>
                       <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={data.monthlyIncomeNeeded}
+                        <CurrencyInput value={data.monthlyIncomeNeeded} placeholder="$0.00"
                           onChange={(val) => setData(prev => ({ ...prev, monthlyIncomeNeeded: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
+                          className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
                       </td>
                     </tr>
                     <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#9</td>
-                      <td className="border border-black px-3 py-2 text-sm">MONTHLY INCOME NEEDED (AT RETIREMENT @ 3%)</td>
-                      <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
-                        Auto-calculated with 3% inflation
-                      </td>
-                      <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
-                        {formatCurrency(data.monthlyRetirementIncome)}
-                      </td>
+                      <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#9</td>
+                      <td className="border border-black px-2 py-1 text-xs">MONTHLY INCOME NEEDED (AT RETIREMENT @ 3%)</td>
+                      <td className="border border-black px-2 py-1 text-xs text-gray-400 italic">Auto-calculated with 3% inflation</td>
+                      <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{formatCurrency(data.monthlyRetirementIncome)}</td>
                     </tr>
                     <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#10</td>
-                      <td className="border border-black px-3 py-2 text-sm">ANNUAL RETIREMENT INCOME NEEDED</td>
-                      <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
-                        Monthly × 12
-                      </td>
-                      <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
-                        {formatCurrency(data.annualRetirementIncome)}
-                      </td>
+                      <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#10</td>
+                      <td className="border border-black px-2 py-1 text-xs">ANNUAL RETIREMENT INCOME NEEDED</td>
+                      <td className="border border-black px-2 py-1 text-xs text-gray-400 italic">Monthly × 12</td>
+                      <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{formatCurrency(data.annualRetirementIncome)}</td>
                     </tr>
                     <tr style={{ backgroundColor: COLORS.lightYellowBg }}>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#11</td>
-                      <td className="border border-black px-3 py-2 text-sm font-bold">TOTAL RETIREMENT INCOME NEEDED</td>
-                      <td className="border border-black px-3 py-2 text-xs text-gray-500 italic">
-                        Annual × Retirement Years
-                      </td>
-                      <td className="border border-black px-3 py-2 text-sm text-right font-bold">
-                        {formatCurrency(data.totalRetirementIncome)}
-                      </td>
+                      <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#11</td>
+                      <td className="border border-black px-2 py-1 text-xs font-bold">TOTAL RETIREMENT INCOME NEEDED</td>
+                      <td className="border border-black px-2 py-1 text-xs text-gray-400 italic">Annual × Retirement Years</td>
+                      <td className="border border-black px-2 py-1 text-xs text-right font-bold">{formatCurrency(data.totalRetirementIncome)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1291,65 +906,37 @@ export default function FNAPage() {
             </div>
 
             {/* Healthcare */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                  🏥 HEALTHCARE PLANNING
-                </h3>
-                <button
-                  onClick={() => toggleCard('healthcare')}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                >
-                  {cardVisibility.healthcare ? 'Hide' : 'Show'}
-                </button>
-              </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <CardHeader emoji="🏥" title="HEALTHCARE PLANNING" cardKey="healthcare" />
               {cardVisibility.healthcare && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: COLORS.headerBg }}>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
-                    </tr>
-                  </thead>
+                  <TableHead4 />
                   <tbody>
                     <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#12</td>
-                      <td className="border border-black px-3 py-2 text-sm">HEALTHCARE EXPENSES</td>
+                      <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#12</td>
+                      <td className="border border-black px-2 py-1 text-xs">HEALTHCARE EXPENSES</td>
                       <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.healthcareNote1}
-                          onChange={(e) => setData(prev => ({ ...prev, healthcareNote1: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        <input type="text" value={data.healthcareNote1}
                           placeholder="~$315K FOR COUPLE IN TODAY'S DOLLARS"
-                        />
+                          onChange={(e) => setData(prev => ({ ...prev, healthcareNote1: e.target.value }))}
+                          className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
                       </td>
                       <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={data.healthcareExpenses}
+                        <CurrencyInput value={data.healthcareExpenses} placeholder="$315,000.00"
                           onChange={(val) => setData(prev => ({ ...prev, healthcareExpenses: val }))}
-                          placeholder="$315,000.00"
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
+                          className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
                       </td>
                     </tr>
                     <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#13</td>
-                      <td className="border border-black px-3 py-2 text-sm">LONG-TERM CARE</td>
+                      <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#13</td>
+                      <td className="border border-black px-2 py-1 text-xs">LONG-TERM CARE</td>
                       <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.healthcareNote2}
-                          onChange={(e) => setData(prev => ({ ...prev, healthcareNote2: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        <input type="text" value={data.healthcareNote2}
                           placeholder="3% of healthcare × years × 2"
-                        />
+                          onChange={(e) => setData(prev => ({ ...prev, healthcareNote2: e.target.value }))}
+                          className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
                       </td>
-                      <td className="border border-black px-3 py-2 text-sm text-right font-semibold bg-gray-100">
-                        {formatCurrency(data.longTermCare)}
-                      </td>
+                      <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{formatCurrency(data.longTermCare)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1357,218 +944,75 @@ export default function FNAPage() {
             </div>
 
             {/* Life Goals */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                  🌟 LIFE GOALS
-                </h3>
-                <button
-                  onClick={() => toggleCard('lifeGoals')}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                >
-                  {cardVisibility.lifeGoals ? 'Hide' : 'Show'}
-                </button>
-              </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <CardHeader emoji="🌟" title="LIFE GOALS" cardKey="lifeGoals" />
               {cardVisibility.lifeGoals && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: COLORS.headerBg }}>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
-                    </tr>
-                  </thead>
+                  <TableHead4 />
                   <tbody>
-                    <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#14</td>
-                      <td className="border border-black px-3 py-2 text-sm">TRAVEL BUDGET</td>
-                      <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.travelNotes}
-                          onChange={(e) => setData(prev => ({ ...prev, travelNotes: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
-                      </td>
-                      <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={data.travelBudget}
-                          onChange={(val) => setData(prev => ({ ...prev, travelBudget: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#15</td>
-                      <td className="border border-black px-3 py-2 text-sm">VACATION HOME</td>
-                      <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.vacationNotes}
-                          onChange={(e) => setData(prev => ({ ...prev, vacationNotes: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
-                      </td>
-                      <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={data.vacationHome}
-                          onChange={(val) => setData(prev => ({ ...prev, vacationHome: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#16</td>
-                      <td className="border border-black px-3 py-2 text-sm">CHARITY / GIVING</td>
-                      <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.charityNotes}
-                          onChange={(e) => setData(prev => ({ ...prev, charityNotes: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
-                      </td>
-                      <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={data.charity}
-                          onChange={(val) => setData(prev => ({ ...prev, charity: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#17</td>
-                      <td className="border border-black px-3 py-2 text-sm">OTHER GOALS</td>
-                      <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.otherGoalsNotes}
-                          onChange={(e) => setData(prev => ({ ...prev, otherGoalsNotes: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
-                      </td>
-                      <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={data.otherGoals}
-                          onChange={(val) => setData(prev => ({ ...prev, otherGoals: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
-                      </td>
-                    </tr>
+                    {[
+                      { n:'#14', label:'TRAVEL BUDGET',    notesFld:'travelNotes',     notes:data.travelNotes,     amtFld:'travelBudget',  amt:data.travelBudget },
+                      { n:'#15', label:'VACATION HOME',    notesFld:'vacationNotes',   notes:data.vacationNotes,   amtFld:'vacationHome',  amt:data.vacationHome },
+                      { n:'#16', label:'CHARITY / GIVING', notesFld:'charityNotes',    notes:data.charityNotes,    amtFld:'charity',       amt:data.charity },
+                      { n:'#17', label:'OTHER GOALS',      notesFld:'otherGoalsNotes', notes:data.otherGoalsNotes, amtFld:'otherGoals',    amt:data.otherGoals },
+                    ].map(row => (
+                      <tr key={row.n}>
+                        <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{row.n}</td>
+                        <td className="border border-black px-2 py-1 text-xs">{row.label}</td>
+                        <td className="border border-black p-0">
+                          <input type="text" value={row.notes} placeholder="Add notes..."
+                            onChange={(e) => setData(prev => ({ ...prev, [row.notesFld]: e.target.value }))}
+                            className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                        </td>
+                        <td className="border border-black p-0">
+                          <CurrencyInput value={row.amt} placeholder="$0.00"
+                            onChange={(val) => setData(prev => ({ ...prev, [row.amtFld]: val }))}
+                            className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               )}
             </div>
 
             {/* Legacy */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                  🎁 LEGACY PLANNING
-                </h3>
-                <button
-                  onClick={() => toggleCard('legacy')}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                >
-                  {cardVisibility.legacy ? 'Hide' : 'Show'}
-                </button>
-              </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <CardHeader emoji="🎁" title="LEGACY PLANNING" cardKey="legacy" />
               {cardVisibility.legacy && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: COLORS.headerBg }}>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-12">#</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold">DESCRIPTION</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-48">NOTES</th>
-                      <th className="border border-black px-3 py-2 text-sm font-bold w-40">AMOUNT</th>
-                    </tr>
-                  </thead>
+                  <TableHead4 />
                   <tbody>
-                    <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#18</td>
-                      <td className="border border-black px-3 py-2 text-sm">HEADSTART FUND FOR GRANDKIDS</td>
-                      <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.headstartNotes}
-                          onChange={(e) => setData(prev => ({ ...prev, headstartNotes: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
-                      </td>
-                      <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={data.headstartFund}
-                          onChange={(val) => setData(prev => ({ ...prev, headstartFund: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#19</td>
-                      <td className="border border-black px-3 py-2 text-sm">FAMILY LEGACY</td>
-                      <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.legacyNotes}
-                          onChange={(e) => setData(prev => ({ ...prev, legacyNotes: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
-                      </td>
-                      <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={data.familyLegacy}
-                          onChange={(val) => setData(prev => ({ ...prev, familyLegacy: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="border border-black px-3 py-2 text-sm text-center font-semibold">#20</td>
-                      <td className="border border-black px-3 py-2 text-sm">FAMILY SUPPORT</td>
-                      <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={data.supportNotes}
-                          onChange={(e) => setData(prev => ({ ...prev, supportNotes: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
-                      </td>
-                      <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={data.familySupport}
-                          onChange={(val) => setData(prev => ({ ...prev, familySupport: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-3 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
-                      </td>
-                    </tr>
+                    {[
+                      { n:'#18', label:'HEADSTART FUND FOR GRANDKIDS', notesFld:'headstartNotes', notes:data.headstartNotes, amtFld:'headstartFund', amt:data.headstartFund },
+                      { n:'#19', label:'FAMILY LEGACY',                notesFld:'legacyNotes',    notes:data.legacyNotes,    amtFld:'familyLegacy', amt:data.familyLegacy },
+                      { n:'#20', label:'FAMILY SUPPORT',               notesFld:'supportNotes',   notes:data.supportNotes,   amtFld:'familySupport',amt:data.familySupport },
+                    ].map(row => (
+                      <tr key={row.n}>
+                        <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{row.n}</td>
+                        <td className="border border-black px-2 py-1 text-xs">{row.label}</td>
+                        <td className="border border-black p-0">
+                          <input type="text" value={row.notes} placeholder="Add notes..."
+                            onChange={(e) => setData(prev => ({ ...prev, [row.notesFld]: e.target.value }))}
+                            className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                        </td>
+                        <td className="border border-black p-0">
+                          <CurrencyInput value={row.amt} placeholder="$0.00"
+                            onChange={(val) => setData(prev => ({ ...prev, [row.amtFld]: val }))}
+                            className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               )}
             </div>
 
             {/* Total Requirement */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <h3 className="font-bold text-lg">💰 TOTAL REQUIREMENT</h3>
-                <button
-                  onClick={() => toggleCard('totalReq')}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                >
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <h3 className="text-xs font-bold">💰 TOTAL REQUIREMENT</h3>
+                <button onClick={() => toggleCard('totalReq')} className={btnOutline}>
                   {cardVisibility.totalReq ? 'Hide' : 'Show'}
                 </button>
               </div>
@@ -1576,8 +1020,8 @@ export default function FNAPage() {
                 <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
                   <tbody>
                     <tr style={{ backgroundColor: COLORS.yellowBg }}>
-                      <td className="border border-black px-4 py-4 text-xl font-bold">💰 TOTAL REQUIREMENT</td>
-                      <td className="border border-black px-4 py-4 text-right text-2xl font-bold text-green-700">
+                      <td className="border border-black px-3 py-2 text-sm font-bold">💰 TOTAL REQUIREMENT</td>
+                      <td className="border border-black px-3 py-2 text-right text-base font-bold text-green-700">
                         {formatCurrency(data.totalRequirement)}
                       </td>
                     </tr>
@@ -1586,86 +1030,62 @@ export default function FNAPage() {
               )}
             </div>
 
-            <div className="bg-black text-white text-center py-3 rounded-lg font-medium">
+            <div className="bg-black text-white text-center py-1.5 rounded text-xs">
               ⚠️ DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE
             </div>
           </div>
         )}
 
-        {/* ── ASSETS TAB ── */}
+        {/* ══════════════════════════════════════════════════════════════════
+            ASSETS TAB
+        ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'assets' && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                  🏦 RETIREMENT PLANNING (USA)
-                </h3>
-                <button
-                  onClick={() => toggleCard('assetsRetirement')}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                >
-                  {cardVisibility.assetsRetirement ? 'Hide' : 'Show'}
-                </button>
-              </div>
+          <div className="space-y-3">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <CardHeader emoji="🏦" title="RETIREMENT PLANNING (USA)" cardKey="assetsRetirement" />
               {cardVisibility.assetsRetirement && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: COLORS.headerBg }}>
-                      <th className="border border-black px-2 py-2 text-sm font-bold w-12">#</th>
-                      <th className="border border-black px-2 py-2 text-sm font-bold">DESCRIPTION</th>
-                      <th className="border border-black px-2 py-2 text-sm font-bold w-16">HIM</th>
-                      <th className="border border-black px-2 py-2 text-sm font-bold w-16">HER</th>
-                      <th className="border border-black px-2 py-2 text-sm font-bold w-48">NOTES</th>
-                      <th className="border border-black px-2 py-2 text-sm font-bold w-40">PRESENT VALUE</th>
-                      <th className="border border-black px-2 py-2 text-sm font-bold w-40">
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold">DESCRIPTION</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-12">HIM</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-12">HER</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-40">NOTES</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-36">PRESENT VALUE</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-40">
                         PROJECTED @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%)
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="border border-black px-2 py-2 text-sm text-center font-semibold">#1</td>
-                      <td className="border border-black px-2 py-2 text-sm">CURRENT 401K | 403B</td>
-                      <td className="border border-black text-center">
-                        <input
-                          type="checkbox"
-                          checked={assets.ret1_him}
+                      <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#1</td>
+                      <td className="border border-black px-2 py-1 text-xs">CURRENT 401K | 403B</td>
+                      <td className="border border-black text-center py-1">
+                        <input type="checkbox" checked={assets.ret1_him}
                           onChange={(e) => setAssets(prev => ({ ...prev, ret1_him: e.target.checked }))}
-                          className="w-5 h-5"
-                        />
+                          className="w-4 h-4" />
                       </td>
-                      <td className="border border-black text-center">
-                        <input
-                          type="checkbox"
-                          checked={assets.ret1_her}
+                      <td className="border border-black text-center py-1">
+                        <input type="checkbox" checked={assets.ret1_her}
                           onChange={(e) => setAssets(prev => ({ ...prev, ret1_her: e.target.checked }))}
-                          className="w-5 h-5"
-                        />
+                          className="w-4 h-4" />
                       </td>
                       <td className="border border-black p-0">
-                        <input
-                          type="text"
-                          value={assets.ret1_notes}
+                        <input type="text" value={assets.ret1_notes} placeholder="Add notes..."
                           onChange={(e) => setAssets(prev => ({ ...prev, ret1_notes: e.target.value }))}
-                          className="w-full px-2 py-2 text-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          placeholder="Add notes..."
-                        />
+                          className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
                       </td>
                       <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={assets.ret1_present}
+                        <CurrencyInput value={assets.ret1_present} placeholder="$0.00"
                           onChange={(val) => setAssets(prev => ({ ...prev, ret1_present: val, totalPresent: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-2 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
+                          className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
                       </td>
                       <td className="border border-black p-0">
-                        <CurrencyInput
-                          value={assets.ret1_projected}
+                        <CurrencyInput value={assets.ret1_projected} placeholder="$0.00"
                           onChange={(val) => setAssets(prev => ({ ...prev, ret1_projected: val, totalProjected: val }))}
-                          placeholder="$0.00"
-                          className="w-full px-2 py-2 text-sm text-right border-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
+                          className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
                       </td>
                     </tr>
                   </tbody>
@@ -1673,13 +1093,10 @@ export default function FNAPage() {
               )}
             </div>
 
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <h3 className="font-bold text-lg">💰 TOTAL ASSETS</h3>
-                <button
-                  onClick={() => toggleCard('totalAssets')}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                >
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <h3 className="text-xs font-bold">💰 TOTAL ASSETS</h3>
+                <button onClick={() => toggleCard('totalAssets')} className={btnOutline}>
                   {cardVisibility.totalAssets ? 'Hide' : 'Show'}
                 </button>
               </div>
@@ -1687,12 +1104,12 @@ export default function FNAPage() {
                 <table className="w-full border-2 border-black" style={{ borderCollapse: 'collapse' }}>
                   <tbody>
                     <tr style={{ backgroundColor: COLORS.yellowBg }}>
-                      <td className="border border-black px-4 py-4 text-xl font-bold">💰 TOTAL ASSETS</td>
-                      <td className="border border-black px-4 py-4">
-                        <div className="text-right text-lg font-bold text-green-700">
+                      <td className="border border-black px-3 py-2 text-sm font-bold">💰 TOTAL ASSETS</td>
+                      <td className="border border-black px-3 py-2">
+                        <div className="text-right text-sm font-bold text-green-700">
                           Present Value: {formatCurrency(assets.totalPresent)}
                         </div>
-                        <div className="text-right text-lg font-bold text-blue-700 mt-1">
+                        <div className="text-right text-sm font-bold text-blue-700 mt-0.5">
                           Projected @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%): {formatCurrency(assets.totalProjected)}
                         </div>
                       </td>
@@ -1702,7 +1119,7 @@ export default function FNAPage() {
               )}
             </div>
 
-            <div className="bg-black text-white text-center py-3 rounded-lg font-medium">
+            <div className="bg-black text-white text-center py-1.5 rounded text-xs">
               ⚠️ DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE
             </div>
           </div>
