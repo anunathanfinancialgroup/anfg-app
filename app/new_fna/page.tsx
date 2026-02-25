@@ -210,11 +210,53 @@ const CurrencyInput: React.FC<{ value: number; onChange: (v: number) => void; pl
     );
   };
 
-import PageHeader from "@/components/PageHeader";
-
 // Button style constants
 const btnGhost = "px-2.5 py-1 text-xs font-medium rounded border border-gray-300 text-gray-600 bg-white hover:bg-gray-50 transition-colors";
 const btnSave  = "px-3 py-1.5 text-xs font-semibold rounded border border-gray-400 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors";
+
+// ── PageHeader (inlined — no external import needed) ─────────────────────────
+function PageHeader({
+  title, subtitle = "Build your career. Protect their future", onLogout, actions,
+}: {
+  title: string; subtitle?: string; onLogout?: () => void; actions?: React.ReactNode;
+}) {
+  return (
+    <header className="bg-white rounded-lg shadow-sm border border-gray-200 px-4 py-3">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex-shrink-0">
+            <Image
+              src="/anunathan-logo.png"
+              alt="AnuNathan Financial Group"
+              width={64} height={64}
+              className="object-contain"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="text-lg font-bold leading-tight whitespace-nowrap" style={{ color: "#1d4ed8" }}>
+              {title}
+            </div>
+            {subtitle && (
+              <div className="text-sm font-semibold whitespace-nowrap mt-0.5" style={{ color: "#808000" }}>
+                {subtitle}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {actions}
+          {onLogout && (
+            <button onClick={onLogout}
+              className="px-3 py-1.5 text-sm font-medium rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap">
+              Logout ➜
+            </button>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
 
 // ── Liabilities sub-components (top-level to avoid remount) ────────────────
 
