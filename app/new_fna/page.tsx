@@ -11,6 +11,29 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const COLORS = { headerBg: '#BDD7EE', yellowBg: '#FFFF00', lightYellowBg: '#FFFACD' };
 
+// ── Liabilities types ─────────────────────────────────────────────────────────
+type FieldType = "text" | "textarea" | "number" | "date" | "time" | "bool" | "select";
+type FieldDef = {
+  key: string; label: string; type: FieldType;
+  options?: string[]; placeholder?: string; widthClass?: string;
+};
+type LiabRow = { id: string; fna_id: string } & Record<string, any>;
+
+const LIABILITY_TYPES = [
+  "CREDIT_CARD", "AUTO_LOAN", "STUDENT_LOAN", "PERSONAL_LOAN",
+  "MORTGAGE_LOAN", "INSURANCE", "FAMILY_SUPPORT", "OTHER",
+];
+
+function coerceFieldValue(type: FieldType, raw: any) {
+  if (raw === "" || raw === undefined) return null;
+  if (type === "number") { const n = Number(raw); return Number.isFinite(n) ? n : null; }
+  if (type === "bool") return !!raw;
+  return raw;
+}
+function tmpLiabId() {
+  return `tmp_liab_${Math.random().toString(16).slice(2)}_${Date.now()}`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Interfaces
 // ─────────────────────────────────────────────────────────────────────────────
@@ -193,6 +216,118 @@ import PageHeader from "@/components/PageHeader";
 const btnGhost = "px-2.5 py-1 text-xs font-medium rounded border border-gray-300 text-gray-600 bg-white hover:bg-gray-50 transition-colors";
 const btnSave  = "px-3 py-1.5 text-xs font-semibold rounded border border-gray-400 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors";
 
+// ── Liabilities sub-components (top-level to avoid remount) ────────────────
+
+function LiabTopButton({ onClick, children, variant = "primary", disabled }: {
+  onClick: () => void; children: React.ReactNode;
+  variant?: "primary" | "secondary" | "danger"; disabled?: boolean;
+}) {
+  const base = "inline-flex items-center justify-center rounded px-3 py-1.5 text-xs font-semibold border transition-colors";
+  const styles =
+    variant === "danger" ? "bg-red-600 hover:bg-red-700 text-white border-red-700"
+    : variant === "secondary" ? "bg-white hover:bg-gray-50 text-gray-800 border-gray-300"
+    : "bg-gray-900 hover:bg-gray-800 text-white border-gray-900";
+  return (
+    <button className={`${base} ${styles} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
+  );
+}
+
+function LiabilityEditableTable({
+  rows, setRows, columns, fnaId, onSaveRow, onDeleteRow,
+}: {
+  rows: LiabRow[]; setRows: React.Dispatch<React.SetStateAction<LiabRow[]>>;
+  columns: FieldDef[]; fnaId: string | undefined;
+  onSaveRow: (row: LiabRow) => Promise<void>;
+  onDeleteRow: (row: LiabRow) => Promise<void>;
+}) {
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({});
+  const minWidth = Math.max(900, columns.length * 150);
+  const inputCls = "w-full rounded border border-gray-300 px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-400";
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-gray-700">
+          {rows.length} liabilit{rows.length === 1 ? "y" : "ies"}
+        </span>
+        <LiabTopButton variant="secondary" onClick={() => {
+          if (!fnaId) return;
+          setRows(prev => [...prev, { id: tmpLiabId(), fna_id: fnaId } as LiabRow]);
+        }}>+ Add Liability</LiabTopButton>
+      </div>
+
+      <div className="overflow-auto border border-gray-200 rounded-lg">
+        <table className="w-full text-xs border-collapse border border-gray-300" style={{ minWidth }}>
+          <thead className="sticky top-0 z-10">
+            <tr className="text-left text-xs font-semibold text-gray-700" style={{ backgroundColor: '#BDD7EE' }}>
+              {columns.map(c => (
+                <th key={c.key} className="px-3 py-2 border border-gray-300 whitespace-nowrap">{c.label}</th>
+              ))}
+              <th className="px-3 py-2 border border-gray-300 whitespace-nowrap">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr><td className="px-3 py-4 text-gray-400 italic" colSpan={columns.length + 1}>
+                No liabilities added yet. Click "+ Add Liability" to start.
+              </td></tr>
+            ) : rows.map(r => (
+              <tr key={r.id} className="hover:bg-gray-50">
+                {columns.map(c => (
+                  <td key={c.key} className="px-2 py-1.5 border border-gray-300 align-top">
+                    {c.type === "textarea" ? (
+                      <textarea className={`${inputCls} min-h-[56px] resize-none`}
+                        value={r[c.key] ?? ""}
+                        onChange={e => setRows(prev => prev.map(x => x.id === r.id ? { ...x, [c.key]: e.target.value } : x))} />
+                    ) : c.type === "select" ? (
+                      <select className={inputCls} value={r[c.key] ?? ""}
+                        onChange={e => setRows(prev => prev.map(x => x.id === r.id ? { ...x, [c.key]: e.target.value } : x))}>
+                        {(c.options ?? [""]).map(o => <option key={o} value={o}>{o || "—"}</option>)}
+                      </select>
+                    ) : c.type === "bool" ? (
+                      <input type="checkbox" className="h-4 w-4 accent-gray-800 mt-1"
+                        checked={!!r[c.key]}
+                        onChange={e => setRows(prev => prev.map(x => x.id === r.id ? { ...x, [c.key]: e.target.checked } : x))} />
+                    ) : (
+                      <input type={c.type === "number" ? "number" : c.type === "date" ? "date" : "text"}
+                        className={inputCls}
+                        value={r[c.key] ?? ""}
+                        onChange={e => setRows(prev => prev.map(x => x.id === r.id ? { ...x, [c.key]: e.target.value } : x))} />
+                    )}
+                  </td>
+                ))}
+                <td className="px-2 py-1.5 border border-gray-300 whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <LiabTopButton variant="primary" disabled={!!saving[r.id]}
+                      onClick={async () => {
+                        setSaving(p => ({ ...p, [r.id]: true }));
+                        try { await onSaveRow(r); } finally { setSaving(p => ({ ...p, [r.id]: false })); }
+                      }}>
+                      {saving[r.id] ? "Saving…" : "Save"}
+                    </LiabTopButton>
+                    <LiabTopButton variant="danger" disabled={!!deleting[r.id]}
+                      onClick={async () => {
+                        if (!confirm("Delete this liability?")) return;
+                        setDeleting(p => ({ ...p, [r.id]: true }));
+                        try { await onDeleteRow(r); } finally { setDeleting(p => ({ ...p, [r.id]: false })); }
+                      }}>
+                      {deleting[r.id] ? "…" : "Delete"}
+                    </LiabTopButton>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ── Stable top-level components (defined outside FNAPage to prevent remount on every render) ──
 
 const NAProjCell = () => (
@@ -264,13 +399,15 @@ export default function FNAPage() {
   const contentRef = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<FNAData>(initialData);
   const [assets, setAssets] = useState<AssetsData>(initialAssets);
-  const [activeTab, setActiveTab] = useState<'goals' | 'assets'>('goals');
+  const [activeTab, setActiveTab] = useState<'goals' | 'assets' | 'liabilities'>('goals');
   const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [cardsExpanded, setCardsExpanded] = useState(false);
+  const [liabilityRows, setLiabilityRows] = useState<LiabRow[]>([]);
+  const [liabNotice, setLiabNotice] = useState<string | null>(null);
   const [cardVisibility, setCardVisibility] = useState<CardVisibility>(allCardsClosed);
 
   // ── Compound interest helpers ──────────────────────────────────────────────
@@ -295,6 +432,49 @@ export default function FNAPage() {
     if (pv <= 0 || yearsToRetirement <= 0) return 0;
     return pv * Math.pow(1 + rate, yearsToRetirement);
   }, [yearsToRetirement, rate]);
+
+  // ── Liabilities helpers ────────────────────────────────────────────────────
+  const liabilityCols: FieldDef[] = useMemo(() => [
+    { key: "liability_type",  label: "Liability Type",      type: "select", options: LIABILITY_TYPES },
+    { key: "description",     label: "Description",         type: "text"   },
+    { key: "lender",          label: "Lender",              type: "text"   },
+    { key: "balance",         label: "Balance ($)",         type: "number" },
+    { key: "interest_rate",   label: "Interest Rate (%)",   type: "number" },
+    { key: "min_payment",     label: "Min Payment ($)",     type: "number" },
+    { key: "current_payment", label: "Current Payment ($)", type: "number" },
+    { key: "notes",           label: "Notes",               type: "textarea" },
+  ], []);
+
+  async function upsertLiabilityRow(row: LiabRow): Promise<void> {
+    if (!data.fnaId) throw new Error("Save the FNA record first (Goals tab), then add liabilities.");
+    const isTmp = String(row.id).startsWith("tmp_liab_");
+    const payload: any = { ...row, fna_id: data.fnaId };
+    if (isTmp) delete payload.id;
+    for (const c of liabilityCols) {
+      payload[c.key] = coerceFieldValue(c.type, payload[c.key]);
+    }
+    if (isTmp) {
+      const { data: saved, error } = await supabase.from("fna_liabilities").insert(payload).select("*").limit(1);
+      if (error) throw error;
+      const s = (saved ?? [])[0];
+      if (s) setLiabilityRows(prev => prev.map(r => r.id === row.id ? { ...s, fna_id: data.fnaId! } : r));
+    } else {
+      const { data: saved, error } = await supabase.from("fna_liabilities").update(payload).eq("id", row.id).select("*").limit(1);
+      if (error) throw error;
+      const s = (saved ?? [])[0];
+      if (s) setLiabilityRows(prev => prev.map(r => r.id === row.id ? { ...s, fna_id: data.fnaId! } : r));
+    }
+    setLiabNotice("Saved."); setTimeout(() => setLiabNotice(null), 2000);
+  }
+
+  async function deleteLiabilityRow(row: LiabRow): Promise<void> {
+    const isTmp = String(row.id).startsWith("tmp_liab_");
+    if (isTmp) { setLiabilityRows(prev => prev.filter(r => r.id !== row.id)); return; }
+    const { error } = await supabase.from("fna_liabilities").delete().eq("id", row.id);
+    if (error) throw error;
+    setLiabilityRows(prev => prev.filter(r => r.id !== row.id));
+    setLiabNotice("Deleted."); setTimeout(() => setLiabNotice(null), 2000);
+  }
 
   // ── Totals ────────────────────────────────────────────────────────────────
   const totalPresent = useMemo(() => {
@@ -472,6 +652,11 @@ export default function FNAPage() {
           }
         } catch {}
       }
+      // Load liabilities for this fna_id
+      const { data: liabData } = await supabase
+        .from("fna_liabilities").select("*").eq("fna_id", fnaId).order("liability_type", { ascending: true });
+      setLiabilityRows((liabData ?? []).map((x: any) => ({ ...x, fna_id: fnaId })) as LiabRow[]);
+
       showMessage('FNA data loaded!', 'success');
     } catch (err: any) {
       showMessage(`Error loading data: ${err.message}`, 'error');
@@ -609,6 +794,7 @@ export default function FNAPage() {
     if (confirm('Clear all data and reset the form?')) {
       setData(initialData);
       setAssets(initialAssets);
+      setLiabilityRows([]);
       setCardsExpanded(false);
       setCardVisibility(allCardsClosed);
       showMessage("Form cleared", 'success');
@@ -881,10 +1067,14 @@ export default function FNAPage() {
 
         {/* TABS */}
         <div className="mb-3 flex gap-2">
-          {(['goals','assets'] as const).map(tab => (
+          {([
+            { key: 'goals',       label: '📊 FINANCIAL GOALS & PLANNING' },
+            { key: 'assets',      label: '💰 ASSETS' },
+            { key: 'liabilities', label: '💳 LIABILITIES' },
+          ] as const).map(({ key: tab, label }) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`flex-1 px-3 py-1.5 rounded font-semibold text-xs transition-all ${activeTab === tab ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'}`}>
-              {tab === 'goals' ? '📊 FINANCIAL GOALS & PLANNING' : '💰 ASSETS'}
+              {label}
             </button>
           ))}
         </div>
@@ -1429,6 +1619,53 @@ export default function FNAPage() {
             <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE</div>
           </div>
         )}
+        {/* ════════════════════════════════════ LIABILITIES TAB ══════════════ */}
+        {activeTab === 'liabilities' && (
+          <div className="space-y-3">
+
+            {/* Summary totals bar */}
+            {liabilityRows.length > 0 && (() => {
+              const totalBalance  = liabilityRows.reduce((s, r) => s + (Number(r.balance)          || 0), 0);
+              const totalMinPay   = liabilityRows.reduce((s, r) => s + (Number(r.min_payment)      || 0), 0);
+              const totalCurPay   = liabilityRows.reduce((s, r) => s + (Number(r.current_payment)  || 0), 0);
+              const fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+              return (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+                  <div className="flex gap-6 text-xs font-semibold flex-wrap">
+                    <span className="text-gray-500">📊 {liabilityRows.length} liabilit{liabilityRows.length === 1 ? 'y' : 'ies'}</span>
+                    <span className="text-red-700">💳 Total Balance: <strong>{fmt(totalBalance)}</strong></span>
+                    <span className="text-gray-700">Min Payment/mo: <strong>{fmt(totalMinPay)}</strong></span>
+                    <span className="text-gray-700">Current Payment/mo: <strong>{fmt(totalCurPay)}</strong></span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Main liabilities table */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-bold">💳 LIABILITIES</h3>
+                {!data.fnaId && (
+                  <span className="text-xs text-amber-600 font-medium">
+                    ⚠️ Save the FNA record first (Goals tab) before adding liabilities.
+                  </span>
+                )}
+                {liabNotice && <span className="text-xs text-green-600 font-semibold">{liabNotice}</span>}
+              </div>
+              <LiabilityEditableTable
+                rows={liabilityRows}
+                setRows={setLiabilityRows}
+                columns={liabilityCols}
+                fnaId={data.fnaId}
+                onSaveRow={upsertLiabilityRow}
+                onDeleteRow={deleteLiabilityRow}
+              />
+            </div>
+
+            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE</div>
+          </div>
+        )}
+
       </main>
     </div>
   );
