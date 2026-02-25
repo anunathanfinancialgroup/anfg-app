@@ -187,6 +187,8 @@ const CurrencyInput: React.FC<{ value: number; onChange: (v: number) => void; pl
     );
   };
 
+import PageHeader from "@/components/PageHeader";
+
 // Button style constants
 const btnGhost = "px-2.5 py-1 text-xs font-medium rounded border border-gray-300 text-gray-600 bg-white hover:bg-gray-50 transition-colors";
 const btnSave  = "px-3 py-1.5 text-xs font-semibold rounded border border-gray-400 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors";
@@ -766,24 +768,21 @@ export default function FNAPage() {
     <div className="min-h-screen bg-gray-50">
 
       {/* HEADER */}
-      <header className="bg-white shadow-sm border-b border-gray-200 px-3 py-2 mb-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Image src="/anunathan-logo.png" alt="AnuNathan Financial Group" width={44} height={44} className="object-contain" />
-            <div>
-              <h1 className="text-sm font-bold text-gray-900 leading-tight">Client Financial Need Analysis</h1>
-              <p className="text-xs text-gray-400">Build your career. Protect their future</p>
-            </div>
-          </div>
+      <div className="mb-3">
+      <PageHeader
+        title="Client Financial Need Analysis"
+        subtitle="Build your career. Protect their future"
+        onLogout={handleLogout}
+        actions={
           <div className="flex items-center gap-1.5 flex-wrap">
             <button onClick={handleToggleAllCards} disabled={loading} className={btnGhost}>
-              {loading ? '⏳ Loading…' : cardsExpanded ? '📦 Hide Cards' : 'Show Cards 🗃️'}
+              {loading ? '⏳ Loading…' : cardsExpanded ? '🙈 Hide Cards' : '📊 Show Cards'}
             </button>
-            <button onClick={handleClear} className={btnGhost}> Refresh</button>
-            <button onClick={handleLogout} className={btnGhost}>Logout ➜</button>
+            <button onClick={handleClear} className={btnGhost}>🗑 Clear</button>
           </div>
-        </div>
-      </header>
+        }
+      />
+      </div>
 
       <main className="max-w-7xl mx-auto px-3 pb-6" ref={contentRef}>
 
@@ -1114,7 +1113,7 @@ export default function FNAPage() {
               )}
             </div>
 
-            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ Disclaimer: For Education Purpose Only. We Do Not Provide Any Legal Or Tax Advice</div>
+            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE</div>
           </div>
         )}
 
@@ -1427,7 +1426,7 @@ export default function FNAPage() {
             <div className="bg-gray-800 text-white text-center py-1.5 rounded text-xs">
               ** FBAR: Report to US Treasury if foreign accounts exceed $10K | ** FATCA: Report to IRS (Form 8938) if foreign assets exceed $50K
             </div>
-            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ Disclaimer: For Education Purpose Only. We Do Not Provide Any Legal Or Tax Advice</div>
+            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE</div>
           </div>
         )}
       </main>
