@@ -38,19 +38,25 @@ interface FNAData {
   state: string;
   clientDob: string;
   analysisDate: string;
-  
+
+  // NEW FIELDS
+  dob: string;
+  notes: string;
+  plannedRetirementAge: number;
+  calculatedInterestPercentage: number;
+
   child1CollegeName: string;
   child1CollegeNotes: string;
   child1CollegeAmount: number;
   child2CollegeName: string;
   child2CollegeNotes: string;
   child2CollegeAmount: number;
-  
+
   child1WeddingNotes: string;
   child1WeddingAmount: number;
   child2WeddingNotes: string;
   child2WeddingAmount: number;
-  
+
   currentAge: number;
   yearsToRetirement: number;
   retirementYears: number;
@@ -61,12 +67,12 @@ interface FNAData {
   retirementNote1: string;
   retirementNote2: string;
   retirementNote3: string;
-  
+
   healthcareExpenses: number;
   longTermCare: number;
   healthcareNote1: string;
   healthcareNote2: string;
-  
+
   travelBudget: number;
   travelNotes: string;
   vacationHome: number;
@@ -75,14 +81,14 @@ interface FNAData {
   charityNotes: string;
   otherGoals: number;
   otherGoalsNotes: string;
-  
+
   headstartFund: number;
   headstartNotes: string;
   familyLegacy: number;
   legacyNotes: string;
   familySupport: number;
   supportNotes: string;
-  
+
   totalRequirement: number;
 }
 
@@ -119,6 +125,12 @@ const initialData: FNAData = {
   state: "",
   clientDob: "",
   analysisDate: new Date().toISOString().split('T')[0],
+  // NEW FIELDS
+  dob: "",
+  notes: "",
+  plannedRetirementAge: 65,
+  calculatedInterestPercentage: 6,
+  // existing fields
   child1CollegeName: "",
   child1CollegeNotes: "",
   child1CollegeAmount: 0,
@@ -259,7 +271,7 @@ export default function FNAPage() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [exporting, setExporting] = useState(false);
-  
+
   const [cardVisibility, setCardVisibility] = useState<CardVisibility>({
     clientInfo: true,
     college: false,
@@ -321,6 +333,8 @@ export default function FNAPage() {
       clientDob: client.date_of_birth || '',
       analysisDate: new Date().toISOString().split('T')[0],
       healthcareNote1: "~$315K FOR COUPLE IN TODAY'S DOLLARS",
+      plannedRetirementAge: 65,
+      calculatedInterestPercentage: 6,
     }));
 
     await loadFNAData(clientId);
@@ -331,14 +345,14 @@ export default function FNAPage() {
     try {
       const { data: fnaRecord, error: fnaError } = await supabase
         .from('fna_records')
-        .select('fna_id, analysis_date, spouse_name')
+        .select('fna_id, analysis_date, spouse_name, dob, notes, planned_retirement_age, calculated_interest_percentage')
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (fnaError) throw fnaError;
-      
+
       if (!fnaRecord) {
         showMessage('No existing FNA data for this client', 'error');
         return;
@@ -374,6 +388,10 @@ export default function FNAPage() {
         fnaId: fnaId,
         spouseName: fnaRecord.spouse_name || prev.spouseName,
         analysisDate: fnaRecord.analysis_date || prev.analysisDate,
+        dob: fnaRecord.dob || '',
+        notes: fnaRecord.notes || '',
+        plannedRetirementAge: fnaRecord.planned_retirement_age || 65,
+        calculatedInterestPercentage: fnaRecord.calculated_interest_percentage || 6,
         child1CollegeName: child1College?.child_name || '',
         child1CollegeNotes: child1College?.notes || '',
         child1CollegeAmount: child1College?.amount || 0,
@@ -417,20 +435,35 @@ export default function FNAPage() {
     }
   };
 
+  // Recalculate assets when interest percentage or retirement age changes
+  useEffect(() => {
+    if (assets.ret1_present > 0 && data.currentAge > 0 && data.plannedRetirementAge > 0) {
+      const yearsToRetirement = Math.max(0, data.plannedRetirementAge - data.currentAge);
+      const interestRate = data.calculatedInterestPercentage / 100;
+      const projectedValue = assets.ret1_present * Math.pow(1 + interestRate, yearsToRetirement);
+
+      setAssets(prev => ({
+        ...prev,
+        ret1_projected: projectedValue,
+        totalProjected: projectedValue
+      }));
+    }
+  }, [data.calculatedInterestPercentage, data.currentAge, data.plannedRetirementAge, assets.ret1_present]);
+
   useEffect(() => {
     const yearsToRetirement = data.currentAge > 0 ? Math.max(0, 65 - data.currentAge) : 0;
     const retirementYears = data.currentAge > 0 ? Math.max(0, 85 - data.currentAge) : 0;
-    
+
     const inflationRate = 0.03;
     const monthlyRetirementIncome = data.monthlyIncomeNeeded > 0 && yearsToRetirement > 0
       ? data.monthlyIncomeNeeded * Math.pow(1 + inflationRate, yearsToRetirement)
       : 0;
-    
+
     const annualRetirementIncome = monthlyRetirementIncome * 12;
     const totalRetirementIncome = annualRetirementIncome * retirementYears;
     const longTermCare = data.healthcareExpenses * 0.03 * (retirementYears * 2);
-    
-    const totalRequirement = 
+
+    const totalRequirement =
       data.child1CollegeAmount +
       data.child2CollegeAmount +
       data.child1WeddingAmount +
@@ -490,7 +523,10 @@ export default function FNAPage() {
             client_id: data.clientId,
             analysis_date: data.analysisDate,
             spouse_name: data.spouseName,
-            notes: `FNA for ${data.clientName}`
+            dob: data.dob || null,
+            notes: data.notes || null,
+            planned_retirement_age: data.plannedRetirementAge,
+            calculated_interest_percentage: data.calculatedInterestPercentage,
           }])
           .select()
           .single();
@@ -504,6 +540,10 @@ export default function FNAPage() {
           .update({
             analysis_date: data.analysisDate,
             spouse_name: data.spouseName,
+            dob: data.dob || null,
+            notes: data.notes || null,
+            planned_retirement_age: data.plannedRetirementAge,
+            calculated_interest_percentage: data.calculatedInterestPercentage,
             updated_at: new Date().toISOString()
           })
           .eq('fna_id', fnaId);
@@ -615,7 +655,7 @@ export default function FNAPage() {
       );
 
       const results = await Promise.all(insertPromises);
-      
+
       const errors = results.filter(r => r.error);
       if (errors.length > 0) {
         console.error('Insert errors:', errors);
@@ -655,6 +695,10 @@ export default function FNAPage() {
         state: prev.state,
         clientDob: prev.clientDob,
         analysisDate: prev.analysisDate,
+        dob: prev.dob,
+        notes: prev.notes,
+        plannedRetirementAge: prev.plannedRetirementAge,
+        calculatedInterestPercentage: prev.calculatedInterestPercentage,
         healthcareNote1: "~$315K FOR COUPLE IN TODAY'S DOLLARS"
       }));
       setAssets(initialAssets);
@@ -693,7 +737,7 @@ export default function FNAPage() {
     setExporting(true);
     try {
       const html2pdf = (await import('html2pdf.js')).default;
-      
+
       const element = contentRef.current;
       if (!element) return;
 
@@ -726,10 +770,10 @@ export default function FNAPage() {
       <header className="bg-white rounded-lg shadow-md border border-gray-200 p-4 mb-4 mx-4 mt-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Image 
-              src="/anunathan-logo.png" 
-              alt="AnuNathan Financial Group" 
-              width={70} 
+            <Image
+              src="/anunathan-logo.png"
+              alt="AnuNathan Financial Group"
+              width={70}
               height={70}
               className="object-contain"
             />
@@ -786,6 +830,7 @@ export default function FNAPage() {
           )}
         </div>
 
+        {/* ── CLIENT INFORMATION CARD ── */}
         <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5 mb-4">
           <div className="flex items-center justify-between mb-4 pb-2 border-b">
             <h3 className="text-xl font-bold">📋 Client Information</h3>
@@ -798,6 +843,8 @@ export default function FNAPage() {
               🧮 Calculator
             </a>
           </div>
+
+          {/* Row 1 */}
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-sm font-bold mb-2 text-gray-700">Client Name *</label>
@@ -824,14 +871,16 @@ export default function FNAPage() {
               <input type="text" value={data.clientEmail} readOnly className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100" />
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-4">
+
+          {/* Row 2 */}
+          <div className="grid grid-cols-4 gap-4 mb-4">
             <div>
               <label className="block text-sm font-bold mb-2 text-gray-700">Spouse Name</label>
-              <input 
-                type="text" 
-                value={data.spouseName} 
+              <input
+                type="text"
+                value={data.spouseName}
                 onChange={(e) => setData(prev => ({ ...prev, spouseName: e.target.value }))}
-                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" 
+                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
             <div>
@@ -844,16 +893,64 @@ export default function FNAPage() {
             </div>
             <div>
               <label className="block text-sm font-bold mb-2 text-gray-700">Analysis Date</label>
-              <input 
-                type="date" 
-                value={data.analysisDate} 
+              <input
+                type="date"
+                value={data.analysisDate}
                 onChange={(e) => setData(prev => ({ ...prev, analysisDate: e.target.value }))}
-                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" 
+                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Row 3 – NEW FIELDS */}
+          <div className="grid grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-bold mb-2 text-gray-700">Date of Birth</label>
+              <input
+                type="date"
+                value={data.dob}
+                onChange={(e) => setData(prev => ({ ...prev, dob: e.target.value }))}
+                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-2 text-gray-700">Planned Retirement Age</label>
+              <select
+                value={data.plannedRetirementAge}
+                onChange={(e) => setData(prev => ({ ...prev, plannedRetirementAge: parseInt(e.target.value) || 65 }))}
+                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                {Array.from({ length: 58 }, (_, i) => i + 50).map(age => (
+                  <option key={age} value={age}>{age}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-2 text-gray-700">Interest% to calculate</label>
+              <select
+                value={data.calculatedInterestPercentage}
+                onChange={(e) => setData(prev => ({ ...prev, calculatedInterestPercentage: parseInt(e.target.value) }))}
+                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                {[3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(percent => (
+                  <option key={percent} value={percent}>{percent}%</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-2 text-gray-700">Note</label>
+              <input
+                type="text"
+                value={data.notes}
+                onChange={(e) => setData(prev => ({ ...prev, notes: e.target.value }))}
+                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                placeholder="Add notes..."
               />
             </div>
           </div>
         </div>
 
+        {/* ── TAB BUTTONS ── */}
         <div className="mb-4 flex gap-2">
           <button
             onClick={() => setActiveTab('goals')}
@@ -877,8 +974,10 @@ export default function FNAPage() {
           </button>
         </div>
 
+        {/* ── GOALS TAB ── */}
         {activeTab === 'goals' && (
           <div className="space-y-4">
+            {/* College */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
@@ -975,6 +1074,7 @@ export default function FNAPage() {
               )}
             </div>
 
+            {/* Wedding */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
@@ -1059,6 +1159,7 @@ export default function FNAPage() {
               )}
             </div>
 
+            {/* Retirement */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <div className="flex items-center gap-3 mb-3">
                 <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
@@ -1189,6 +1290,7 @@ export default function FNAPage() {
               )}
             </div>
 
+            {/* Healthcare */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <div className="flex items-center gap-3 mb-3">
                 <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
@@ -1254,6 +1356,7 @@ export default function FNAPage() {
               )}
             </div>
 
+            {/* Life Goals */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <div className="flex items-center gap-3 mb-3">
                 <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
@@ -1366,6 +1469,7 @@ export default function FNAPage() {
               )}
             </div>
 
+            {/* Legacy */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <div className="flex items-center gap-3 mb-3">
                 <h3 className="font-bold text-lg px-3 py-2 rounded" style={{ backgroundColor: COLORS.headerBg }}>
@@ -1457,6 +1561,7 @@ export default function FNAPage() {
               )}
             </div>
 
+            {/* Total Requirement */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
               <div className="flex items-center gap-3 mb-3">
                 <h3 className="font-bold text-lg">💰 TOTAL REQUIREMENT</h3>
@@ -1487,6 +1592,7 @@ export default function FNAPage() {
           </div>
         )}
 
+        {/* ── ASSETS TAB ── */}
         {activeTab === 'assets' && (
           <div className="space-y-4">
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5">
@@ -1511,7 +1617,9 @@ export default function FNAPage() {
                       <th className="border border-black px-2 py-2 text-sm font-bold w-16">HER</th>
                       <th className="border border-black px-2 py-2 text-sm font-bold w-48">NOTES</th>
                       <th className="border border-black px-2 py-2 text-sm font-bold w-40">PRESENT VALUE</th>
-                      <th className="border border-black px-2 py-2 text-sm font-bold w-40">PROJECTED @ 65</th>
+                      <th className="border border-black px-2 py-2 text-sm font-bold w-40">
+                        PROJECTED @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%)
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1585,7 +1693,7 @@ export default function FNAPage() {
                           Present Value: {formatCurrency(assets.totalPresent)}
                         </div>
                         <div className="text-right text-lg font-bold text-blue-700 mt-1">
-                          Projected @ 65: {formatCurrency(assets.totalProjected)}
+                          Projected @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%): {formatCurrency(assets.totalProjected)}
                         </div>
                       </td>
                     </tr>
