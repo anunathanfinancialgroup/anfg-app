@@ -1104,7 +1104,7 @@ export default function FNAPage() {
     <div className="min-h-screen bg-gray-50">
 
       {/* HEADER */}
-      <div className="mb-3">
+      <div className="max-w-7xl mx-auto px-3 pt-3 mb-3">
       <PageHeader
         title="Client Financial Need Analysis"
         subtitle="Build your career. Protect their future"
