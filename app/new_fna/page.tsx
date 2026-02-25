@@ -167,11 +167,17 @@ const allCardsClosed: CardVisibility = {
 const formatCurrency = (v: number) =>
   v === 0 ? "" : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(v);
 
-const CurrencyInput: React.FC<{ value: number; onChange: (v: number) => void; placeholder?: string; className?: string }> =
-  ({ value, onChange, placeholder = "$0.00", className = "" }) => {
+/** Always shows $0.00 even for zero — used in asset table cells */
+const formatCurrencyZero = (v: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(v);
+
+const CurrencyInput: React.FC<{ value: number; onChange: (v: number) => void; placeholder?: string; className?: string; showZero?: boolean }> =
+  ({ value, onChange, placeholder = "$0.00", className = "", showZero = false }) => {
     const [disp, setDisp] = useState("");
     const [focus, setFocus] = useState(false);
-    useEffect(() => { if (!focus) setDisp(value > 0 ? formatCurrency(value) : ""); }, [value, focus]);
+    useEffect(() => {
+      if (!focus) setDisp(showZero ? formatCurrencyZero(value) : (value > 0 ? formatCurrency(value) : ""));
+    }, [value, focus, showZero]);
     return (
       <input type="text" value={disp} placeholder={placeholder} className={className}
         onChange={e => setDisp(e.target.value.replace(/[^0-9.-]/g, ''))}
@@ -493,15 +499,15 @@ export default function FNAPage() {
     const v = autoProj(present);
     return (
       <td className="border border-black px-2 py-1 text-xs text-right font-medium" style={{ backgroundColor: '#EBF5FB' }}>
-        {v > 0 ? formatCurrency(v) : <span className="text-gray-400">—</span>}
+        {formatCurrencyZero(v)}
       </td>
     );
   };
 
-  // Manual projected cell: editable
+  // Manual projected cell: editable, always shows $0.00
   const ManualProjCell = ({ value, field }: { value: number; field: keyof AssetsData }) => (
     <td className="border border-black p-0">
-      <CurrencyInput value={value} placeholder="$0.00"
+      <CurrencyInput value={value} showZero
         onChange={val => upd(field, val)}
         className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
     </td>
@@ -586,7 +592,7 @@ export default function FNAPage() {
       </td>
       <NoteTd value={assets[notesKey] as string} onChange={v => upd(notesKey, v)} />
       <td className="border border-black p-0 w-36">
-        <CurrencyInput value={assets[presentKey] as number} placeholder="$0.00"
+        <CurrencyInput value={assets[presentKey] as number} showZero
           onChange={val => upd(presentKey, val)}
           className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
       </td>
@@ -620,9 +626,8 @@ export default function FNAPage() {
         <th className="border border-black px-2 py-1 text-xs font-bold w-12">HER</th>
         <th className="border border-black px-2 py-1 text-xs font-bold">NOTES</th>
         <th className="border border-black px-2 py-1 text-xs font-bold w-36">PRESENT VALUE</th>
-        <th className="border border-black px-2 py-1 text-xs font-bold w-44">
-          {projLabel} @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%)
-          {yearsToRetirement > 0 && <span className="block font-normal text-gray-600">for {yearsToRetirement} yrs</span>}
+        <th className="border border-black px-2 py-1 text-xs font-bold w-44 whitespace-nowrap">
+          {projLabel} @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
         </th>
       </tr>
     </thead>
@@ -1220,9 +1225,8 @@ export default function FNAPage() {
                       <th className="border border-black px-2 py-1 text-xs font-bold w-16">CHILD 2</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold">NOTES</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-36">PRESENT VALUE</th>
-                      <th className="border border-black px-2 py-1 text-xs font-bold w-40">
-                        PROJECTED VALUE @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%)
-                        {yearsToRetirement > 0 && <span className="block font-normal text-gray-600">for {yearsToRetirement} yrs</span>}
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-44 whitespace-nowrap">
+                        PROJECTED VALUE @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
                       </th>
                     </tr>
                   </thead>
@@ -1233,7 +1237,7 @@ export default function FNAPage() {
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c1_c1} className="w-4 h-4" onChange={e => upd('c1_c1', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c1_c2} className="w-4 h-4" onChange={e => upd('c1_c2', e.target.checked)} /></td>
                       <NoteTd value={assets.c1_notes} onChange={v => upd('c1_notes', v)} />
-                      <td className="border border-black p-0"><CurrencyInput value={assets.c1_present} placeholder="$0.00" onChange={val => upd('c1_present', val)} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                      <td className="border border-black p-0"><CurrencyInput value={assets.c1_present} showZero onChange={val => upd('c1_present', val)} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
                       <AutoProjCell present={assets.c1_present} />
                     </tr>
                     <tr>
@@ -1285,9 +1289,9 @@ export default function FNAPage() {
                     <tr style={{ backgroundColor: COLORS.yellowBg }}>
                       <td className="border border-black px-3 py-2 text-sm font-bold">💰 TOTAL ASSETS</td>
                       <td className="border border-black px-3 py-2">
-                        <div className="text-right text-sm font-bold text-green-700">Present Value: {formatCurrency(totalPresent)}</div>
+                        <div className="text-right text-sm font-bold text-green-700">Present Value: {formatCurrencyZero(totalPresent)}</div>
                         <div className="text-right text-sm font-bold text-blue-700 mt-0.5">
-                          Projected @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}: {formatCurrency(totalProjected)}
+                          Projected @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}: {formatCurrencyZero(totalProjected)}
                         </div>
                       </td>
                     </tr>
