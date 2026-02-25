@@ -1215,25 +1215,27 @@ export default function FNAPage() {
               📅 Investment length: <strong>{yearsToRetirement} yrs</strong> | Projection: FV = PV × (1 + {data.calculatedInterestPercentage}%)^{yearsToRetirement}
             </p>
           )}
-           <div className="mt-1.5 border-t border-gray-200 pt-1.5 text-xs text-gray-700">
-            {(() => {
-              const totalLiabilities = liabilityRows.reduce((s, r) => {
-                const n = parseFloat(String(r.balance ?? "").replace(/[$,\s]/g, ""));
-                return s + (Number.isFinite(n) ? n : 0);
-              }, 0);
-              const netWorth = totalPresent - totalLiabilities;
-              const fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              return (
-                <span>
-                  Total Assets: {fmt(totalPresent)}&nbsp;&nbsp;|&nbsp;&nbsp;
-                  Total Liabilities: {fmt(totalLiabilities)}&nbsp;&nbsp;|&nbsp;&nbsp;
-                  Net Worth: <span style={{ color: netWorth >= 0 ? '#15803d' : '#dc2626' }}>{fmt(netWorth)}</span>&nbsp;&nbsp;|&nbsp;&nbsp;
-                  Total Planning: {fmt(data.totalRequirement)}&nbsp;&nbsp;|&nbsp;&nbsp;
-                  Gap: {fmt(netWorth)} - {fmt(data.totalRequirement)}
-                </span>
-              );
-            })()}
-          </div>
+           Add GAP: {fmt(Gap)} with the same color logic into the <span>:
+            tsx<div className="mt-1.5 border-t border-gray-200 pt-1.5 text-xs text-gray-700">
+              {(() => {
+                const totalLiabilities = liabilityRows.reduce((s, r) => {
+                  const n = parseFloat(String(r.balance ?? "").replace(/[$,\s]/g, ""));
+                  return s + (Number.isFinite(n) ? n : 0);
+                }, 0);
+                const netWorth = totalPresent - totalLiabilities;
+                const Gap = netWorth - totalLiabilities;
+                const fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                return (
+                  <span>
+                    Total Assets: {fmt(totalPresent)}&nbsp;&nbsp;|&nbsp;&nbsp;
+                    Total Liabilities: {fmt(totalLiabilities)}&nbsp;&nbsp;|&nbsp;&nbsp;
+                    Net Worth: <span style={{ color: netWorth >= 0 ? '#15803d' : '#dc2626' }}>{fmt(netWorth)}</span>&nbsp;&nbsp;|&nbsp;&nbsp;
+                    Total Planning: {fmt(data.totalRequirement)}&nbsp;&nbsp;|&nbsp;&nbsp;
+                    GAP: <span style={{ color: Gap >= 0 ? '#15803d' : '#dc2626' }}>{fmt(Gap)}</span>
+                  </span>
+                );
+              })()}
+            </div>
         </div>
 
         {/* SAVE BUTTON — below Client Information */}
