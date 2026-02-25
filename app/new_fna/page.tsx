@@ -277,6 +277,25 @@ function LiabTopButton({ onClick, children, variant = "primary", disabled }: {
   );
 }
 
+// Currency display helpers for liabilities
+const LIAB_CURRENCY_KEYS = new Set(["balance", "min_payment", "current_payment"]);
+
+/** Format a stored number as "$1,234.56" for display in the input */
+function fmtCurrencyInput(raw: any): string {
+  if (raw === null || raw === undefined || raw === "") return "";
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Parse "$1,234.56" back to a plain number string "1234.56" for state storage */
+function parseCurrencyInput(display: string): string {
+  const stripped = display.replace(/[$,\s]/g, "");
+  if (stripped === "" || stripped === "-") return stripped;
+  const n = parseFloat(stripped);
+  return Number.isFinite(n) ? String(n) : stripped;
+}
+
 function LiabilityEditableTable({
   rows, setRows, columns, fnaId, onSaveRow, onDeleteRow,
 }: {
@@ -285,10 +304,17 @@ function LiabilityEditableTable({
   onSaveRow: (row: LiabRow) => Promise<void>;
   onDeleteRow: (row: LiabRow) => Promise<void>;
 }) {
-  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [saving,   setSaving]   = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState<Record<string, boolean>>({});
-  const minWidth = Math.max(900, columns.length * 150);
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  // currency display drafts: key = `${rowId}:${colKey}` → formatted string while editing
+  const [currDrafts, setCurrDrafts] = useState<Record<string, string>>({});
+
+  const minWidth = Math.max(1100, columns.length * 145);
   const inputCls = "w-full rounded border border-gray-300 px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-400";
+
+  const updateRow = (id: string, key: string, val: any) =>
+    setRows(prev => prev.map(x => x.id === id ? { ...x, [key]: val } : x));
 
   return (
     <div className="space-y-2">
@@ -297,7 +323,7 @@ function LiabilityEditableTable({
           {rows.length} liabilit{rows.length === 1 ? "y" : "ies"}
         </span>
         <LiabTopButton variant="secondary" onClick={() => {
-          if (!fnaId) return;
+          if (!fnaId) { alert("Save the FNA record first (Goals tab) before adding liabilities."); return; }
           setRows(prev => [...prev, { id: tmpLiabId(), fna_id: fnaId } as LiabRow]);
         }}>+ Add Liability</LiabTopButton>
       </div>
@@ -318,50 +344,111 @@ function LiabilityEditableTable({
                 No liabilities added yet. Click "+ Add Liability" to start.
               </td></tr>
             ) : rows.map(r => (
-              <tr key={r.id} className="hover:bg-gray-50">
-                {columns.map(c => (
-                  <td key={c.key} className="px-2 py-1.5 border border-gray-300 align-top">
-                    {c.type === "textarea" ? (
-                      <textarea className={`${inputCls} min-h-[56px] resize-none`}
-                        value={r[c.key] ?? ""}
-                        onChange={e => setRows(prev => prev.map(x => x.id === r.id ? { ...x, [c.key]: e.target.value } : x))} />
-                    ) : c.type === "select" ? (
-                      <select className={inputCls} value={r[c.key] ?? ""}
-                        onChange={e => setRows(prev => prev.map(x => x.id === r.id ? { ...x, [c.key]: e.target.value } : x))}>
-                        {(c.options ?? [""]).map(o => <option key={o} value={o}>{o || "—"}</option>)}
-                      </select>
-                    ) : c.type === "bool" ? (
-                      <input type="checkbox" className="h-4 w-4 accent-gray-800 mt-1"
-                        checked={!!r[c.key]}
-                        onChange={e => setRows(prev => prev.map(x => x.id === r.id ? { ...x, [c.key]: e.target.checked } : x))} />
-                    ) : (
-                      <input type={c.type === "number" ? "number" : c.type === "date" ? "date" : "text"}
-                        className={inputCls}
-                        value={r[c.key] ?? ""}
-                        onChange={e => setRows(prev => prev.map(x => x.id === r.id ? { ...x, [c.key]: e.target.value } : x))} />
-                    )}
+              <React.Fragment key={r.id}>
+                <tr className="hover:bg-gray-50">
+                  {columns.map(c => {
+                    const draftKey = `${r.id}:${c.key}`;
+                    const isCurrency = LIAB_CURRENCY_KEYS.has(c.key);
+                    return (
+                      <td key={c.key} className="px-2 py-1.5 border border-gray-300 align-top">
+                        {c.type === "textarea" ? (
+                          <textarea className={`${inputCls} min-h-[56px] resize-none`}
+                            value={r[c.key] ?? ""}
+                            onChange={e => updateRow(r.id, c.key, e.target.value)} />
+
+                        ) : c.type === "select" ? (
+                          <select className={inputCls} value={r[c.key] ?? ""}
+                            onChange={e => updateRow(r.id, c.key, e.target.value)}>
+                            {(c.options ?? [""]).map(o => <option key={o} value={o}>{o || "—"}</option>)}
+                          </select>
+
+                        ) : isCurrency ? (
+                          /* Currency input: shows "$1,234.56", stores raw number string */
+                          <input
+                            type="text"
+                            className={`${inputCls} text-right`}
+                            value={currDrafts[draftKey] !== undefined
+                              ? currDrafts[draftKey]
+                              : fmtCurrencyInput(r[c.key])}
+                            onFocus={() => {
+                              // On focus: show plain number for easy editing
+                              const plain = r[c.key] !== null && r[c.key] !== undefined && r[c.key] !== ""
+                                ? String(r[c.key])
+                                : "";
+                              setCurrDrafts(p => ({ ...p, [draftKey]: plain }));
+                            }}
+                            onChange={e => {
+                              setCurrDrafts(p => ({ ...p, [draftKey]: e.target.value }));
+                            }}
+                            onBlur={e => {
+                              const raw = parseCurrencyInput(e.target.value);
+                              const num = raw === "" ? null : parseFloat(raw);
+                              updateRow(r.id, c.key, Number.isFinite(num) ? num : null);
+                              // Format for display
+                              setCurrDrafts(p => {
+                                const next = { ...p };
+                                delete next[draftKey];
+                                return next;
+                              });
+                            }}
+                            placeholder="$0.00"
+                          />
+
+                        ) : (
+                          <input
+                            type={c.type === "number" ? "number" : c.type === "date" ? "date" : "text"}
+                            className={c.type === "number" ? `${inputCls} text-right` : inputCls}
+                            value={r[c.key] ?? ""}
+                            onChange={e => updateRow(r.id, c.key, e.target.value)}
+                            step={c.type === "number" ? "0.01" : undefined}
+                          />
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="px-2 py-1.5 border border-gray-300 whitespace-nowrap align-top">
+                    <div className="flex items-center gap-1.5 pt-0.5">
+                      <LiabTopButton variant="primary" disabled={!!saving[r.id]}
+                        onClick={async () => {
+                          setSaving(p => ({ ...p, [r.id]: true }));
+                          setRowErrors(p => { const n={...p}; delete n[r.id]; return n; });
+                          try {
+                            await onSaveRow(r);
+                          } catch (e: any) {
+                            setRowErrors(p => ({ ...p, [r.id]: e?.message ?? "Save failed" }));
+                          } finally {
+                            setSaving(p => ({ ...p, [r.id]: false }));
+                          }
+                        }}>
+                        {saving[r.id] ? "Saving…" : "Save"}
+                      </LiabTopButton>
+                      <LiabTopButton variant="danger" disabled={!!deleting[r.id]}
+                        onClick={async () => {
+                          if (!confirm("Delete this liability?")) return;
+                          setDeleting(p => ({ ...p, [r.id]: true }));
+                          setRowErrors(p => { const n={...p}; delete n[r.id]; return n; });
+                          try {
+                            await onDeleteRow(r);
+                          } catch (e: any) {
+                            setRowErrors(p => ({ ...p, [r.id]: e?.message ?? "Delete failed" }));
+                          } finally {
+                            setDeleting(p => ({ ...p, [r.id]: false }));
+                          }
+                        }}>
+                        {deleting[r.id] ? "…" : "Delete"}
+                      </LiabTopButton>
+                    </div>
                   </td>
-                ))}
-                <td className="px-2 py-1.5 border border-gray-300 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <LiabTopButton variant="primary" disabled={!!saving[r.id]}
-                      onClick={async () => {
-                        setSaving(p => ({ ...p, [r.id]: true }));
-                        try { await onSaveRow(r); } finally { setSaving(p => ({ ...p, [r.id]: false })); }
-                      }}>
-                      {saving[r.id] ? "Saving…" : "Save"}
-                    </LiabTopButton>
-                    <LiabTopButton variant="danger" disabled={!!deleting[r.id]}
-                      onClick={async () => {
-                        if (!confirm("Delete this liability?")) return;
-                        setDeleting(p => ({ ...p, [r.id]: true }));
-                        try { await onDeleteRow(r); } finally { setDeleting(p => ({ ...p, [r.id]: false })); }
-                      }}>
-                      {deleting[r.id] ? "…" : "Delete"}
-                    </LiabTopButton>
-                  </div>
-                </td>
-              </tr>
+                </tr>
+                {/* Per-row error message */}
+                {rowErrors[r.id] && (
+                  <tr>
+                    <td colSpan={columns.length + 1} className="px-3 py-1 bg-red-50 text-red-600 text-xs border border-red-200">
+                      ❌ {rowErrors[r.id]}
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
@@ -490,23 +577,37 @@ export default function FNAPage() {
   async function upsertLiabilityRow(row: LiabRow): Promise<void> {
     if (!data.fnaId) throw new Error("Save the FNA record first (Goals tab), then add liabilities.");
     const isTmp = String(row.id).startsWith("tmp_liab_");
-    const payload: any = { ...row, fna_id: data.fnaId };
-    if (isTmp) delete payload.id;
+    const payload: any = { fna_id: data.fnaId };
+    if (!isTmp) payload.id = row.id;
+
+    // Build payload — coerce each column to the right type
     for (const c of liabilityCols) {
-      payload[c.key] = coerceFieldValue(c.type, payload[c.key]);
+      if (LIAB_CURRENCY_KEYS.has(c.key)) {
+        // Currency fields: stored as string "1234.56" or number → save as float
+        const raw = row[c.key];
+        if (raw === null || raw === undefined || raw === "") {
+          payload[c.key] = null;
+        } else {
+          const n = typeof raw === "number" ? raw : parseFloat(String(raw).replace(/[$,\s]/g, ""));
+          payload[c.key] = Number.isFinite(n) ? n : null;
+        }
+      } else {
+        payload[c.key] = coerceFieldValue(c.type, row[c.key]);
+      }
     }
+
     if (isTmp) {
       const { data: saved, error } = await supabase.from("fna_liabilities").insert(payload).select("*").limit(1);
-      if (error) throw error;
+      if (error) throw new Error(error.message);
       const s = (saved ?? [])[0];
       if (s) setLiabilityRows(prev => prev.map(r => r.id === row.id ? { ...s, fna_id: data.fnaId! } : r));
     } else {
       const { data: saved, error } = await supabase.from("fna_liabilities").update(payload).eq("id", row.id).select("*").limit(1);
-      if (error) throw error;
+      if (error) throw new Error(error.message);
       const s = (saved ?? [])[0];
       if (s) setLiabilityRows(prev => prev.map(r => r.id === row.id ? { ...s, fna_id: data.fnaId! } : r));
     }
-    setLiabNotice("Saved."); setTimeout(() => setLiabNotice(null), 2000);
+    setLiabNotice("✅ Saved."); setTimeout(() => setLiabNotice(null), 2000);
   }
 
   async function deleteLiabilityRow(row: LiabRow): Promise<void> {
@@ -1665,15 +1766,15 @@ export default function FNAPage() {
         {activeTab === 'liabilities' && (
           <div className="space-y-3">
 
-            {/* Summary totals bar */}
-            {liabilityRows.length > 0 && (() => {
-              const totalBalance  = liabilityRows.reduce((s, r) => s + (Number(r.balance)          || 0), 0);
-              const totalMinPay   = liabilityRows.reduce((s, r) => s + (Number(r.min_payment)      || 0), 0);
-              const totalCurPay   = liabilityRows.reduce((s, r) => s + (Number(r.current_payment)  || 0), 0);
-              const fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+            {/* Total Liabilities summary — always visible */}
+            {(() => {
+              const totalBalance  = liabilityRows.reduce((s, r) => s + (Number(r.balance)         || 0), 0);
+              const totalMinPay   = liabilityRows.reduce((s, r) => s + (Number(r.min_payment)     || 0), 0);
+              const totalCurPay   = liabilityRows.reduce((s, r) => s + (Number(r.current_payment) || 0), 0);
+              const fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
               return (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-                  <div className="flex gap-6 text-xs font-semibold flex-wrap">
+                  <div className="flex gap-6 text-xs font-semibold flex-wrap items-center">
                     <span className="text-gray-500">📊 {liabilityRows.length} liabilit{liabilityRows.length === 1 ? 'y' : 'ies'}</span>
                     <span className="text-red-700">💳 Total Balance: <strong>{fmt(totalBalance)}</strong></span>
                     <span className="text-gray-700">Min Payment/mo: <strong>{fmt(totalMinPay)}</strong></span>
