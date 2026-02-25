@@ -65,7 +65,7 @@ interface AssetsData {
   s2_him: boolean; s2_her: boolean; s2_notes: string; s2_present: number; s2_proj: number; // Business – manual
   s3_him: boolean; s3_her: boolean; s3_notes: string; s3_present: number; // Alt Investments – auto
   s4_him: boolean; s4_her: boolean; s4_notes: string; s4_present: number; // CDs – auto
-  s5_him: boolean; s5_her: boolean; s5_notes: string; s5_present: number; // Cash in Bank – auto
+  s5_him: boolean; s5_her: boolean; s5_notes: string; s5_present: number; s5_proj: number; // Cash in Bank – calc+edit
   s6_him: boolean; s6_her: boolean; s6_notes: string; s6_present: number; // Annual Income – N/A proj
   s7_him: boolean; s7_her: boolean; s7_notes: string; s7_present: number; s7_proj: number; // Annual Savings – manual
   // ── FAMILY PROTECTION & INSURANCE ──────────────────────────────────────
@@ -78,11 +78,11 @@ interface AssetsData {
   f7_him: boolean; f7_her: boolean; f7_notes: string; f7_present: number; // HSA – auto
   f8_him: boolean; f8_her: boolean; f8_notes: string; // Mortgage Prot – N/A
   // ── COLLEGE PLANNING / ESTATE PLANNING ─────────────────────────────────
-  c1_c1: boolean; c1_c2: boolean; c1_notes: string; c1_present: number; // 529 Plans – auto
+  c1_c1: boolean; c1_c2: boolean; c1_notes: string; c1_present: number; c1_proj: number; // 529 Plans – calc+edit
   c2_c1: boolean; c2_c2: boolean; c2_notes: string; // Will & Trust – N/A
   // ── FOREIGN ASSETS ─────────────────────────────────────────────────────
-  x1_him: boolean; x1_her: boolean; x1_notes: string; x1_present: number; // Foreign RE – auto
-  x2_him: boolean; x2_her: boolean; x2_notes: string; x2_present: number; // Foreign Non-RE – auto
+  x1_him: boolean; x1_her: boolean; x1_notes: string; x1_present: number; x1_proj: number; // Foreign RE – calc+edit
+  x2_him: boolean; x2_her: boolean; x2_notes: string; x2_present: number; x2_proj: number; // Foreign Non-RE – calc+edit
 }
 
 interface CardVisibility {
@@ -131,7 +131,7 @@ const initialAssets: AssetsData = {
   s2_him:false, s2_her:false, s2_notes:"", s2_present:0, s2_proj:0,
   s3_him:false, s3_her:false, s3_notes:"", s3_present:0,
   s4_him:false, s4_her:false, s4_notes:"", s4_present:0,
-  s5_him:false, s5_her:false, s5_notes:"", s5_present:0,
+  s5_him:false, s5_her:false, s5_notes:"", s5_present:0, s5_proj:0,
   s6_him:false, s6_her:false, s6_notes:"", s6_present:0,
   s7_him:false, s7_her:false, s7_notes:"", s7_present:0, s7_proj:0,
   f1_him:false, f1_her:false, f1_notes:"", f1_present:0,
@@ -142,10 +142,10 @@ const initialAssets: AssetsData = {
   f6_him:false, f6_her:false, f6_notes:"",
   f7_him:false, f7_her:false, f7_notes:"", f7_present:0,
   f8_him:false, f8_her:false, f8_notes:"",
-  c1_c1:false, c1_c2:false, c1_notes:"", c1_present:0,
+  c1_c1:false, c1_c2:false, c1_notes:"", c1_present:0, c1_proj:0,
   c2_c1:false, c2_c2:false, c2_notes:"",
-  x1_him:false, x1_her:false, x1_notes:"", x1_present:0,
-  x2_him:false, x2_her:false, x2_notes:"", x2_present:0,
+  x1_him:false, x1_her:false, x1_notes:"", x1_present:0, x1_proj:0,
+  x2_him:false, x2_her:false, x2_notes:"", x2_present:0, x2_proj:0,
 };
 
 const allCardsOpen: CardVisibility = {
@@ -190,6 +190,69 @@ const CurrencyInput: React.FC<{ value: number; onChange: (v: number) => void; pl
 // Button style constants
 const btnGhost = "px-2.5 py-1 text-xs font-medium rounded border border-gray-300 text-gray-600 bg-white hover:bg-gray-50 transition-colors";
 const btnSave  = "px-3 py-1.5 text-xs font-semibold rounded border border-gray-400 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors";
+
+// ── Stable top-level components (defined outside FNAPage to prevent remount on every render) ──
+
+const NAProjCell = () => (
+  <td className="border border-black px-2 py-1 text-xs text-center text-gray-400 bg-gray-50">N/A</td>
+);
+
+/** Click-to-edit notes cell with full multi-line textarea, word-wrap, and Enter support */
+const NoteTd = React.memo(({ value, onChange, placeholder = "Add notes...", colSpan }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; colSpan?: number;
+}) => {
+  const [editing, setEditing] = useState(false);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (editing && taRef.current) {
+      const el = taRef.current;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+      el.style.height = 'auto';
+      el.style.height = Math.max(60, el.scrollHeight) + 'px';
+    }
+  }, [editing]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onChange(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.max(60, e.target.scrollHeight) + 'px';
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Tab closes the editor (moves to next field); Enter adds new line (default behaviour)
+    if (e.key === 'Tab') { e.preventDefault(); setEditing(false); }
+  };
+
+  return (
+    <td colSpan={colSpan} className="border border-black p-0 align-top" style={{ minWidth: 130 }}>
+      {editing ? (
+        <textarea
+          ref={taRef}
+          value={value}
+          onChange={handleChange}
+          onBlur={() => setEditing(false)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          rows={3}
+          className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none bg-blue-50"
+          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowY: 'hidden', minHeight: 60 }}
+        />
+      ) : (
+        <div
+          onClick={() => setEditing(true)}
+          title="Click to edit"
+          className="px-2 py-1 text-xs cursor-text min-h-[26px] leading-4 hover:bg-blue-50 transition-colors"
+          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: value ? '#111827' : '#9CA3AF' }}
+        >
+          {value || <span className="italic">{placeholder}</span>}
+        </div>
+      )}
+    </td>
+  );
+});
+NoteTd.displayName = 'NoteTd';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Component
@@ -246,13 +309,20 @@ export default function FNAPage() {
   const totalProjected = useMemo(() => {
     const autoRows = [
       assets.r1_present, assets.r4_present, assets.r5_present, assets.r6_present, assets.r7_present,
-      assets.s1_present, assets.s3_present, assets.s4_present, assets.s5_present,
-      assets.f7_present, assets.c1_present, assets.x1_present, assets.x2_present,
+      assets.s1_present, assets.s3_present, assets.s4_present,
+      assets.f7_present,
     ].reduce((s, p) => s + autoProj(p), 0);
     const manualRows = [
+      // Real Estate: Personal Home uses calc proj, rest manual
       assets.e1_proj, assets.e2_proj, assets.e3_proj, assets.e4_proj,
-      assets.s2_proj, assets.s7_proj,
+      // Stocks: Cash in Bank calc proj; Business, Annual Savings manual
+      assets.s5_proj, assets.s2_proj, assets.s7_proj,
+      // Insurance manual
       assets.f2_proj, assets.f3_proj,
+      // College calc proj
+      assets.c1_proj,
+      // Foreign calc proj
+      assets.x1_proj, assets.x2_proj,
     ].reduce((s, v) => s + (v || 0), 0);
     return autoRows + manualRows;
   }, [assets, autoProj]);
@@ -345,15 +415,23 @@ export default function FNAPage() {
       }));
 
       if (astRet) {
-        // Try new full JSON format first, fall back to legacy columns
-        if (astRet.assets_data) {
+        // Try new full JSON format in current_401k_notes first
+        const notesVal: string = astRet.current_401k_notes || '';
+        if (notesVal.startsWith('__FNA_ASSETS_JSON__:')) {
+          try {
+            const parsed = JSON.parse(notesVal.slice('__FNA_ASSETS_JSON__:'.length));
+            setAssets({ ...initialAssets, ...parsed });
+          } catch { /* malformed JSON, fall through to legacy */ }
+        } else if (astRet.assets_data) {
+          // legacy assets_data JSONB column
           setAssets({ ...initialAssets, ...astRet.assets_data });
         } else {
+          // oldest legacy: only r1 fields
           setAssets(prev => ({
             ...prev,
             r1_him: astRet.current_401k_him || false,
             r1_her: astRet.current_401k_her || false,
-            r1_notes: astRet.current_401k_notes || '',
+            r1_notes: notesVal,
             r1_present: astRet.current_401k_present_value || 0,
           }));
         }
@@ -442,13 +520,15 @@ export default function FNAPage() {
       ins.push(supabase.from('fna_healthcare').insert({ fna_id: fnaId, healthcare_expenses: data.healthcareExpenses }));
       ins.push(supabase.from('fna_life_goals').insert({ fna_id: fnaId, travel_budget: data.travelBudget, vacation_home: data.vacationHome, charity: data.charity, other_goals: data.otherGoals }));
       ins.push(supabase.from('fna_legacy').insert({ fna_id: fnaId, headstart_fund: data.headstartFund, family_legacy: data.familyLegacy, family_support: data.familySupport }));
-      // Save full assets as JSON + legacy column for backward compat
+      // Save full assets as JSON in current_401k_notes (reliable, no extra columns needed)
+      // Format: __FNA_ASSETS_JSON__:{...json...}
       ins.push(supabase.from('fna_ast_retirement').insert({
         fna_id: fnaId,
-        current_401k_him: assets.r1_him, current_401k_her: assets.r1_her,
-        current_401k_notes: assets.r1_notes, current_401k_present_value: assets.r1_present,
+        current_401k_him: assets.r1_him,
+        current_401k_her: assets.r1_her,
+        current_401k_notes: `__FNA_ASSETS_JSON__:${JSON.stringify(assets)}`,
+        current_401k_present_value: assets.r1_present,
         current_401k_projected_value: autoProj(assets.r1_present),
-        assets_data: assets,
       }));
 
       const results = await Promise.all(ins);
@@ -513,71 +593,7 @@ export default function FNAPage() {
     </td>
   );
 
-  // N/A projected cell
-  const NAProjCell = () => (
-    <td className="border border-black px-2 py-1 text-xs text-center text-gray-400 bg-gray-50">N/A</td>
-  );
-
-  // ── NoteTd ─────────────────────────────────────────────────────────────────
-  // Single-line preview → click → multi-line textarea with word-wrap
-  const NoteTd = ({
-    value, onChange, placeholder = "Add notes...", colSpan,
-  }: { value: string; onChange: (v: string) => void; placeholder?: string; colSpan?: number }) => {
-    const [editing, setEditing] = useState(false);
-    const taRef = useRef<HTMLTextAreaElement>(null);
-
-    useEffect(() => {
-      if (editing && taRef.current) {
-        taRef.current.focus();
-        const len = taRef.current.value.length;
-        taRef.current.setSelectionRange(len, len);
-        // auto-size on open
-        taRef.current.style.height = 'auto';
-        taRef.current.style.height = taRef.current.scrollHeight + 'px';
-      }
-    }, [editing]);
-
-    const autoResize = (el: HTMLTextAreaElement) => {
-      el.style.height = 'auto';
-      el.style.height = el.scrollHeight + 'px';
-    };
-
-    return (
-      <td
-        colSpan={colSpan}
-        className="border border-black p-0 align-top"
-        style={{ minWidth: 120 }}
-      >
-        {editing ? (
-          <textarea
-            ref={taRef}
-            value={value}
-            onChange={e => { onChange(e.target.value); autoResize(e.target); }}
-            onBlur={() => setEditing(false)}
-            placeholder={placeholder}
-            rows={3}
-            className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none bg-blue-50"
-            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowY: 'hidden', minHeight: 60 }}
-          />
-        ) : (
-          <div
-            onClick={() => setEditing(true)}
-            title="Click to edit"
-            className="px-2 py-1 text-xs cursor-text min-h-[26px] leading-4 hover:bg-blue-50 transition-colors"
-            style={{
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              color: value ? '#111827' : '#9CA3AF',
-            }}
-          >
-            {value || <span className="italic">{placeholder}</span>}
-          </div>
-        )}
-      </td>
-    );
-  };
-
-  // Standard HIM/HER + NOTES + PRESENT cells
+  // Projected cell: blue tint, auto-calculated, read-only display
   const StdCells = ({
     himKey, herKey, notesKey, presentKey,
   }: { himKey: keyof AssetsData; herKey: keyof AssetsData; notesKey: keyof AssetsData; presentKey: keyof AssetsData }) => (
@@ -597,6 +613,59 @@ export default function FNAPage() {
           className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
       </td>
     </>
+  );
+
+  // StdCellsCalc: projected auto-calculates from present on blur AND stays editable (user can override)
+  const StdCellsCalc = ({
+    himKey, herKey, notesKey, presentKey, projKey,
+  }: { himKey: keyof AssetsData; herKey: keyof AssetsData; notesKey: keyof AssetsData; presentKey: keyof AssetsData; projKey: keyof AssetsData }) => {
+    const handlePresentChange = useCallback((val: number) => {
+      const computed = yearsToRetirement > 0 ? Math.round(val * Math.pow(1 + rate, yearsToRetirement) * 100) / 100 : 0;
+      setAssets(prev => ({ ...prev, [presentKey]: val, [projKey]: computed }));
+    }, [presentKey, projKey]);
+    return (
+      <>
+        <td className="border border-black text-center py-1 w-12">
+          <input type="checkbox" checked={!!assets[himKey]} className="w-4 h-4"
+            onChange={e => upd(himKey, e.target.checked)} />
+        </td>
+        <td className="border border-black text-center py-1 w-12">
+          <input type="checkbox" checked={!!assets[herKey]} className="w-4 h-4"
+            onChange={e => upd(herKey, e.target.checked)} />
+        </td>
+        <NoteTd value={assets[notesKey] as string} onChange={v => upd(notesKey, v)} />
+        <td className="border border-black p-0 w-36">
+          <CurrencyInput value={assets[presentKey] as number} showZero
+            onChange={handlePresentChange}
+            className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+        </td>
+        <td className="border border-black p-0 w-44" style={{ backgroundColor: '#EBF5FB' }}>
+          <CurrencyInput value={assets[projKey] as number} showZero
+            onChange={val => upd(projKey, val)}
+            className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-transparent" />
+        </td>
+      </>
+    );
+  };
+
+  // CalcEditProjCell: standalone editable projected cell for non-StdCells rows (College 529)
+  // Present CurrencyInput must call upd(presentKey, val) AND upd(projKey, autoProj(val)) on change
+  const CalcPresentCell = ({ presentKey, projKey }: { presentKey: keyof AssetsData; projKey: keyof AssetsData }) => (
+    <td className="border border-black p-0 w-36">
+      <CurrencyInput value={assets[presentKey] as number} showZero
+        onChange={val => {
+          const computed = yearsToRetirement > 0 ? Math.round(val * Math.pow(1 + rate, yearsToRetirement) * 100) / 100 : 0;
+          setAssets(prev => ({ ...prev, [presentKey]: val, [projKey]: computed }));
+        }}
+        className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+    </td>
+  );
+  const CalcEditProjCell = ({ projKey }: { projKey: keyof AssetsData }) => (
+    <td className="border border-black p-0 w-44" style={{ backgroundColor: '#EBF5FB' }}>
+      <CurrencyInput value={assets[projKey] as number} showZero
+        onChange={val => upd(projKey, val)}
+        className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-transparent" />
+    </td>
   );
 
   // CardHeader helper
@@ -741,6 +810,7 @@ export default function FNAPage() {
 
         {/* SAVE BUTTON — below Client Information */}
         <div className="flex items-center justify-end gap-2 mb-3">
+          <a href="https://www.calculator.net/" target="_blank" rel="noopener noreferrer" className={btnGhost}>🧮 Calculator</a>
           <button onClick={handleSave} disabled={saving || loading || !data.clientId} className={btnSave}>
             {saving ? '💾 Saving…' : '💾 Save FNA'}
           </button>
@@ -1062,16 +1132,18 @@ export default function FNAPage() {
                   <AssetTHead projLabel="PROJECTED VALUE" />
                   <tbody>
                     {[
-                      {n:'#8', l:'PERSONAL HOME',                   hk:'e1_him' as keyof AssetsData, ek:'e1_her' as keyof AssetsData, nk:'e1_notes' as keyof AssetsData, pk:'e1_present' as keyof AssetsData, pj:'e1_proj' as keyof AssetsData},
-                      {n:'#9', l:'REAL ESTATE PROPERTIES | RENTALS', hk:'e2_him' as keyof AssetsData, ek:'e2_her' as keyof AssetsData, nk:'e2_notes' as keyof AssetsData, pk:'e2_present' as keyof AssetsData, pj:'e2_proj' as keyof AssetsData},
-                      {n:'#10',l:'REAL ESTATE LAND PARCELS',         hk:'e3_him' as keyof AssetsData, ek:'e3_her' as keyof AssetsData, nk:'e3_notes' as keyof AssetsData, pk:'e3_present' as keyof AssetsData, pj:'e3_proj' as keyof AssetsData},
-                      {n:'#11',l:'INHERITANCE IN THE USA',           hk:'e4_him' as keyof AssetsData, ek:'e4_her' as keyof AssetsData, nk:'e4_notes' as keyof AssetsData, pk:'e4_present' as keyof AssetsData, pj:'e4_proj' as keyof AssetsData},
+                      {n:'#8', l:'PERSONAL HOME',                   hk:'e1_him' as keyof AssetsData, ek:'e1_her' as keyof AssetsData, nk:'e1_notes' as keyof AssetsData, pk:'e1_present' as keyof AssetsData, pj:'e1_proj' as keyof AssetsData, calc:true},
+                      {n:'#9', l:'REAL ESTATE PROPERTIES | RENTALS', hk:'e2_him' as keyof AssetsData, ek:'e2_her' as keyof AssetsData, nk:'e2_notes' as keyof AssetsData, pk:'e2_present' as keyof AssetsData, pj:'e2_proj' as keyof AssetsData, calc:false},
+                      {n:'#10',l:'REAL ESTATE LAND PARCELS',         hk:'e3_him' as keyof AssetsData, ek:'e3_her' as keyof AssetsData, nk:'e3_notes' as keyof AssetsData, pk:'e3_present' as keyof AssetsData, pj:'e3_proj' as keyof AssetsData, calc:false},
+                      {n:'#11',l:'INHERITANCE IN THE USA',           hk:'e4_him' as keyof AssetsData, ek:'e4_her' as keyof AssetsData, nk:'e4_notes' as keyof AssetsData, pk:'e4_present' as keyof AssetsData, pj:'e4_proj' as keyof AssetsData, calc:false},
                     ].map(r => (
                       <tr key={r.n}>
                         <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{r.n}</td>
                         <td className="border border-black px-2 py-1 text-xs">{r.l}</td>
-                        <StdCells himKey={r.hk} herKey={r.ek} notesKey={r.nk} presentKey={r.pk} />
-                        <ManualProjCell value={assets[r.pj] as number} field={r.pj} />
+                        {r.calc
+                          ? <StdCellsCalc himKey={r.hk} herKey={r.ek} notesKey={r.nk} presentKey={r.pk} projKey={r.pj} />
+                          : <><StdCells himKey={r.hk} herKey={r.ek} notesKey={r.nk} presentKey={r.pk} /><ManualProjCell value={assets[r.pj] as number} field={r.pj} /></>
+                        }
                       </tr>
                     ))}
                   </tbody>
@@ -1113,8 +1185,7 @@ export default function FNAPage() {
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#16</td>
                       <td className="border border-black px-2 py-1 text-xs">CASH IN BANK + EMERGENCY FUND</td>
-                      <StdCells himKey="s5_him" herKey="s5_her" notesKey="s5_notes" presentKey="s5_present" />
-                      <AutoProjCell present={assets.s5_present} />
+                      <StdCellsCalc himKey="s5_him" herKey="s5_her" notesKey="s5_notes" presentKey="s5_present" projKey="s5_proj" />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#17</td>
@@ -1237,8 +1308,8 @@ export default function FNAPage() {
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c1_c1} className="w-4 h-4" onChange={e => upd('c1_c1', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c1_c2} className="w-4 h-4" onChange={e => upd('c1_c2', e.target.checked)} /></td>
                       <NoteTd value={assets.c1_notes} onChange={v => upd('c1_notes', v)} />
-                      <td className="border border-black p-0"><CurrencyInput value={assets.c1_present} showZero onChange={val => upd('c1_present', val)} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
-                      <AutoProjCell present={assets.c1_present} />
+                      <CalcPresentCell presentKey="c1_present" projKey="c1_proj" />
+                      <CalcEditProjCell projKey="c1_proj" />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#28</td>
@@ -1263,14 +1334,12 @@ export default function FNAPage() {
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#29</td>
                       <td className="border border-black px-2 py-1 text-xs">REAL ESTATE ASSETS</td>
-                      <StdCells himKey="x1_him" herKey="x1_her" notesKey="x1_notes" presentKey="x1_present" />
-                      <AutoProjCell present={assets.x1_present} />
+                      <StdCellsCalc himKey="x1_him" herKey="x1_her" notesKey="x1_notes" presentKey="x1_present" projKey="x1_proj" />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#30</td>
                       <td className="border border-black px-2 py-1 text-xs">NON-REAL ESTATE ASSETS (FIXED DEPOSITS, STOCKS, LOANS, JEWELLERY, INVESTMENTS)</td>
-                      <StdCells himKey="x2_him" herKey="x2_her" notesKey="x2_notes" presentKey="x2_present" />
-                      <AutoProjCell present={assets.x2_present} />
+                      <StdCellsCalc himKey="x2_him" herKey="x2_her" notesKey="x2_notes" presentKey="x2_present" projKey="x2_proj" />
                     </tr>
                   </tbody>
                 </table>
