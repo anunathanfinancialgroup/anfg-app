@@ -710,7 +710,7 @@ export default function FNAPage() {
       spouseName: c.spouse_name || '', city: c.city || '', state: c.state || '',
       clientDob: c.date_of_birth || '',
       analysisDate: new Date().toISOString().split('T')[0],
-      healthcareNote1: "~$315K FOR COUPLE IN TODAY'S DOLLARS",
+      healthcareNote1: "~$315K For Couple In Today's Dollars",
       plannedRetirementAge: 65, calculatedInterestPercentage: 6,
     }));
     await loadFNAData(clientId);
