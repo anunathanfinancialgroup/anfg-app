@@ -20,8 +20,15 @@ type FieldDef = {
 type LiabRow = { id: string; fna_id: string } & Record<string, any>;
 
 const LIABILITY_TYPES = [
-  "CREDIT_CARD", "AUTO_LOAN", "STUDENT_LOAN", "PERSONAL_LOAN",
-  "MORTGAGE_LOAN", "INSURANCE", "FAMILY_SUPPORT", "OTHER",
+  "",
+  "Credit Card",
+  "Auto Loan",
+  "Student Loan",
+  "Personal Loan",
+  "Mortgage Loan",
+  "Insurance",
+  "Family Support",
+  "Other",
 ];
 
 function coerceFieldValue(type: FieldType, raw: any) {
@@ -359,7 +366,7 @@ function LiabilityEditableTable({
                         ) : c.type === "select" ? (
                           <select className={inputCls} value={r[c.key] ?? ""}
                             onChange={e => updateRow(r.id, c.key, e.target.value)}>
-                            {(c.options ?? [""]).map(o => <option key={o} value={o}>{o || "—"}</option>)}
+                            {(c.options ?? [""]).map(o => <option key={o} value={o}>{o || "— Select —"}</option>)}
                           </select>
 
                         ) : isCurrency ? (
