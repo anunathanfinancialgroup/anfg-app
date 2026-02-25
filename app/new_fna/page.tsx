@@ -54,16 +54,16 @@ interface AssetsData {
   r4_him: boolean; r4_her: boolean; r4_notes: string; r4_present: number; // Previous 401K – auto
   r5_him: boolean; r5_her: boolean; r5_notes: string; r5_present: number; // Traditional IRA – auto
   r6_him: boolean; r6_her: boolean; r6_notes: string; r6_present: number; // Roth IRA – auto
-  r7_him: boolean; r7_her: boolean; r7_notes: string; r7_present: number; // ESPP/RSU – auto
+  r7_him: boolean; r7_her: boolean; r7_notes: string; r7_present: number; r7_proj: number; // ESPP/RSU – calc+edit
   // ── REAL ESTATE (USA) – manual projected ───────────────────────────────
   e1_him: boolean; e1_her: boolean; e1_notes: string; e1_present: number; e1_proj: number;
   e2_him: boolean; e2_her: boolean; e2_notes: string; e2_present: number; e2_proj: number;
   e3_him: boolean; e3_her: boolean; e3_notes: string; e3_present: number; e3_proj: number;
   e4_him: boolean; e4_her: boolean; e4_notes: string; e4_present: number; e4_proj: number;
   // ── STOCKS | BUSINESS | INCOME (USA) ───────────────────────────────────
-  s1_him: boolean; s1_her: boolean; s1_notes: string; s1_present: number; // Stocks/MFs – auto
+  s1_him: boolean; s1_her: boolean; s1_notes: string; s1_present: number; s1_proj: number; // Stocks/MFs – calc+edit
   s2_him: boolean; s2_her: boolean; s2_notes: string; s2_present: number; s2_proj: number; // Business – manual
-  s3_him: boolean; s3_her: boolean; s3_notes: string; s3_present: number; // Alt Investments – auto
+  s3_him: boolean; s3_her: boolean; s3_notes: string; s3_present: number; s3_proj: number; // Alt Investments – calc+edit
   s4_him: boolean; s4_her: boolean; s4_notes: string; s4_present: number; // CDs – auto
   s5_him: boolean; s5_her: boolean; s5_notes: string; s5_present: number; s5_proj: number; // Cash in Bank – calc+edit
   s6_him: boolean; s6_her: boolean; s6_notes: string; s6_present: number; // Annual Income – N/A proj
@@ -75,7 +75,7 @@ interface AssetsData {
   f4_him: boolean; f4_her: boolean; f4_notes: string; // Which Company – N/A both
   f5_him: boolean; f5_her: boolean; f5_notes: string; // STD/LTD – N/A
   f6_him: boolean; f6_her: boolean; f6_notes: string; // LTC Outside – N/A
-  f7_him: boolean; f7_her: boolean; f7_notes: string; f7_present: number; // HSA – auto
+  f7_him: boolean; f7_her: boolean; f7_notes: string; f7_present: number; f7_proj: number; // HSA – calc+edit
   f8_him: boolean; f8_her: boolean; f8_notes: string; // Mortgage Prot – N/A
   // ── COLLEGE PLANNING / ESTATE PLANNING ─────────────────────────────────
   c1_c1: boolean; c1_c2: boolean; c1_notes: string; c1_present: number; c1_proj: number; // 529 Plans – calc+edit
@@ -122,14 +122,14 @@ const initialAssets: AssetsData = {
   r4_him:false, r4_her:false, r4_notes:"", r4_present:0,
   r5_him:false, r5_her:false, r5_notes:"", r5_present:0,
   r6_him:false, r6_her:false, r6_notes:"", r6_present:0,
-  r7_him:false, r7_her:false, r7_notes:"", r7_present:0,
+  r7_him:false, r7_her:false, r7_notes:"", r7_present:0, r7_proj:0,
   e1_him:false, e1_her:false, e1_notes:"", e1_present:0, e1_proj:0,
   e2_him:false, e2_her:false, e2_notes:"", e2_present:0, e2_proj:0,
   e3_him:false, e3_her:false, e3_notes:"", e3_present:0, e3_proj:0,
   e4_him:false, e4_her:false, e4_notes:"", e4_present:0, e4_proj:0,
-  s1_him:false, s1_her:false, s1_notes:"", s1_present:0,
+  s1_him:false, s1_her:false, s1_notes:"", s1_present:0, s1_proj:0,
   s2_him:false, s2_her:false, s2_notes:"", s2_present:0, s2_proj:0,
-  s3_him:false, s3_her:false, s3_notes:"", s3_present:0,
+  s3_him:false, s3_her:false, s3_notes:"", s3_present:0, s3_proj:0,
   s4_him:false, s4_her:false, s4_notes:"", s4_present:0,
   s5_him:false, s5_her:false, s5_notes:"", s5_present:0, s5_proj:0,
   s6_him:false, s6_her:false, s6_notes:"", s6_present:0,
@@ -140,7 +140,7 @@ const initialAssets: AssetsData = {
   f4_him:false, f4_her:false, f4_notes:"",
   f5_him:false, f5_her:false, f5_notes:"",
   f6_him:false, f6_her:false, f6_notes:"",
-  f7_him:false, f7_her:false, f7_notes:"", f7_present:0,
+  f7_him:false, f7_her:false, f7_notes:"", f7_present:0, f7_proj:0,
   f8_him:false, f8_her:false, f8_notes:"",
   c1_c1:false, c1_c2:false, c1_notes:"", c1_present:0, c1_proj:0,
   c2_c1:false, c2_c2:false, c2_notes:"",
@@ -307,24 +307,29 @@ export default function FNAPage() {
   }, [assets]);
 
   const totalProjected = useMemo(() => {
+    // Auto (read-only) projected rows — still using autoProj formula
     const autoRows = [
-      assets.r1_present, assets.r4_present, assets.r5_present, assets.r6_present, assets.r7_present,
-      assets.s1_present, assets.s3_present, assets.s4_present,
-      assets.f7_present,
+      assets.r1_present, assets.r4_present, assets.r5_present, assets.r6_present,
     ].reduce((s, p) => s + autoProj(p), 0);
-    const manualRows = [
-      // Real Estate: Personal Home uses calc proj, rest manual
+    // Calc+edit projected rows — user may have overridden, so use stored proj value
+    const calcEditRows = [
+      assets.r7_proj,  // ESPP/RSU
+      assets.s1_proj,  // Stocks/MFs
+      assets.s3_proj,  // Alt Investments
+      assets.s4_present > 0 ? autoProj(assets.s4_present) : 0, // CDs still auto
+      assets.s5_proj,  // Cash in Bank
+      assets.f7_proj,  // HSA
+      assets.c1_proj,  // 529 Plans
+      // Real Estate
       assets.e1_proj, assets.e2_proj, assets.e3_proj, assets.e4_proj,
-      // Stocks: Cash in Bank calc proj; Business, Annual Savings manual
-      assets.s5_proj, assets.s2_proj, assets.s7_proj,
-      // Insurance manual
+      // Business + Annual Savings (manual)
+      assets.s2_proj, assets.s7_proj,
+      // Insurance (manual)
       assets.f2_proj, assets.f3_proj,
-      // College calc proj
-      assets.c1_proj,
-      // Foreign calc proj
+      // Foreign
       assets.x1_proj, assets.x2_proj,
     ].reduce((s, v) => s + (v || 0), 0);
-    return autoRows + manualRows;
+    return autoRows + calcEditRows;
   }, [assets, autoProj]);
 
   // ── Auth ─────────────────────────────────────────────────────────────────
@@ -369,10 +374,18 @@ export default function FNAPage() {
     try {
       const { data: rec, error: re } = await supabase
         .from('fna_records')
-        .select('fna_id, analysis_date, spouse_name, dob, notes, planned_retirement_age, calculated_interest_percentage')
+        .select('fna_id, analysis_date, spouse_name, dob, notes, planned_retirement_age, calculated_interest_percentage, updated_at')
         .eq('client_id', clientId).order('created_at', { ascending: false }).limit(1).maybeSingle();
       if (re) throw re;
-      if (!rec) { showMessage('No existing FNA data for this client', 'error'); return; }
+      if (!rec) {
+        // No DB record yet – check localStorage for unsaved session data
+        try {
+          const local = localStorage.getItem(`fna_assets_${clientId}`);
+          if (local) setAssets({ ...initialAssets, ...JSON.parse(local) });
+        } catch {}
+        showMessage('No saved FNA found – enter data and save', 'error');
+        return;
+      }
 
       const fnaId = rec.fna_id;
       const [
@@ -414,27 +427,48 @@ export default function FNAPage() {
         familySupport: legacy?.family_support || 0,
       }));
 
-      if (astRet) {
-        // Try new full JSON format in current_401k_notes first
+      // ── ASSETS LOAD ──────────────────────────────────────────────────────
+      // Priority 1: fna_records.notes __ASSETS__: JSON (most reliable DB path)
+      let assetsLoaded = false;
+      const recNotes: string = rec.notes || '';
+      if (recNotes.startsWith('__ASSETS__:')) {
+        try {
+          const wrapper = JSON.parse(recNotes.slice('__ASSETS__:'.length));
+          if (wrapper._assets) {
+            setAssets({ ...initialAssets, ...wrapper._assets });
+            assetsLoaded = true;
+          }
+          // Restore user note field if it was embedded
+          if (wrapper._fna_note !== undefined) {
+            setData(prev => ({ ...prev, notes: wrapper._fna_note }));
+          }
+        } catch {}
+      }
+
+      // Priority 2: fna_ast_retirement current_401k_notes JSON
+      if (!assetsLoaded && astRet) {
         const notesVal: string = astRet.current_401k_notes || '';
         if (notesVal.startsWith('__FNA_ASSETS_JSON__:')) {
           try {
             const parsed = JSON.parse(notesVal.slice('__FNA_ASSETS_JSON__:'.length));
             setAssets({ ...initialAssets, ...parsed });
-          } catch { /* malformed JSON, fall through to legacy */ }
-        } else if (astRet.assets_data) {
-          // legacy assets_data JSONB column
-          setAssets({ ...initialAssets, ...astRet.assets_data });
-        } else {
-          // oldest legacy: only r1 fields
-          setAssets(prev => ({
-            ...prev,
-            r1_him: astRet.current_401k_him || false,
-            r1_her: astRet.current_401k_her || false,
-            r1_notes: notesVal,
-            r1_present: astRet.current_401k_present_value || 0,
-          }));
+            assetsLoaded = true;
+          } catch {}
+        } else if ((astRet as any).assets_data) {
+          setAssets({ ...initialAssets, ...(astRet as any).assets_data });
+          assetsLoaded = true;
         }
+      }
+
+      // Priority 3: localStorage (same-browser session backup)
+      if (!assetsLoaded) {
+        try {
+          const local = localStorage.getItem(`fna_assets_${clientId}`);
+          if (local) {
+            setAssets({ ...initialAssets, ...JSON.parse(local) });
+            assetsLoaded = true;
+          }
+        } catch {}
       }
       showMessage('FNA data loaded!', 'success');
     } catch (err: any) {
@@ -520,20 +554,39 @@ export default function FNAPage() {
       ins.push(supabase.from('fna_healthcare').insert({ fna_id: fnaId, healthcare_expenses: data.healthcareExpenses }));
       ins.push(supabase.from('fna_life_goals').insert({ fna_id: fnaId, travel_budget: data.travelBudget, vacation_home: data.vacationHome, charity: data.charity, other_goals: data.otherGoals }));
       ins.push(supabase.from('fna_legacy').insert({ fna_id: fnaId, headstart_fund: data.headstartFund, family_legacy: data.familyLegacy, family_support: data.familySupport }));
-      // Save full assets as JSON in current_401k_notes (reliable, no extra columns needed)
-      // Format: __FNA_ASSETS_JSON__:{...json...}
-      ins.push(supabase.from('fna_ast_retirement').insert({
-        fna_id: fnaId,
-        current_401k_him: assets.r1_him,
-        current_401k_her: assets.r1_her,
-        current_401k_notes: `__FNA_ASSETS_JSON__:${JSON.stringify(assets)}`,
-        current_401k_present_value: assets.r1_present,
-        current_401k_projected_value: autoProj(assets.r1_present),
-      }));
-
+      // Save Goals data
       const results = await Promise.all(ins);
-      const errs = results.filter(r => r.error);
-      if (errs.length > 0) throw new Error(`Failed to save ${errs.length} record(s)`);
+      const errs = results.filter((r: any) => r.error);
+      if (errs.length > 0) throw new Error(`Failed to save ${errs.length} goal record(s)`);
+
+      // ── ASSETS SAVE ──────────────────────────────────────────────────────
+      // Strategy 1: localStorage – always works, same-browser recovery
+      const assetsJson = JSON.stringify(assets);
+      try { localStorage.setItem(`fna_assets_${data.clientId}`, assetsJson); } catch {}
+
+      // Strategy 2: Save to fna_records.notes as __ASSETS__:{json}
+      // Embeds user note + full assets in one field (guaranteed text column, no schema risk)
+      const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets });
+      const notesWithAssets = `__ASSETS__:${notesPayload}`;
+      const { error: notesErr } = await supabase.from('fna_records')
+        .update({ notes: notesWithAssets, updated_at: new Date().toISOString() })
+        .eq('fna_id', fnaId!);
+      if (notesErr) {
+        console.warn('Assets notes-column save failed:', notesErr.message);
+      }
+
+      // Strategy 3: Also try fna_ast_retirement with minimal payload
+      try {
+        await supabase.from('fna_ast_retirement').upsert({
+          fna_id: fnaId,
+          current_401k_him: assets.r1_him,
+          current_401k_her: assets.r1_her,
+          current_401k_notes: `__FNA_ASSETS_JSON__:${assetsJson}`,
+          current_401k_present_value: assets.r1_present,
+          current_401k_projected_value: autoProj(assets.r1_present),
+        }, { onConflict: 'fna_id' });
+      } catch { /* silent — strategies 1+2 cover this */ }
+
       showMessage('✅ FNA saved successfully!', 'success');
     } catch (err: any) {
       showMessage(`❌ Save failed: ${err.message}`, 'error');
@@ -574,6 +627,13 @@ export default function FNAPage() {
   const upd = (key: keyof AssetsData, val: any) =>
     setAssets(prev => ({ ...prev, [key]: val }));
 
+  // Auto-persist assets to localStorage on every change (immediate backup)
+  useEffect(() => {
+    if (data.clientId) {
+      try { localStorage.setItem(`fna_assets_${data.clientId}`, JSON.stringify(assets)); } catch {}
+    }
+  }, [assets, data.clientId]);
+
   // Projected cell: blue tint, auto-calculated, read-only display
   const AutoProjCell = ({ present }: { present: number }) => {
     const v = autoProj(present);
@@ -584,19 +644,20 @@ export default function FNAPage() {
     );
   };
 
-  // Manual projected cell: editable, always shows $0.00
-  const ManualProjCell = ({ value, field }: { value: number; field: keyof AssetsData }) => (
+  // manualProjCell – plain function (NOT JSX component) to prevent remount on re-render
+  const manualProjCell = (field: keyof AssetsData) => (
     <td className="border border-black p-0">
-      <CurrencyInput value={value} showZero
+      <CurrencyInput value={assets[field] as number} showZero
         onChange={val => upd(field, val)}
         className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
     </td>
   );
 
-  // Projected cell: blue tint, auto-calculated, read-only display
-  const StdCells = ({
-    himKey, herKey, notesKey, presentKey,
-  }: { himKey: keyof AssetsData; herKey: keyof AssetsData; notesKey: keyof AssetsData; presentKey: keyof AssetsData }) => (
+  // stdCells – plain function, NOT a JSX component, to prevent React remount on every render
+  const stdCells = (
+    himKey: keyof AssetsData, herKey: keyof AssetsData,
+    notesKey: keyof AssetsData, presentKey: keyof AssetsData
+  ) => (
     <>
       <td className="border border-black text-center py-1 w-12">
         <input type="checkbox" checked={!!assets[himKey]} className="w-4 h-4"
@@ -615,14 +676,16 @@ export default function FNAPage() {
     </>
   );
 
-  // StdCellsCalc: projected auto-calculates from present on blur AND stays editable (user can override)
-  const StdCellsCalc = ({
-    himKey, herKey, notesKey, presentKey, projKey,
-  }: { himKey: keyof AssetsData; herKey: keyof AssetsData; notesKey: keyof AssetsData; presentKey: keyof AssetsData; projKey: keyof AssetsData }) => {
-    const handlePresentChange = useCallback((val: number) => {
-      const computed = yearsToRetirement > 0 ? Math.round(val * Math.pow(1 + rate, yearsToRetirement) * 100) / 100 : 0;
-      setAssets(prev => ({ ...prev, [presentKey]: val, [projKey]: computed }));
-    }, [presentKey, projKey]);
+  // stdCellsCalc – called as a function (not JSX component) to avoid remount issues.
+  // Auto-calculates projected from present on blur; projected cell stays editable.
+  const stdCellsCalc = (
+    himKey: keyof AssetsData, herKey: keyof AssetsData,
+    notesKey: keyof AssetsData, presentKey: keyof AssetsData, projKey: keyof AssetsData
+  ) => {
+    const calcAndSet = (val: number) => {
+      const proj = yearsToRetirement > 0 ? Math.round(val * Math.pow(1 + rate, yearsToRetirement) * 100) / 100 : 0;
+      setAssets(prev => ({ ...prev, [presentKey]: val, [projKey]: proj }));
+    };
     return (
       <>
         <td className="border border-black text-center py-1 w-12">
@@ -635,35 +698,31 @@ export default function FNAPage() {
         </td>
         <NoteTd value={assets[notesKey] as string} onChange={v => upd(notesKey, v)} />
         <td className="border border-black p-0 w-36">
-          <CurrencyInput value={assets[presentKey] as number} showZero
-            onChange={handlePresentChange}
+          <CurrencyInput value={assets[presentKey] as number} showZero onChange={calcAndSet}
             className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
         </td>
         <td className="border border-black p-0 w-44" style={{ backgroundColor: '#EBF5FB' }}>
-          <CurrencyInput value={assets[projKey] as number} showZero
-            onChange={val => upd(projKey, val)}
+          <CurrencyInput value={assets[projKey] as number} showZero onChange={val => upd(projKey, val)}
             className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-transparent" />
         </td>
       </>
     );
   };
 
-  // CalcEditProjCell: standalone editable projected cell for non-StdCells rows (College 529)
-  // Present CurrencyInput must call upd(presentKey, val) AND upd(projKey, autoProj(val)) on change
-  const CalcPresentCell = ({ presentKey, projKey }: { presentKey: keyof AssetsData; projKey: keyof AssetsData }) => (
+  // calcPresentCell / calcEditProjCell – function helpers for non-StdCells rows (College 529)
+  const calcPresentCell = (presentKey: keyof AssetsData, projKey: keyof AssetsData) => (
     <td className="border border-black p-0 w-36">
       <CurrencyInput value={assets[presentKey] as number} showZero
         onChange={val => {
-          const computed = yearsToRetirement > 0 ? Math.round(val * Math.pow(1 + rate, yearsToRetirement) * 100) / 100 : 0;
-          setAssets(prev => ({ ...prev, [presentKey]: val, [projKey]: computed }));
+          const proj = yearsToRetirement > 0 ? Math.round(val * Math.pow(1 + rate, yearsToRetirement) * 100) / 100 : 0;
+          setAssets(prev => ({ ...prev, [presentKey]: val, [projKey]: proj }));
         }}
         className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
     </td>
   );
-  const CalcEditProjCell = ({ projKey }: { projKey: keyof AssetsData }) => (
+  const calcEditProjCell = (projKey: keyof AssetsData) => (
     <td className="border border-black p-0 w-44" style={{ backgroundColor: '#EBF5FB' }}>
-      <CurrencyInput value={assets[projKey] as number} showZero
-        onChange={val => upd(projKey, val)}
+      <CurrencyInput value={assets[projKey] as number} showZero onChange={val => upd(projKey, val)}
         className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-transparent" />
     </td>
   );
@@ -1074,50 +1133,49 @@ export default function FNAPage() {
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#1</td>
                       <td className="border border-black px-2 py-1 text-xs">CURRENT 401K | 403B</td>
-                      <StdCells himKey="r1_him" herKey="r1_her" notesKey="r1_notes" presentKey="r1_present" />
+                      {stdCells("r1_him","r1_her","r1_notes","r1_present")}
                       <AutoProjCell present={assets.r1_present} />
                     </tr>
                     {/* r2 – Company Match N/A proj */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#2</td>
                       <td className="border border-black px-2 py-1 text-xs">COMPANY MATCH %</td>
-                      <StdCells himKey="r2_him" herKey="r2_her" notesKey="r2_notes" presentKey="r2_present" />
+                      {stdCells("r2_him","r2_her","r2_notes","r2_present")}
                       <NAProjCell />
                     </tr>
                     {/* r3 – Max Funding N/A proj */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#3</td>
                       <td className="border border-black px-2 py-1 text-xs">ARE YOU MAX FUNDING (~$22.5K)?</td>
-                      <StdCells himKey="r3_him" herKey="r3_her" notesKey="r3_notes" presentKey="r3_present" />
+                      {stdCells("r3_him","r3_her","r3_notes","r3_present")}
                       <NAProjCell />
                     </tr>
                     {/* r4 – Prev 401K auto */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#4</td>
                       <td className="border border-black px-2 py-1 text-xs">PREVIOUS 401K | ROLLOVER 401K</td>
-                      <StdCells himKey="r4_him" herKey="r4_her" notesKey="r4_notes" presentKey="r4_present" />
+                      {stdCells("r4_him","r4_her","r4_notes","r4_present")}
                       <AutoProjCell present={assets.r4_present} />
                     </tr>
                     {/* r5 – Traditional IRA auto */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#5</td>
                       <td className="border border-black px-2 py-1 text-xs">TRADITIONAL IRA | SEP-IRA [TAX-DEFERRED]</td>
-                      <StdCells himKey="r5_him" herKey="r5_her" notesKey="r5_notes" presentKey="r5_present" />
+                      {stdCells("r5_him","r5_her","r5_notes","r5_present")}
                       <AutoProjCell present={assets.r5_present} />
                     </tr>
                     {/* r6 – Roth IRA auto */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#6</td>
                       <td className="border border-black px-2 py-1 text-xs">ROTH IRA | ROTH 401K [TAX-FREE]</td>
-                      <StdCells himKey="r6_him" herKey="r6_her" notesKey="r6_notes" presentKey="r6_present" />
+                      {stdCells("r6_him","r6_her","r6_notes","r6_present")}
                       <AutoProjCell present={assets.r6_present} />
                     </tr>
                     {/* r7 – ESPP/RSU auto */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#7</td>
                       <td className="border border-black px-2 py-1 text-xs">ESPP | RSU | ANNUITIES | PENSION</td>
-                      <StdCells himKey="r7_him" herKey="r7_her" notesKey="r7_notes" presentKey="r7_present" />
-                      <AutoProjCell present={assets.r7_present} />
+                      {stdCellsCalc("r7_him","r7_her","r7_notes","r7_present","r7_proj")}
                     </tr>
                   </tbody>
                 </table>
@@ -1141,8 +1199,8 @@ export default function FNAPage() {
                         <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{r.n}</td>
                         <td className="border border-black px-2 py-1 text-xs">{r.l}</td>
                         {r.calc
-                          ? <StdCellsCalc himKey={r.hk} herKey={r.ek} notesKey={r.nk} presentKey={r.pk} projKey={r.pj} />
-                          : <><StdCells himKey={r.hk} herKey={r.ek} notesKey={r.nk} presentKey={r.pk} /><ManualProjCell value={assets[r.pj] as number} field={r.pj} /></>
+                          ? stdCellsCalc(r.hk, r.ek, r.nk, r.pk, r.pj)
+                          : <>{stdCells(r.hk, r.ek, r.nk, r.pk)}{manualProjCell(r.pj)}</>
                         }
                       </tr>
                     ))}
@@ -1161,43 +1219,41 @@ export default function FNAPage() {
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#12</td>
                       <td className="border border-black px-2 py-1 text-xs">STOCKS | MFs | BONDS | ETFs (OUTSIDE OF 401K)</td>
-                      <StdCells himKey="s1_him" herKey="s1_her" notesKey="s1_notes" presentKey="s1_present" />
-                      <AutoProjCell present={assets.s1_present} />
+                      {stdCellsCalc("s1_him","s1_her","s1_notes","s1_present","s1_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#13</td>
                       <td className="border border-black px-2 py-1 text-xs">DO YOU OWN A BUSINESS?</td>
-                      <StdCells himKey="s2_him" herKey="s2_her" notesKey="s2_notes" presentKey="s2_present" />
-                      <ManualProjCell value={assets.s2_proj} field="s2_proj" />
+                      {stdCells("s2_him","s2_her","s2_notes","s2_present")}
+                      {manualProjCell("s2_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#14</td>
                       <td className="border border-black px-2 py-1 text-xs">ALTERNATIVE INVESTMENTS (PRIVATE EQUITY, CROWD FUNDING, ETC.)</td>
-                      <StdCells himKey="s3_him" herKey="s3_her" notesKey="s3_notes" presentKey="s3_present" />
-                      <AutoProjCell present={assets.s3_present} />
+                      {stdCellsCalc("s3_him","s3_her","s3_notes","s3_present","s3_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#15</td>
                       <td className="border border-black px-2 py-1 text-xs">CERTIFICATE OF DEPOSITS (BANK CDs)</td>
-                      <StdCells himKey="s4_him" herKey="s4_her" notesKey="s4_notes" presentKey="s4_present" />
+                      {stdCells("s4_him","s4_her","s4_notes","s4_present")}
                       <AutoProjCell present={assets.s4_present} />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#16</td>
                       <td className="border border-black px-2 py-1 text-xs">CASH IN BANK + EMERGENCY FUND</td>
-                      <StdCellsCalc himKey="s5_him" herKey="s5_her" notesKey="s5_notes" presentKey="s5_present" projKey="s5_proj" />
+                      {stdCellsCalc("s5_him","s5_her","s5_notes","s5_present","s5_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#17</td>
                       <td className="border border-black px-2 py-1 text-xs">ANNUAL HOUSE-HOLD INCOME</td>
-                      <StdCells himKey="s6_him" herKey="s6_her" notesKey="s6_notes" presentKey="s6_present" />
+                      {stdCells("s6_him","s6_her","s6_notes","s6_present")}
                       <NAProjCell />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#18</td>
                       <td className="border border-black px-2 py-1 text-xs">ANNUAL SAVINGS GOING FORWARD</td>
-                      <StdCells himKey="s7_him" herKey="s7_her" notesKey="s7_notes" presentKey="s7_present" />
-                      <ManualProjCell value={assets.s7_proj} field="s7_proj" />
+                      {stdCells("s7_him","s7_her","s7_notes","s7_present")}
+                      {manualProjCell("s7_proj")}
                     </tr>
                   </tbody>
                 </table>
@@ -1224,20 +1280,20 @@ export default function FNAPage() {
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#19</td>
                       <td className="border border-black px-2 py-1 text-xs">LIFE INSURANCE AT WORK</td>
-                      <StdCells himKey="f1_him" herKey="f1_her" notesKey="f1_notes" presentKey="f1_present" />
+                      {stdCells("f1_him","f1_her","f1_notes","f1_present")}
                       <NAProjCell />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#20</td>
                       <td className="border border-black px-2 py-1 text-xs">LIFE INSURANCE OUTSIDE WORK</td>
-                      <StdCells himKey="f2_him" herKey="f2_her" notesKey="f2_notes" presentKey="f2_present" />
-                      <ManualProjCell value={assets.f2_proj} field="f2_proj" />
+                      {stdCells("f2_him","f2_her","f2_notes","f2_present")}
+                      {manualProjCell("f2_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#21</td>
                       <td className="border border-black px-2 py-1 text-xs">IS IT CASH VALUE LIFE INSURANCE?</td>
-                      <StdCells himKey="f3_him" herKey="f3_her" notesKey="f3_notes" presentKey="f3_present" />
-                      <ManualProjCell value={assets.f3_proj} field="f3_proj" />
+                      {stdCells("f3_him","f3_her","f3_notes","f3_present")}
+                      {manualProjCell("f3_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#22</td>
@@ -1267,8 +1323,7 @@ export default function FNAPage() {
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#25</td>
                       <td className="border border-black px-2 py-1 text-xs">HEALTH SAVINGS ACCOUNT (HSA)</td>
-                      <StdCells himKey="f7_him" herKey="f7_her" notesKey="f7_notes" presentKey="f7_present" />
-                      <AutoProjCell present={assets.f7_present} />
+                      {stdCellsCalc("f7_him","f7_her","f7_notes","f7_present","f7_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#26</td>
@@ -1308,8 +1363,8 @@ export default function FNAPage() {
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c1_c1} className="w-4 h-4" onChange={e => upd('c1_c1', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c1_c2} className="w-4 h-4" onChange={e => upd('c1_c2', e.target.checked)} /></td>
                       <NoteTd value={assets.c1_notes} onChange={v => upd('c1_notes', v)} />
-                      <CalcPresentCell presentKey="c1_present" projKey="c1_proj" />
-                      <CalcEditProjCell projKey="c1_proj" />
+                      {calcPresentCell("c1_present","c1_proj")}
+                      {calcEditProjCell("c1_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#28</td>
@@ -1334,12 +1389,12 @@ export default function FNAPage() {
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#29</td>
                       <td className="border border-black px-2 py-1 text-xs">REAL ESTATE ASSETS</td>
-                      <StdCellsCalc himKey="x1_him" herKey="x1_her" notesKey="x1_notes" presentKey="x1_present" projKey="x1_proj" />
+                      {stdCellsCalc("x1_him","x1_her","x1_notes","x1_present","x1_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#30</td>
                       <td className="border border-black px-2 py-1 text-xs">NON-REAL ESTATE ASSETS (FIXED DEPOSITS, STOCKS, LOANS, JEWELLERY, INVESTMENTS)</td>
-                      <StdCellsCalc himKey="x2_him" herKey="x2_her" notesKey="x2_notes" presentKey="x2_present" projKey="x2_proj" />
+                      {stdCellsCalc("x2_him","x2_her","x2_notes","x2_present","x2_proj")}
                     </tr>
                   </tbody>
                 </table>
