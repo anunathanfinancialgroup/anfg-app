@@ -465,20 +465,12 @@ export default function FNAPage() {
   };
 
   const handleClear = () => {
-    if (confirm('Clear all data? Client Information will be retained.')) {
-      setData(prev => ({
-        ...initialData,
-        clientId: prev.clientId, clientName: prev.clientName,
-        clientPhone: prev.clientPhone, clientEmail: prev.clientEmail,
-        spouseName: prev.spouseName, city: prev.city, state: prev.state,
-        clientDob: prev.clientDob, analysisDate: prev.analysisDate,
-        dob: prev.dob, notes: prev.notes,
-        plannedRetirementAge: prev.plannedRetirementAge,
-        calculatedInterestPercentage: prev.calculatedInterestPercentage,
-        healthcareNote1: "~$315K FOR COUPLE IN TODAY'S DOLLARS",
-      }));
+    if (confirm('Clear all data and reset the form?')) {
+      setData(initialData);
       setAssets(initialAssets);
-      showMessage("Form cleared (Client Information retained)", 'success');
+      setCardsExpanded(false);
+      setCardVisibility(allCardsClosed);
+      showMessage("Form cleared", 'success');
     }
   };
 
@@ -573,7 +565,10 @@ export default function FNAPage() {
         <th className="border border-black px-2 py-1 text-xs font-bold w-12">HER</th>
         <th className="border border-black px-2 py-1 text-xs font-bold">NOTES</th>
         <th className="border border-black px-2 py-1 text-xs font-bold w-36">PRESENT VALUE</th>
-        <th className="border border-black px-2 py-1 text-xs font-bold w-40">{projLabel} @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%)</th>
+        <th className="border border-black px-2 py-1 text-xs font-bold w-44">
+          {projLabel} @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%)
+          {yearsToRetirement > 0 && <span className="block font-normal text-gray-600">for {yearsToRetirement} yrs</span>}
+        </th>
       </tr>
     </thead>
   );
@@ -597,15 +592,7 @@ export default function FNAPage() {
               {loading ? '⏳ Loading…' : cardsExpanded ? '🙈 Hide Cards' : '📊 Show Cards'}
             </button>
             <button onClick={handleClear} className={btnGhost}>🗑 Clear</button>
-            <button onClick={handleSave} disabled={saving || loading || !data.clientId} className={btnSave}>
-              {saving ? '💾 Saving…' : '💾 Save FNA'}
-            </button>
             <button onClick={handleLogout} className={btnGhost}>Logout ➜</button>
-            {message && (
-              <span className={`px-2 py-0.5 rounded text-xs font-medium ${messageType === 'success' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-red-100 text-red-800 border border-red-300'}`}>
-                {message}
-              </span>
-            )}
           </div>
         </div>
       </header>
@@ -687,8 +674,20 @@ export default function FNAPage() {
           </div>
           {yearsToRetirement > 0 && (
             <p className="mt-1.5 text-xs text-blue-600 font-medium">
-              📅 {yearsToRetirement} years to retirement | Projection: FV = PV × (1 + {data.calculatedInterestPercentage}%)^{yearsToRetirement}
+              📅 Investment length: <strong>{yearsToRetirement} yrs</strong> | Projection: FV = PV × (1 + {data.calculatedInterestPercentage}%)^{yearsToRetirement}
             </p>
+          )}
+        </div>
+
+        {/* SAVE BUTTON — below Client Information */}
+        <div className="flex items-center justify-end gap-2 mb-3">
+          <button onClick={handleSave} disabled={saving || loading || !data.clientId} className={btnSave}>
+            {saving ? '💾 Saving…' : '💾 Save FNA'}
+          </button>
+          {message && (
+            <span className={`px-2 py-0.5 rounded text-xs font-medium ${messageType === 'success' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-red-100 text-red-800 border border-red-300'}`}>
+              {message}
+            </span>
           )}
         </div>
 
@@ -1166,7 +1165,10 @@ export default function FNAPage() {
                       <th className="border border-black px-2 py-1 text-xs font-bold w-16">CHILD 2</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold">NOTES</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-36">PRESENT VALUE</th>
-                      <th className="border border-black px-2 py-1 text-xs font-bold w-40">PROJECTED VALUE @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%)</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-40">
+                        PROJECTED VALUE @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%)
+                        {yearsToRetirement > 0 && <span className="block font-normal text-gray-600">for {yearsToRetirement} yrs</span>}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1230,7 +1232,7 @@ export default function FNAPage() {
                       <td className="border border-black px-3 py-2">
                         <div className="text-right text-sm font-bold text-green-700">Present Value: {formatCurrency(totalPresent)}</div>
                         <div className="text-right text-sm font-bold text-blue-700 mt-0.5">
-                          Projected @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%): {formatCurrency(totalProjected)}
+                          Projected @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}: {formatCurrency(totalProjected)}
                         </div>
                       </td>
                     </tr>
