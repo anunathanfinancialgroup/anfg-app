@@ -138,7 +138,7 @@ const initialData: FNAData = {
   monthlyIncomeNeeded: 0, monthlyRetirementIncome: 0, annualRetirementIncome: 0, totalRetirementIncome: 0,
   retirementNote1: "", retirementNote2: "", retirementNote3: "",
   healthcareExpenses: 315000, longTermCare: 0,
-  healthcareNote1: "~$315K FOR COUPLE IN TODAY'S DOLLARS", healthcareNote2: "",
+  healthcareNote1: "~$315K For Couple In Today's Dollars", healthcareNote2: "",
   travelBudget: 0, travelNotes: "", vacationHome: 0, vacationNotes: "",
   charity: 0, charityNotes: "", otherGoals: 0, otherGoalsNotes: "",
   headstartFund: 0, headstartNotes: "", familyLegacy: 0, legacyNotes: "",
@@ -370,9 +370,7 @@ function LiabilityEditableTable({
                           </select>
 
                         ) : isCurrency ? (
-                          /* Currency input: shows "$1,234.56" idle; plain number while focused.
-                             updateRow is called on EVERY change so liabilityRows (and totals) 
-                             always reflect the latest typed value — not just after blur. */
+                          /* Currency input: shows "$1,234.56", stores raw number string */
                           <input
                             type="text"
                             className={`${inputCls} text-right`}
@@ -380,24 +378,20 @@ function LiabilityEditableTable({
                               ? currDrafts[draftKey]
                               : fmtCurrencyInput(r[c.key])}
                             onFocus={() => {
-                              // Switch to plain number for easy editing
-                              const plain = (r[c.key] !== null && r[c.key] !== undefined && r[c.key] !== "")
+                              // On focus: show plain number for easy editing
+                              const plain = r[c.key] !== null && r[c.key] !== undefined && r[c.key] !== ""
                                 ? String(r[c.key])
                                 : "";
                               setCurrDrafts(p => ({ ...p, [draftKey]: plain }));
                             }}
                             onChange={e => {
-                              const typed = e.target.value;
-                              // Update local display draft
-                              setCurrDrafts(p => ({ ...p, [draftKey]: typed }));
-                              // ALSO update parent liabilityRows with parsed number immediately
-                              // so totals summary and Save button always have the latest value
-                              const raw = parseCurrencyInput(typed);
+                              setCurrDrafts(p => ({ ...p, [draftKey]: e.target.value }));
+                            }}
+                            onBlur={e => {
+                              const raw = parseCurrencyInput(e.target.value);
                               const num = raw === "" ? null : parseFloat(raw);
                               updateRow(r.id, c.key, Number.isFinite(num) ? num : null);
-                            }}
-                            onBlur={() => {
-                              // Clear draft so formatted version shows again
+                              // Format for display
                               setCurrDrafts(p => {
                                 const next = { ...p };
                                 delete next[draftKey];
@@ -1104,15 +1098,15 @@ export default function FNAPage() {
   );
 
   // Common asset table header (HIM | HER version)
-  const AssetTHead = ({ projLabel = "PROJECTED VALUE" }: { projLabel?: string }) => (
+  const AssetTHead = ({ projLabel = "Projected Value" }: { projLabel?: string }) => (
     <thead>
       <tr style={{ backgroundColor: COLORS.headerBg }}>
         <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
-        <th className="border border-black px-2 py-1 text-xs font-bold">DESCRIPTION</th>
-        <th className="border border-black px-2 py-1 text-xs font-bold w-12">HIM</th>
-        <th className="border border-black px-2 py-1 text-xs font-bold w-12">HER</th>
-        <th className="border border-black px-2 py-1 text-xs font-bold">NOTES</th>
-        <th className="border border-black px-2 py-1 text-xs font-bold w-36">PRESENT VALUE</th>
+        <th className="border border-black px-2 py-1 text-xs font-bold">Description</th>
+        <th className="border border-black px-2 py-1 text-xs font-bold w-12">Him</th>
+        <th className="border border-black px-2 py-1 text-xs font-bold w-12">Her</th>
+        <th className="border border-black px-2 py-1 text-xs font-bold">Notes</th>
+        <th className="border border-black px-2 py-1 text-xs font-bold w-36">Present Value</th>
         <th className="border border-black px-2 py-1 text-xs font-bold w-44 whitespace-nowrap">
           {projLabel} @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
         </th>
@@ -1133,9 +1127,9 @@ export default function FNAPage() {
         actions={
           <div className="flex items-center gap-1.5 flex-wrap">
             <button onClick={handleToggleAllCards} disabled={loading} className={btnGhost}>
-              {loading ? '⏳ Loading…' : cardsExpanded ? '🙈 Hide Cards' : '📊 Show Cards'}
+              {loading ? '⏳ Loading…' : cardsExpanded ? 'Hide Cards 📦' : 'Show Cards 🗃️'}
             </button>
-            <button onClick={handleClear} className={btnGhost}>🗑 Clear</button>
+            <button onClick={handleClear} className={btnGhost}>Refresh</button>
           </div>
         }
       />
@@ -1143,7 +1137,7 @@ export default function FNAPage() {
 
       <main className="max-w-7xl mx-auto px-3 pb-6" ref={contentRef}>
 
-        {/* CLIENT INFORMATION */}
+        {/* Client Information */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
           <h3 className="text-xs font-bold text-gray-800 mb-2 pb-1 border-b">📋 Client Information</h3>
           <div className="grid grid-cols-3 gap-2 mb-2">
@@ -1239,9 +1233,9 @@ export default function FNAPage() {
         {/* TABS */}
         <div className="mb-3 flex gap-2">
           {([
-            { key: 'goals',       label: '📊 FINANCIAL GOALS & PLANNING' },
-            { key: 'assets',      label: '💰 ASSETS' },
-            { key: 'liabilities', label: '💳 LIABILITIES' },
+            { key: 'goals',       label: '🎯 Financial Goals & Planning' },
+            { key: 'assets',      label: '💰 Assets' },
+            { key: 'liabilities', label: '💳 Liabilities' },
           ] as const).map(({ key: tab, label }) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`flex-1 px-3 py-1.5 rounded font-semibold text-xs transition-all ${activeTab === tab ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'}`}>
@@ -1256,15 +1250,15 @@ export default function FNAPage() {
 
             {/* College */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <CardHeader emoji="🎓" title="KIDS COLLEGE PLANNING" cardKey="college"
+              <CardHeader emoji="🎓" title="Kids College Planning" cardKey="college"
                 extra={<a href="https://educationdata.org/average-cost-of-college-by-state#tx" target="_blank" rel="noopener noreferrer" className={btnGhost}>💰 Cost of College</a>} />
               {cardVisibility.college && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
                   <thead><tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold">CHILD NAME</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold w-44">NOTES</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold w-36">AMOUNT</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold">Child Name</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold w-44">Notes</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold w-36">Amount</th>
                   </tr></thead>
                   <tbody>
                     {[{n:'#1',nf:'child1CollegeName',nn:data.child1CollegeName,nts:'child1CollegeNotes',ntv:data.child1CollegeNotes,af:'child1CollegeAmount',av:data.child1CollegeAmount},
@@ -1283,15 +1277,15 @@ export default function FNAPage() {
 
             {/* Wedding */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <CardHeader emoji="💒" title="KIDS WEDDING" cardKey="wedding"
+              <CardHeader emoji="💒" title="Kids Wedding" cardKey="wedding"
                 extra={<a href="https://www.zola.com/expert-advice/whats-the-average-cost-of-a-wedding" target="_blank" rel="noopener noreferrer" className={btnGhost}>💍 Wedding Expenses</a>} />
               {cardVisibility.wedding && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
                   <thead><tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold">CHILD NAME</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold w-44">NOTES</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold w-36">AMOUNT</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold">Child Name</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold w-44">Notes</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold w-36">Amount</th>
                   </tr></thead>
                   <tbody>
                     {[{n:'#3',label:data.child1CollegeName||'(From College #1)',nts:'child1WeddingNotes',ntv:data.child1WeddingNotes,af:'child1WeddingAmount',av:data.child1WeddingAmount},
@@ -1310,19 +1304,19 @@ export default function FNAPage() {
 
             {/* Retirement */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <CardHeader emoji="🏖️" title="RETIREMENT PLANNING" cardKey="retirement" />
+              <CardHeader emoji="🏖️" title="Retirement Planning" cardKey="retirement" />
               {cardVisibility.retirement && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
                   <thead><tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold">DESCRIPTION</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold w-44">NOTES</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold w-36">AMOUNT</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold">Description</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold w-44">Notes</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold w-36">Amount</th>
                   </tr></thead>
                   <tbody>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#5</td>
-                      <td className="border border-black px-2 py-1 text-xs">CURRENT AGE</td>
+                      <td className="border border-black px-2 py-1 text-xs">Current Age</td>
                       <NoteTd value={data.retirementNote1} onChange={v => setData(p => ({ ...p, retirementNote1: v }))}/>
                       <td className="border border-black p-0">
                         <select value={data.currentAge || ''} onChange={e => setData(p => ({ ...p, currentAge: parseInt(e.target.value) || 0 }))} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300">
@@ -1333,37 +1327,37 @@ export default function FNAPage() {
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#6</td>
-                      <td className="border border-black px-2 py-1 text-xs">YEARS TO RETIREMENT (65 - CURRENT AGE)</td>
+                      <td className="border border-black px-2 py-1 text-xs">Years To Retirement (65 - Current Age)</td>
                       <NoteTd value={data.retirementNote2} onChange={v => setData(p => ({ ...p, retirementNote2: v }))}/>
                       <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{data.yearsToRetirement}</td>
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#7</td>
-                      <td className="border border-black px-2 py-1 text-xs">RETIREMENT YEARS (85 - CURRENT AGE)</td>
+                      <td className="border border-black px-2 py-1 text-xs">Retirement Years (85 - Current Age)</td>
                       <NoteTd value={data.retirementNote3} onChange={v => setData(p => ({ ...p, retirementNote3: v }))}/>
                       <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{data.retirementYears}</td>
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#8</td>
-                      <td className="border border-black px-2 py-1 text-xs">MONTHLY INCOME NEEDED (TODAY'S DOLLARS)</td>
+                      <td className="border border-black px-2 py-1 text-xs">Monthly Income Needed (Today's Dollars)</td>
                       <td className="border border-black px-2 py-1 text-xs text-gray-400 italic">Today's dollars</td>
                       <td className="border border-black p-0"><CurrencyInput value={data.monthlyIncomeNeeded} placeholder="$0.00" onChange={val => setData(p => ({ ...p, monthlyIncomeNeeded: val }))} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#9</td>
-                      <td className="border border-black px-2 py-1 text-xs">MONTHLY INCOME NEEDED (AT RETIREMENT @ 3%)</td>
+                      <td className="border border-black px-2 py-1 text-xs">Monthly Income Needed (At Retirement @ 3%)</td>
                       <td className="border border-black px-2 py-1 text-xs text-gray-400 italic">Auto-calculated @ 3% inflation</td>
                       <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{formatCurrency(data.monthlyRetirementIncome)}</td>
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#10</td>
-                      <td className="border border-black px-2 py-1 text-xs">ANNUAL RETIREMENT INCOME NEEDED</td>
+                      <td className="border border-black px-2 py-1 text-xs">Annual Retirement Income Needed</td>
                       <td className="border border-black px-2 py-1 text-xs text-gray-400 italic">Monthly × 12</td>
                       <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{formatCurrency(data.annualRetirementIncome)}</td>
                     </tr>
                     <tr style={{ backgroundColor: COLORS.lightYellowBg }}>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#11</td>
-                      <td className="border border-black px-2 py-1 text-xs font-bold">TOTAL RETIREMENT INCOME NEEDED</td>
+                      <td className="border border-black px-2 py-1 text-xs font-bold">Total Retirement Income Needed</td>
                       <td className="border border-black px-2 py-1 text-xs text-gray-400 italic">Annual × Retirement Years</td>
                       <td className="border border-black px-2 py-1 text-xs text-right font-bold">{formatCurrency(data.totalRetirementIncome)}</td>
                     </tr>
@@ -1374,25 +1368,25 @@ export default function FNAPage() {
 
             {/* Healthcare */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <CardHeader emoji="🏥" title="HEALTHCARE PLANNING" cardKey="healthcare" />
+              <CardHeader emoji="🏥" title="Healthcare Planning" cardKey="healthcare" />
               {cardVisibility.healthcare && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
                   <thead><tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold">DESCRIPTION</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold w-44">NOTES</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold w-36">AMOUNT</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold">Description</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold w-44">Notes</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold w-36">Amount</th>
                   </tr></thead>
                   <tbody>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#12</td>
-                      <td className="border border-black px-2 py-1 text-xs">HEALTHCARE EXPENSES</td>
-                      <NoteTd value={data.healthcareNote1} placeholder="~$315K FOR COUPLE" onChange={v => setData(p => ({ ...p, healthcareNote1: v }))} />
+                      <td className="border border-black px-2 py-1 text-xs">Healthcare Expenses</td>
+                      <NoteTd value={data.healthcareNote1} placeholder="~$315K For Couple" onChange={v => setData(p => ({ ...p, healthcareNote1: v }))} />
                       <td className="border border-black p-0"><CurrencyInput value={data.healthcareExpenses} placeholder="$315,000.00" onChange={val => setData(p => ({ ...p, healthcareExpenses: val }))} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#13</td>
-                      <td className="border border-black px-2 py-1 text-xs">LONG-TERM CARE</td>
+                      <td className="border border-black px-2 py-1 text-xs">Long-Term Care</td>
                       <NoteTd value={data.healthcareNote2} placeholder="3% of healthcare × years × 2" onChange={v => setData(p => ({ ...p, healthcareNote2: v }))} />
                       <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{formatCurrency(data.longTermCare)}</td>
                     </tr>
@@ -1403,20 +1397,20 @@ export default function FNAPage() {
 
             {/* Life Goals */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <CardHeader emoji="🌟" title="LIFE GOALS" cardKey="lifeGoals" />
+              <CardHeader emoji="🌟" title="Life Goals" cardKey="lifeGoals" />
               {cardVisibility.lifeGoals && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
                   <thead><tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold">DESCRIPTION</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold w-44">NOTES</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold w-36">AMOUNT</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold">Description</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold w-44">Notes</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold w-36">Amount</th>
                   </tr></thead>
                   <tbody>
-                    {[{n:'#14',l:'TRAVEL BUDGET',nf:'travelNotes',nv:data.travelNotes,af:'travelBudget',av:data.travelBudget},
-                      {n:'#15',l:'VACATION HOME',nf:'vacationNotes',nv:data.vacationNotes,af:'vacationHome',av:data.vacationHome},
-                      {n:'#16',l:'CHARITY / GIVING',nf:'charityNotes',nv:data.charityNotes,af:'charity',av:data.charity},
-                      {n:'#17',l:'OTHER GOALS',nf:'otherGoalsNotes',nv:data.otherGoalsNotes,af:'otherGoals',av:data.otherGoals},
+                    {[{n:'#14',l:'Travel Budget',nf:'travelNotes',nv:data.travelNotes,af:'travelBudget',av:data.travelBudget},
+                      {n:'#15',l:'Vacation Home',nf:'vacationNotes',nv:data.vacationNotes,af:'vacationHome',av:data.vacationHome},
+                      {n:'#16',l:'Charity / Giving',nf:'charityNotes',nv:data.charityNotes,af:'charity',av:data.charity},
+                      {n:'#17',l:'Other Goals',nf:'otherGoalsNotes',nv:data.otherGoalsNotes,af:'otherGoals',av:data.otherGoals},
                     ].map(r => (
                       <tr key={r.n}>
                         <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{r.n}</td>
@@ -1432,19 +1426,19 @@ export default function FNAPage() {
 
             {/* Legacy */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <CardHeader emoji="🎁" title="LEGACY PLANNING" cardKey="legacy" />
+              <CardHeader emoji="🎁" title="Legacy Planning" cardKey="legacy" />
               {cardVisibility.legacy && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
                   <thead><tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold">DESCRIPTION</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold w-44">NOTES</th>
-                    <th className="border border-black px-2 py-1 text-xs font-bold w-36">AMOUNT</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold">Description</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold w-44">Notes</th>
+                    <th className="border border-black px-2 py-1 text-xs font-bold w-36">Amount</th>
                   </tr></thead>
                   <tbody>
-                    {[{n:'#18',l:'HEADSTART FUND FOR GRANDKIDS',nf:'headstartNotes',nv:data.headstartNotes,af:'headstartFund',av:data.headstartFund},
-                      {n:'#19',l:'FAMILY LEGACY',nf:'legacyNotes',nv:data.legacyNotes,af:'familyLegacy',av:data.familyLegacy},
-                      {n:'#20',l:'FAMILY SUPPORT',nf:'supportNotes',nv:data.supportNotes,af:'familySupport',av:data.familySupport},
+                    {[{n:'#18',l:'Headstart Fund For Grandkids',nf:'headstartNotes',nv:data.headstartNotes,af:'headstartFund',av:data.headstartFund},
+                      {n:'#19',l:'Family Legacy',nf:'legacyNotes',nv:data.legacyNotes,af:'familyLegacy',av:data.familyLegacy},
+                      {n:'#20',l:'Family Support',nf:'supportNotes',nv:data.supportNotes,af:'familySupport',av:data.familySupport},
                     ].map(r => (
                       <tr key={r.n}>
                         <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{r.n}</td>
@@ -1461,20 +1455,20 @@ export default function FNAPage() {
             {/* Total Requirement */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
               <div className="flex items-center gap-1.5 mb-2">
-                <h3 className="text-xs font-bold">💰 TOTAL REQUIREMENT</h3>
+                <h3 className="text-xs font-bold">💰 Total Requirement</h3>
                 <button onClick={() => toggleCard('totalReq')} className={btnGhost}>{cardVisibility.totalReq ? 'Hide' : 'Show'}</button>
               </div>
               {cardVisibility.totalReq && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
                   <tbody><tr style={{ backgroundColor: COLORS.yellowBg }}>
-                    <td className="border border-black px-3 py-2 text-sm font-bold">💰 TOTAL REQUIREMENT</td>
+                    <td className="border border-black px-3 py-2 text-sm font-bold">💰 Total Requirement</td>
                     <td className="border border-black px-3 py-2 text-right text-base font-bold text-green-700">{formatCurrency(data.totalRequirement)}</td>
                   </tr></tbody>
                 </table>
               )}
             </div>
 
-            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE</div>
+            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ Disclaimer: For Education Purpose Only. We Do Not Provide Any Legal Or Tax Advice</div>
           </div>
         )}
 
@@ -1484,57 +1478,57 @@ export default function FNAPage() {
 
             {/* ── RETIREMENT PLANNING (USA) ──────────────────────────────── */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <CardHeader emoji="🏦" title="RETIREMENT PLANNING (USA)" cardKey="assetsRetirement" />
+              <CardHeader emoji="🏦" title="Retirement Planning (USA)" cardKey="assetsRetirement" />
               {cardVisibility.assetsRetirement && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
-                  <AssetTHead projLabel="PROJECTED VALUE" />
+                  <AssetTHead projLabel="Projected Value" />
                   <tbody>
                     {/* r1 – 401K auto */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#1</td>
-                      <td className="border border-black px-2 py-1 text-xs">CURRENT 401K | 403B</td>
+                      <td className="border border-black px-2 py-1 text-xs">Current 401K | 403B</td>
                       {stdCells("r1_him","r1_her","r1_notes","r1_present")}
                       <AutoProjCell present={assets.r1_present} />
                     </tr>
                     {/* r2 – Company Match N/A proj */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#2</td>
-                      <td className="border border-black px-2 py-1 text-xs">COMPANY MATCH %</td>
+                      <td className="border border-black px-2 py-1 text-xs">Company Match %</td>
                       {stdCells("r2_him","r2_her","r2_notes","r2_present")}
                       <NAProjCell />
                     </tr>
                     {/* r3 – Max Funding N/A proj */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#3</td>
-                      <td className="border border-black px-2 py-1 text-xs">ARE YOU MAX FUNDING (~$22.5K)?</td>
+                      <td className="border border-black px-2 py-1 text-xs">Are You Max Funding (~$22.5K)?</td>
                       {stdCells("r3_him","r3_her","r3_notes","r3_present")}
                       <NAProjCell />
                     </tr>
                     {/* r4 – Prev 401K auto */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#4</td>
-                      <td className="border border-black px-2 py-1 text-xs">PREVIOUS 401K | ROLLOVER 401K</td>
+                      <td className="border border-black px-2 py-1 text-xs">Previous 401K | Rollover 401K</td>
                       {stdCells("r4_him","r4_her","r4_notes","r4_present")}
                       <AutoProjCell present={assets.r4_present} />
                     </tr>
                     {/* r5 – Traditional IRA auto */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#5</td>
-                      <td className="border border-black px-2 py-1 text-xs">TRADITIONAL IRA | SEP-IRA [TAX-DEFERRED]</td>
+                      <td className="border border-black px-2 py-1 text-xs">Traditional IRA | SEP-IRA [Tax-Deferred]</td>
                       {stdCells("r5_him","r5_her","r5_notes","r5_present")}
                       <AutoProjCell present={assets.r5_present} />
                     </tr>
                     {/* r6 – Roth IRA auto */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#6</td>
-                      <td className="border border-black px-2 py-1 text-xs">ROTH IRA | ROTH 401K [TAX-FREE]</td>
+                      <td className="border border-black px-2 py-1 text-xs">ROTH IRA | ROTH 401K [TAX-Free]</td>
                       {stdCells("r6_him","r6_her","r6_notes","r6_present")}
                       <AutoProjCell present={assets.r6_present} />
                     </tr>
                     {/* r7 – ESPP/RSU auto */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#7</td>
-                      <td className="border border-black px-2 py-1 text-xs">ESPP | RSU | ANNUITIES | PENSION</td>
+                      <td className="border border-black px-2 py-1 text-xs">ESPP | RSU | ANNUITIES | Pension</td>
                       {stdCellsCalc("r7_him","r7_her","r7_notes","r7_present","r7_proj")}
                     </tr>
                   </tbody>
@@ -1544,16 +1538,16 @@ export default function FNAPage() {
 
             {/* ── REAL ESTATE INVESTMENTS (USA) ──────────────────────────── */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <CardHeader emoji="🏠" title="REAL ESTATE INVESTMENTS (USA)" cardKey="assetsRealEstate" />
+              <CardHeader emoji="🏠" title="Real Estate Investments (USA)" cardKey="assetsRealEstate" />
               {cardVisibility.assetsRealEstate && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
-                  <AssetTHead projLabel="PROJECTED VALUE" />
+                  <AssetTHead projLabel="Projected Value" />
                   <tbody>
                     {[
-                      {n:'#8', l:'PERSONAL HOME',                   hk:'e1_him' as keyof AssetsData, ek:'e1_her' as keyof AssetsData, nk:'e1_notes' as keyof AssetsData, pk:'e1_present' as keyof AssetsData, pj:'e1_proj' as keyof AssetsData, calc:true},
-                      {n:'#9', l:'REAL ESTATE PROPERTIES | RENTALS', hk:'e2_him' as keyof AssetsData, ek:'e2_her' as keyof AssetsData, nk:'e2_notes' as keyof AssetsData, pk:'e2_present' as keyof AssetsData, pj:'e2_proj' as keyof AssetsData, calc:false},
-                      {n:'#10',l:'REAL ESTATE LAND PARCELS',         hk:'e3_him' as keyof AssetsData, ek:'e3_her' as keyof AssetsData, nk:'e3_notes' as keyof AssetsData, pk:'e3_present' as keyof AssetsData, pj:'e3_proj' as keyof AssetsData, calc:false},
-                      {n:'#11',l:'INHERITANCE IN THE USA',           hk:'e4_him' as keyof AssetsData, ek:'e4_her' as keyof AssetsData, nk:'e4_notes' as keyof AssetsData, pk:'e4_present' as keyof AssetsData, pj:'e4_proj' as keyof AssetsData, calc:false},
+                      {n:'#8', l:'Personal Home',                   hk:'e1_him' as keyof AssetsData, ek:'e1_her' as keyof AssetsData, nk:'e1_notes' as keyof AssetsData, pk:'e1_present' as keyof AssetsData, pj:'e1_proj' as keyof AssetsData, calc:true},
+                      {n:'#9', l:'Real Estate Properties | Rentals', hk:'e2_him' as keyof AssetsData, ek:'e2_her' as keyof AssetsData, nk:'e2_notes' as keyof AssetsData, pk:'e2_present' as keyof AssetsData, pj:'e2_proj' as keyof AssetsData, calc:false},
+                      {n:'#10',l:'Real Estate Land Parcels',         hk:'e3_him' as keyof AssetsData, ek:'e3_her' as keyof AssetsData, nk:'e3_notes' as keyof AssetsData, pk:'e3_present' as keyof AssetsData, pj:'e3_proj' as keyof AssetsData, calc:false},
+                      {n:'#11',l:'Inheritance In The Usa',           hk:'e4_him' as keyof AssetsData, ek:'e4_her' as keyof AssetsData, nk:'e4_notes' as keyof AssetsData, pk:'e4_present' as keyof AssetsData, pj:'e4_proj' as keyof AssetsData, calc:false},
                     ].map(r => (
                       <tr key={r.n}>
                         <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{r.n}</td>
@@ -1571,47 +1565,47 @@ export default function FNAPage() {
 
             {/* ── STOCKS | BUSINESS | INCOME (USA) ─────────────────────── */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <CardHeader emoji="📈" title="STOCKS | BUSINESS | INCOME (USA)" cardKey="assetsStocks" />
+              <CardHeader emoji="📈" title="Stocks | Business | Income (USA)" cardKey="assetsStocks" />
               {cardVisibility.assetsStocks && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
-                  <AssetTHead projLabel="PROJECTED VALUE" />
+                  <AssetTHead projLabel="Projected Value" />
                   <tbody>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#12</td>
-                      <td className="border border-black px-2 py-1 text-xs">STOCKS | MFs | BONDS | ETFs (OUTSIDE OF 401K)</td>
+                      <td className="border border-black px-2 py-1 text-xs">STOCKS | MFs | Bonds | ETFs (Outside Of 401K)</td>
                       {stdCellsCalc("s1_him","s1_her","s1_notes","s1_present","s1_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#13</td>
-                      <td className="border border-black px-2 py-1 text-xs">DO YOU OWN A BUSINESS?</td>
+                      <td className="border border-black px-2 py-1 text-xs">Do You Own A Business?</td>
                       {stdCells("s2_him","s2_her","s2_notes","s2_present")}
                       {manualProjCell("s2_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#14</td>
-                      <td className="border border-black px-2 py-1 text-xs">ALTERNATIVE INVESTMENTS (PRIVATE EQUITY, CROWD FUNDING, ETC.)</td>
+                      <td className="border border-black px-2 py-1 text-xs">Alternative Investments (Private Equity, Crowd Funding, ETC.)</td>
                       {stdCellsCalc("s3_him","s3_her","s3_notes","s3_present","s3_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#15</td>
-                      <td className="border border-black px-2 py-1 text-xs">CERTIFICATE OF DEPOSITS (BANK CDs)</td>
+                      <td className="border border-black px-2 py-1 text-xs">Certificate Of Deposits (Bank CDs)</td>
                       {stdCells("s4_him","s4_her","s4_notes","s4_present")}
                       <AutoProjCell present={assets.s4_present} />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#16</td>
-                      <td className="border border-black px-2 py-1 text-xs">CASH IN BANK + EMERGENCY FUND</td>
+                      <td className="border border-black px-2 py-1 text-xs">Cash In Bank + Emergency Fund</td>
                       {stdCellsCalc("s5_him","s5_her","s5_notes","s5_present","s5_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#17</td>
-                      <td className="border border-black px-2 py-1 text-xs">ANNUAL HOUSE-HOLD INCOME</td>
+                      <td className="border border-black px-2 py-1 text-xs">Annual House-Hold Income</td>
                       {stdCells("s6_him","s6_her","s6_notes","s6_present")}
                       <NAProjCell />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#18</td>
-                      <td className="border border-black px-2 py-1 text-xs">ANNUAL SAVINGS GOING FORWARD</td>
+                      <td className="border border-black px-2 py-1 text-xs">Annual Savings Going Forward</td>
                       {stdCells("s7_him","s7_her","s7_notes","s7_present")}
                       {manualProjCell("s7_proj")}
                     </tr>
@@ -1622,42 +1616,42 @@ export default function FNAPage() {
 
             {/* ── FAMILY PROTECTION & INSURANCE ────────────────────────── */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <CardHeader emoji="🛡️" title="FAMILY PROTECTION & INSURANCE" cardKey="assetsInsurance" />
+              <CardHeader emoji="🛡️" title="Family Protection & Insurance" cardKey="assetsInsurance" />
               {cardVisibility.assetsInsurance && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: COLORS.headerBg }}>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
-                      <th className="border border-black px-2 py-1 text-xs font-bold">DESCRIPTION</th>
-                      <th className="border border-black px-2 py-1 text-xs font-bold w-12">HIM</th>
-                      <th className="border border-black px-2 py-1 text-xs font-bold w-12">HER</th>
-                      <th className="border border-black px-2 py-1 text-xs font-bold">NOTES</th>
-                      <th className="border border-black px-2 py-1 text-xs font-bold w-36">PRESENT CASH VALUE</th>
-                      <th className="border border-black px-2 py-1 text-xs font-bold w-40">FUTURE LEGACY VALUE</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold">Description</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-12">Him</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-12">Her</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold">Notes</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-36">Present Cash Value</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-40">Future Legacy Value</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#19</td>
-                      <td className="border border-black px-2 py-1 text-xs">LIFE INSURANCE AT WORK</td>
+                      <td className="border border-black px-2 py-1 text-xs">Life Insurance At Work</td>
                       {stdCells("f1_him","f1_her","f1_notes","f1_present")}
                       <NAProjCell />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#20</td>
-                      <td className="border border-black px-2 py-1 text-xs">LIFE INSURANCE OUTSIDE WORK</td>
+                      <td className="border border-black px-2 py-1 text-xs">Life Insurance Outside Work</td>
                       {stdCells("f2_him","f2_her","f2_notes","f2_present")}
                       {manualProjCell("f2_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#21</td>
-                      <td className="border border-black px-2 py-1 text-xs">IS IT CASH VALUE LIFE INSURANCE?</td>
+                      <td className="border border-black px-2 py-1 text-xs">Is it Cash Value Life Insurance?</td>
                       {stdCells("f3_him","f3_her","f3_notes","f3_present")}
                       {manualProjCell("f3_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#22</td>
-                      <td className="border border-black px-2 py-1 text-xs">WHICH COMPANY? HOW LONG?</td>
+                      <td className="border border-black px-2 py-1 text-xs">Which Company? How Long?</td>
                       <td className="border border-black text-center py-1 w-12"><input type="checkbox" checked={assets.f4_him} className="w-4 h-4" onChange={e => upd('f4_him', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1 w-12"><input type="checkbox" checked={assets.f4_her} className="w-4 h-4" onChange={e => upd('f4_her', e.target.checked)} /></td>
                       <NoteTd value={assets.f4_notes} onChange={v => upd('f4_notes', v)} />
@@ -1666,7 +1660,7 @@ export default function FNAPage() {
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#23</td>
-                      <td className="border border-black px-2 py-1 text-xs">SHORT TERM | LONG TERM DISABILITY AT WORK</td>
+                      <td className="border border-black px-2 py-1 text-xs">Short Term | Long Term Disability at Work</td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.f5_him} className="w-4 h-4" onChange={e => upd('f5_him', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.f5_her} className="w-4 h-4" onChange={e => upd('f5_her', e.target.checked)} /></td>
                       <NoteTd value={assets.f5_notes} onChange={v => upd('f5_notes', v)} />
@@ -1674,7 +1668,7 @@ export default function FNAPage() {
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#24</td>
-                      <td className="border border-black px-2 py-1 text-xs">LONG TERM CARE OUTSIDE OF WORK</td>
+                      <td className="border border-black px-2 py-1 text-xs">Long Term Care Outside Of Work</td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.f6_him} className="w-4 h-4" onChange={e => upd('f6_him', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.f6_her} className="w-4 h-4" onChange={e => upd('f6_her', e.target.checked)} /></td>
                       <NoteTd value={assets.f6_notes} onChange={v => upd('f6_notes', v)} />
@@ -1682,12 +1676,12 @@ export default function FNAPage() {
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#25</td>
-                      <td className="border border-black px-2 py-1 text-xs">HEALTH SAVINGS ACCOUNT (HSA)</td>
+                      <td className="border border-black px-2 py-1 text-xs">Health Savings Account (HSA)</td>
                       {stdCellsCalc("f7_him","f7_her","f7_notes","f7_present","f7_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#26</td>
-                      <td className="border border-black px-2 py-1 text-xs">MORTGAGE PROTECTION INSURANCE</td>
+                      <td className="border border-black px-2 py-1 text-xs">Mortgage Protection Insurance</td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.f8_him} className="w-4 h-4" onChange={e => upd('f8_him', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.f8_her} className="w-4 h-4" onChange={e => upd('f8_her', e.target.checked)} /></td>
                       <NoteTd value={assets.f8_notes} onChange={v => upd('f8_notes', v)} />
@@ -1700,17 +1694,17 @@ export default function FNAPage() {
 
             {/* ── COLLEGE PLANNING / ESTATE PLANNING ───────────────────── */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <CardHeader emoji="🎓" title="COLLEGE PLANNING / ESTATE PLANNING" cardKey="assetsCollege" />
+              <CardHeader emoji="🎓" title="College Planning / Estate Planning" cardKey="assetsCollege" />
               {cardVisibility.assetsCollege && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: COLORS.headerBg }}>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
-                      <th className="border border-black px-2 py-1 text-xs font-bold">DESCRIPTION</th>
-                      <th className="border border-black px-2 py-1 text-xs font-bold w-16">CHILD 1</th>
-                      <th className="border border-black px-2 py-1 text-xs font-bold w-16">CHILD 2</th>
-                      <th className="border border-black px-2 py-1 text-xs font-bold">NOTES</th>
-                      <th className="border border-black px-2 py-1 text-xs font-bold w-36">PRESENT VALUE</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold">Description</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-16">Child 1</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-16">Child 2</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold">Notes</th>
+                      <th className="border border-black px-2 py-1 text-xs font-bold w-36">Present Value</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-44 whitespace-nowrap">
                         PROJECTED VALUE @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
                       </th>
@@ -1719,7 +1713,7 @@ export default function FNAPage() {
                   <tbody>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#27</td>
-                      <td className="border border-black px-2 py-1 text-xs">529 PLANS | STATE PRE-PAID PLANS</td>
+                      <td className="border border-black px-2 py-1 text-xs">529 Plans | State Pre-Paid Plans</td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c1_c1} className="w-4 h-4" onChange={e => upd('c1_c1', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c1_c2} className="w-4 h-4" onChange={e => upd('c1_c2', e.target.checked)} /></td>
                       <NoteTd value={assets.c1_notes} onChange={v => upd('c1_notes', v)} />
@@ -1728,7 +1722,7 @@ export default function FNAPage() {
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#28</td>
-                      <td className="border border-black px-2 py-1 text-xs">WILL &amp; TRUST (ESTATE PLANNING)</td>
+                      <td className="border border-black px-2 py-1 text-xs">WILL &amp; Trust (Estate Planning)</td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c2_c1} className="w-4 h-4" onChange={e => upd('c2_c1', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c2_c2} className="w-4 h-4" onChange={e => upd('c2_c2', e.target.checked)} /></td>
                       <NoteTd value={assets.c2_notes} onChange={v => upd('c2_notes', v)} />
@@ -1741,19 +1735,19 @@ export default function FNAPage() {
 
             {/* ── FOREIGN ASSETS (OUTSIDE OF THE USA) ──────────────────── */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <CardHeader emoji="🌏" title="FOREIGN ASSETS (OUTSIDE OF THE USA)" cardKey="assetsForeign" />
+              <CardHeader emoji="🌏" title="Foreign Assets (Outside Of The Usa)" cardKey="assetsForeign" />
               {cardVisibility.assetsForeign && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
-                  <AssetTHead projLabel="PROJECTED VALUE" />
+                  <AssetTHead projLabel="Projected Value" />
                   <tbody>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#29</td>
-                      <td className="border border-black px-2 py-1 text-xs">REAL ESTATE ASSETS</td>
+                      <td className="border border-black px-2 py-1 text-xs">Real Estate Assets</td>
                       {stdCellsCalc("x1_him","x1_her","x1_notes","x1_present","x1_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#30</td>
-                      <td className="border border-black px-2 py-1 text-xs">NON-REAL ESTATE ASSETS (FIXED DEPOSITS, STOCKS, LOANS, JEWELLERY, INVESTMENTS)</td>
+                      <td className="border border-black px-2 py-1 text-xs">Non-Real Estate Assets (Fixed Deposits, Stocks, Loans, Jewellery, Investments)</td>
                       {stdCellsCalc("x2_him","x2_her","x2_notes","x2_present","x2_proj")}
                     </tr>
                   </tbody>
@@ -1764,14 +1758,14 @@ export default function FNAPage() {
             {/* ── TOTALS ────────────────────────────────────────────────── */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
               <div className="flex items-center gap-1.5 mb-2">
-                <h3 className="text-xs font-bold">💰 TOTAL ASSETS</h3>
+                <h3 className="text-xs font-bold">💰 Total Assets</h3>
                 <button onClick={() => toggleCard('totalAssets')} className={btnGhost}>{cardVisibility.totalAssets ? 'Hide' : 'Show'}</button>
               </div>
               {cardVisibility.totalAssets && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
                   <tbody>
                     <tr style={{ backgroundColor: COLORS.yellowBg }}>
-                      <td className="border border-black px-3 py-2 text-sm font-bold">💰 TOTAL ASSETS</td>
+                      <td className="border border-black px-3 py-2 text-sm font-bold">💰 Total Assets</td>
                       <td className="border border-black px-3 py-2">
                         <div className="text-right text-sm font-bold text-green-700">Present Value: {formatCurrencyZero(totalPresent)}</div>
                         <div className="text-right text-sm font-bold text-blue-700 mt-0.5">
@@ -1787,13 +1781,14 @@ export default function FNAPage() {
             <div className="bg-gray-800 text-white text-center py-1.5 rounded text-xs">
               ** FBAR: Report to US Treasury if foreign accounts exceed $10K | ** FATCA: Report to IRS (Form 8938) if foreign assets exceed $50K
             </div>
-            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE</div>
+            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ Disclaimer: For Education Purpose Only. We Do Not Provide Any Legal Or Tax Advice</div>
           </div>
         )}
         {/* ════════════════════════════════════ LIABILITIES TAB ══════════════ */}
         {activeTab === 'liabilities' && (
           <div className="space-y-3">
 
+            
             {/* Total Liabilities summary — always visible */}
             {(() => {
               const toN = (v: any) => { const n = parseFloat(String(v ?? "").replace(/[$,\s]/g, "")); return Number.isFinite(n) ? n : 0; };
@@ -1816,7 +1811,7 @@ export default function FNAPage() {
             {/* Main liabilities table */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-bold">💳 LIABILITIES</h3>
+                <h3 className="text-xs font-bold">💳 Liabilities</h3>
                 {!data.fnaId && (
                   <span className="text-xs text-amber-600 font-medium">
                     ⚠️ Save the FNA record first (Goals tab) before adding liabilities.
@@ -1834,7 +1829,7 @@ export default function FNAPage() {
               />
             </div>
 
-            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE</div>
+            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ Disclaimer: For Education Purpose Only. We Do Not Provide Any Legal Or Tax Advice</div>
           </div>
         )}
 
