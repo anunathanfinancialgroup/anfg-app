@@ -777,9 +777,9 @@ export default function FNAPage() {
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <button onClick={handleToggleAllCards} disabled={loading} className={btnGhost}>
-              {loading ? '⏳ Loading…' : cardsExpanded ? '🙈 Hide Cards' : '📊 Show Cards'}
+              {loading ? '⏳ Loading…' : cardsExpanded ? '📦 Hide Cards' : 'Show Cards 🗃️'}
             </button>
-            <button onClick={handleClear} className={btnGhost}>🗑 Clear</button>
+            <button onClick={handleClear} className={btnGhost}> Refresh</button>
             <button onClick={handleLogout} className={btnGhost}>Logout ➜</button>
           </div>
         </div>
@@ -1114,7 +1114,7 @@ export default function FNAPage() {
               )}
             </div>
 
-            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE</div>
+            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ Disclaimer: For Education Purpose Only. We Do Not Provide Any Legal Or Tax Advice</div>
           </div>
         )}
 
@@ -1427,7 +1427,7 @@ export default function FNAPage() {
             <div className="bg-gray-800 text-white text-center py-1.5 rounded text-xs">
               ** FBAR: Report to US Treasury if foreign accounts exceed $10K | ** FATCA: Report to IRS (Form 8938) if foreign assets exceed $50K
             </div>
-            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE</div>
+            <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ Disclaimer: For Education Purpose Only. We Do Not Provide Any Legal Or Tax Advice</div>
           </div>
         )}
       </main>
