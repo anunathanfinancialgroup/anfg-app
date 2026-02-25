@@ -512,6 +512,65 @@ export default function FNAPage() {
     <td className="border border-black px-2 py-1 text-xs text-center text-gray-400 bg-gray-50">N/A</td>
   );
 
+  // ── NoteTd ─────────────────────────────────────────────────────────────────
+  // Single-line preview → click → multi-line textarea with word-wrap
+  const NoteTd = ({
+    value, onChange, placeholder = "Add notes...", colSpan,
+  }: { value: string; onChange: (v: string) => void; placeholder?: string; colSpan?: number }) => {
+    const [editing, setEditing] = useState(false);
+    const taRef = useRef<HTMLTextAreaElement>(null);
+
+    useEffect(() => {
+      if (editing && taRef.current) {
+        taRef.current.focus();
+        const len = taRef.current.value.length;
+        taRef.current.setSelectionRange(len, len);
+        // auto-size on open
+        taRef.current.style.height = 'auto';
+        taRef.current.style.height = taRef.current.scrollHeight + 'px';
+      }
+    }, [editing]);
+
+    const autoResize = (el: HTMLTextAreaElement) => {
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    };
+
+    return (
+      <td
+        colSpan={colSpan}
+        className="border border-black p-0 align-top"
+        style={{ minWidth: 120 }}
+      >
+        {editing ? (
+          <textarea
+            ref={taRef}
+            value={value}
+            onChange={e => { onChange(e.target.value); autoResize(e.target); }}
+            onBlur={() => setEditing(false)}
+            placeholder={placeholder}
+            rows={3}
+            className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none bg-blue-50"
+            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowY: 'hidden', minHeight: 60 }}
+          />
+        ) : (
+          <div
+            onClick={() => setEditing(true)}
+            title="Click to edit"
+            className="px-2 py-1 text-xs cursor-text min-h-[26px] leading-4 hover:bg-blue-50 transition-colors"
+            style={{
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              color: value ? '#111827' : '#9CA3AF',
+            }}
+          >
+            {value || <span className="italic">{placeholder}</span>}
+          </div>
+        )}
+      </td>
+    );
+  };
+
   // Standard HIM/HER + NOTES + PRESENT cells
   const StdCells = ({
     himKey, herKey, notesKey, presentKey,
@@ -525,11 +584,7 @@ export default function FNAPage() {
         <input type="checkbox" checked={!!assets[herKey]} className="w-4 h-4"
           onChange={e => upd(herKey, e.target.checked)} />
       </td>
-      <td className="border border-black p-0">
-        <input type="text" value={assets[notesKey] as string} placeholder="Add notes..."
-          onChange={e => upd(notesKey, e.target.value)}
-          className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
-      </td>
+      <NoteTd value={assets[notesKey] as string} onChange={v => upd(notesKey, v)} />
       <td className="border border-black p-0 w-36">
         <CurrencyInput value={assets[presentKey] as number} placeholder="$0.00"
           onChange={val => upd(presentKey, val)}
@@ -723,7 +778,7 @@ export default function FNAPage() {
                       <tr key={r.n}>
                         <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{r.n}</td>
                         <td className="border border-black p-0"><input type="text" value={r.nn} placeholder="Child's name" onChange={e => setData(p => ({ ...p, [r.nf]: e.target.value }))} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
-                        <td className="border border-black p-0"><input type="text" value={r.ntv} placeholder="Add notes..." onChange={e => setData(p => ({ ...p, [r.nts]: e.target.value }))} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                        <NoteTd value={r.ntv} onChange={v => setData(p => ({ ...p, [r.nts]: v }))} />
                         <td className="border border-black p-0"><CurrencyInput value={r.av} placeholder="$0.00" onChange={val => setData(p => ({ ...p, [r.af]: val }))} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
                       </tr>
                     ))}
@@ -750,7 +805,7 @@ export default function FNAPage() {
                       <tr key={r.n}>
                         <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{r.n}</td>
                         <td className="border border-black px-2 py-1 text-xs bg-gray-50">{r.label}</td>
-                        <td className="border border-black p-0"><input type="text" value={r.ntv} placeholder="Add notes..." onChange={e => setData(p => ({ ...p, [r.nts]: e.target.value }))} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                        <NoteTd value={r.ntv} onChange={v => setData(p => ({ ...p, [r.nts]: v }))} />
                         <td className="border border-black p-0"><CurrencyInput value={r.av} placeholder="$0.00" onChange={val => setData(p => ({ ...p, [r.af]: val }))} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
                       </tr>
                     ))}
@@ -774,7 +829,7 @@ export default function FNAPage() {
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#5</td>
                       <td className="border border-black px-2 py-1 text-xs">CURRENT AGE</td>
-                      <td className="border border-black p-0"><input type="text" value={data.retirementNote1} placeholder="Add notes..." onChange={e => setData(p => ({ ...p, retirementNote1: e.target.value }))} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                      <NoteTd value={data.retirementNote1} onChange={v => setData(p => ({ ...p, retirementNote1: v }))}/>
                       <td className="border border-black p-0">
                         <select value={data.currentAge || ''} onChange={e => setData(p => ({ ...p, currentAge: parseInt(e.target.value) || 0 }))} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300">
                           <option value="">Select Age</option>
@@ -785,13 +840,13 @@ export default function FNAPage() {
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#6</td>
                       <td className="border border-black px-2 py-1 text-xs">YEARS TO RETIREMENT (65 - CURRENT AGE)</td>
-                      <td className="border border-black p-0"><input type="text" value={data.retirementNote2} placeholder="Add notes..." onChange={e => setData(p => ({ ...p, retirementNote2: e.target.value }))} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                      <NoteTd value={data.retirementNote2} onChange={v => setData(p => ({ ...p, retirementNote2: v }))}/>
                       <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{data.yearsToRetirement}</td>
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#7</td>
                       <td className="border border-black px-2 py-1 text-xs">RETIREMENT YEARS (85 - CURRENT AGE)</td>
-                      <td className="border border-black p-0"><input type="text" value={data.retirementNote3} placeholder="Add notes..." onChange={e => setData(p => ({ ...p, retirementNote3: e.target.value }))} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                      <NoteTd value={data.retirementNote3} onChange={v => setData(p => ({ ...p, retirementNote3: v }))}/>
                       <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{data.retirementYears}</td>
                     </tr>
                     <tr>
@@ -838,13 +893,13 @@ export default function FNAPage() {
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#12</td>
                       <td className="border border-black px-2 py-1 text-xs">HEALTHCARE EXPENSES</td>
-                      <td className="border border-black p-0"><input type="text" value={data.healthcareNote1} placeholder="~$315K FOR COUPLE" onChange={e => setData(p => ({ ...p, healthcareNote1: e.target.value }))} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                      <NoteTd value={data.healthcareNote1} placeholder="~$315K FOR COUPLE" onChange={v => setData(p => ({ ...p, healthcareNote1: v }))} />
                       <td className="border border-black p-0"><CurrencyInput value={data.healthcareExpenses} placeholder="$315,000.00" onChange={val => setData(p => ({ ...p, healthcareExpenses: val }))} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#13</td>
                       <td className="border border-black px-2 py-1 text-xs">LONG-TERM CARE</td>
-                      <td className="border border-black p-0"><input type="text" value={data.healthcareNote2} placeholder="3% of healthcare × years × 2" onChange={e => setData(p => ({ ...p, healthcareNote2: e.target.value }))} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                      <NoteTd value={data.healthcareNote2} placeholder="3% of healthcare × years × 2" onChange={v => setData(p => ({ ...p, healthcareNote2: v }))} />
                       <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{formatCurrency(data.longTermCare)}</td>
                     </tr>
                   </tbody>
@@ -872,7 +927,7 @@ export default function FNAPage() {
                       <tr key={r.n}>
                         <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{r.n}</td>
                         <td className="border border-black px-2 py-1 text-xs">{r.l}</td>
-                        <td className="border border-black p-0"><input type="text" value={r.nv} placeholder="Add notes..." onChange={e => setData(p => ({ ...p, [r.nf]: e.target.value }))} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                        <NoteTd value={r.nv} onChange={v => setData(p => ({ ...p, [r.nf]: v }))} />
                         <td className="border border-black p-0"><CurrencyInput value={r.av} placeholder="$0.00" onChange={val => setData(p => ({ ...p, [r.af]: val }))} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
                       </tr>
                     ))}
@@ -900,7 +955,7 @@ export default function FNAPage() {
                       <tr key={r.n}>
                         <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{r.n}</td>
                         <td className="border border-black px-2 py-1 text-xs">{r.l}</td>
-                        <td className="border border-black p-0"><input type="text" value={r.nv} placeholder="Add notes..." onChange={e => setData(p => ({ ...p, [r.nf]: e.target.value }))} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                        <NoteTd value={r.nv} onChange={v => setData(p => ({ ...p, [r.nf]: v }))} />
                         <td className="border border-black p-0"><CurrencyInput value={r.av} placeholder="$0.00" onChange={val => setData(p => ({ ...p, [r.af]: val }))} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
                       </tr>
                     ))}
@@ -1113,7 +1168,7 @@ export default function FNAPage() {
                       <td className="border border-black px-2 py-1 text-xs">WHICH COMPANY? HOW LONG?</td>
                       <td className="border border-black text-center py-1 w-12"><input type="checkbox" checked={assets.f4_him} className="w-4 h-4" onChange={e => upd('f4_him', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1 w-12"><input type="checkbox" checked={assets.f4_her} className="w-4 h-4" onChange={e => upd('f4_her', e.target.checked)} /></td>
-                      <td className="border border-black p-0 colspan-2"><input type="text" value={assets.f4_notes} placeholder="Add notes..." onChange={e => upd('f4_notes', e.target.value)} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                      <NoteTd value={assets.f4_notes} onChange={v => upd('f4_notes', v)} />
                       <td className="border border-black px-2 py-1 text-xs text-center text-gray-400 bg-gray-50">N/A</td>
                       <NAProjCell />
                     </tr>
@@ -1122,7 +1177,7 @@ export default function FNAPage() {
                       <td className="border border-black px-2 py-1 text-xs">SHORT TERM | LONG TERM DISABILITY AT WORK</td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.f5_him} className="w-4 h-4" onChange={e => upd('f5_him', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.f5_her} className="w-4 h-4" onChange={e => upd('f5_her', e.target.checked)} /></td>
-                      <td className="border border-black p-0"><input type="text" value={assets.f5_notes} placeholder="Add notes..." onChange={e => upd('f5_notes', e.target.value)} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                      <NoteTd value={assets.f5_notes} onChange={v => upd('f5_notes', v)} />
                       <NAProjCell /><NAProjCell />
                     </tr>
                     <tr>
@@ -1130,7 +1185,7 @@ export default function FNAPage() {
                       <td className="border border-black px-2 py-1 text-xs">LONG TERM CARE OUTSIDE OF WORK</td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.f6_him} className="w-4 h-4" onChange={e => upd('f6_him', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.f6_her} className="w-4 h-4" onChange={e => upd('f6_her', e.target.checked)} /></td>
-                      <td className="border border-black p-0"><input type="text" value={assets.f6_notes} placeholder="Add notes..." onChange={e => upd('f6_notes', e.target.value)} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                      <NoteTd value={assets.f6_notes} onChange={v => upd('f6_notes', v)} />
                       <NAProjCell /><NAProjCell />
                     </tr>
                     <tr>
@@ -1144,7 +1199,7 @@ export default function FNAPage() {
                       <td className="border border-black px-2 py-1 text-xs">MORTGAGE PROTECTION INSURANCE</td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.f8_him} className="w-4 h-4" onChange={e => upd('f8_him', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.f8_her} className="w-4 h-4" onChange={e => upd('f8_her', e.target.checked)} /></td>
-                      <td className="border border-black p-0"><input type="text" value={assets.f8_notes} placeholder="Add notes..." onChange={e => upd('f8_notes', e.target.value)} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                      <NoteTd value={assets.f8_notes} onChange={v => upd('f8_notes', v)} />
                       <NAProjCell /><NAProjCell />
                     </tr>
                   </tbody>
@@ -1177,7 +1232,7 @@ export default function FNAPage() {
                       <td className="border border-black px-2 py-1 text-xs">529 PLANS | STATE PRE-PAID PLANS</td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c1_c1} className="w-4 h-4" onChange={e => upd('c1_c1', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c1_c2} className="w-4 h-4" onChange={e => upd('c1_c2', e.target.checked)} /></td>
-                      <td className="border border-black p-0"><input type="text" value={assets.c1_notes} placeholder="Add notes..." onChange={e => upd('c1_notes', e.target.value)} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                      <NoteTd value={assets.c1_notes} onChange={v => upd('c1_notes', v)} />
                       <td className="border border-black p-0"><CurrencyInput value={assets.c1_present} placeholder="$0.00" onChange={val => upd('c1_present', val)} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
                       <AutoProjCell present={assets.c1_present} />
                     </tr>
@@ -1186,7 +1241,7 @@ export default function FNAPage() {
                       <td className="border border-black px-2 py-1 text-xs">WILL &amp; TRUST (ESTATE PLANNING)</td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c2_c1} className="w-4 h-4" onChange={e => upd('c2_c1', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1"><input type="checkbox" checked={assets.c2_c2} className="w-4 h-4" onChange={e => upd('c2_c2', e.target.checked)} /></td>
-                      <td className="border border-black p-0"><input type="text" value={assets.c2_notes} placeholder="Add notes..." onChange={e => upd('c2_notes', e.target.value)} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
+                      <NoteTd value={assets.c2_notes} onChange={v => upd('c2_notes', v)} />
                       <NAProjCell /><NAProjCell />
                     </tr>
                   </tbody>
