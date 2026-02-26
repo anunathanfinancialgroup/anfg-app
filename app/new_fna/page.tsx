@@ -1220,9 +1220,21 @@ export default function FNAPage() {
     if (!data.clientId || !data.clientName) { alert('Please select a client first.'); return; }
     setReportGenerating(true);
     try {
-      const jsPDFMod = await import(/* webpackIgnore: true */ 'jspdf');
-      const jsPDF = jsPDFMod.default;
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+      // Load jsPDF from CDN at runtime — avoids TypeScript/webpack errors entirely
+      const doc: any = await new Promise((resolve, reject) => {
+        if ((window as any).jspdf?.jsPDF) {
+          resolve(new (window as any).jspdf.jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }));
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script.onload = () => {
+          try { resolve(new (window as any).jspdf.jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' })); }
+          catch (e) { reject(e); }
+        };
+        script.onerror = () => reject(new Error('Failed to load jsPDF from CDN. Check internet connection.'));
+        document.head.appendChild(script);
+      });
 
       const PW = 612, PH = 792, M = 50, TW = PW - M * 2;
       const NAVY:  [number,number,number] = [26, 44, 94];
@@ -1675,13 +1687,21 @@ export default function FNAPage() {
       // ══════════════════════════════════════════════════════════════════════
       let templateMerged = false;
       try {
-        const { PDFDocument } = await import(/* webpackIgnore: true */ 'pdf-lib');
+        // Load pdf-lib from CDN at runtime
+        const PDFDocument: any = await new Promise((res, rej) => {
+          if ((window as any).PDFLib?.PDFDocument) { res((window as any).PDFLib.PDFDocument); return; }
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+          s.onload = () => (window as any).PDFLib?.PDFDocument ? res((window as any).PDFLib.PDFDocument) : rej(new Error('pdf-lib load failed'));
+          s.onerror = () => rej(new Error('pdf-lib CDN load failed'));
+          document.head.appendChild(s);
+        });
         const clientBytes = doc.output('arraybuffer');
-        const clientPdf   = await PDFDocument.load(clientBytes);
+        const clientPdf: any = await PDFDocument.load(clientBytes);
         const tplResp     = await fetch('/FNA_Report_Template.pdf');
         if (tplResp.ok) {
           const tplBytes = await tplResp.arrayBuffer();
-          const tplPdf   = await PDFDocument.load(tplBytes);
+          const tplPdf: any  = await PDFDocument.load(tplBytes);
           const tplCount = tplPdf.getPageCount();   // 12 pages in template
           // Copy pages 6-12 (0-based: indices 5-11) = template standard pages
           const idxs: number[] = [];
@@ -1757,7 +1777,7 @@ export default function FNAPage() {
       showMessage('✅ Report downloaded!', 'success');
     } catch (err: any) {
       console.error('PDF error:', err);
-      alert(`Report generation failed: ${err?.message}\n\nRequired: npm install jspdf\nFor template pages (pages 6-12): npm install pdf-lib\nPlace FNA_Report_Template.pdf in your /public folder`);
+      alert(`Report generation failed: ${err?.message}\n\nFor template pages (pages 6-12): place FNA_Report_Template.pdf in your /public folder`);
     } finally {
       setReportGenerating(false);
     }
