@@ -137,7 +137,7 @@ const initialData: FNAData = {
   currentAge: 0, yearsToRetirement: 0, retirementYears: 0,
   monthlyIncomeNeeded: 0, monthlyRetirementIncome: 0, annualRetirementIncome: 0, totalRetirementIncome: 0,
   retirementNote1: "", retirementNote2: "", retirementNote3: "",
-  healthcareExpenses: "", longTermCare: 0,
+  healthcareExpenses: 0, longTermCare: 0,
   healthcareNote1: "~$315K For Couple In Today's Dollars", healthcareNote2: "",
   travelBudget: 0, travelNotes: "", vacationHome: 0, vacationNotes: "",
   charity: 0, charityNotes: "", otherGoals: 0, otherGoalsNotes: "",
