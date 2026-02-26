@@ -1149,6 +1149,7 @@ export default function FNAPage() {
   // ── PDF Report Generation ─────────────────────────────────────────────────
   const [reportGenerating, setReportGenerating] = useState(false);
 
+  // Load logo, draw on canvas to capture proper transparency, return PNG base64
   const loadLogoBase64 = (): Promise<string | null> =>
     new Promise(resolve => {
       const img = new window.Image();
@@ -1156,62 +1157,66 @@ export default function FNAPage() {
       img.onload = () => {
         try {
           const cv = document.createElement('canvas');
-          cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+          cv.width  = img.naturalWidth  || 200;
+          cv.height = img.naturalHeight || 80;
           const ctx = cv.getContext('2d');
           if (!ctx) { resolve(null); return; }
+          // Do NOT fill background — keeps PNG transparency
+          ctx.clearRect(0, 0, cv.width, cv.height);
           ctx.drawImage(img, 0, 0);
           resolve(cv.toDataURL('image/png'));
         } catch { resolve(null); }
       };
       img.onerror = () => resolve(null);
-      img.src = '/anunathan-logo.png';
+      img.src = '/anunathan-logo.png?' + Date.now(); // cache-bust
     });
 
+  // Financial suggestions based on client data
   const buildSuggestions = (
     totAssets: number, totLiab: number, totReq: number,
     totProj: number, gapVal: number, ytr: number, intRate: number
-  ): { text: string; type: 'warn' | 'good' | 'info' }[] => {
-    const $n = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 });
-    const out: { text: string; type: 'warn' | 'good' | 'info' }[] = [];
+  ): { text: string; kind: 'warn' | 'good' | 'info' }[] => {
+    const $ = (n: number) => n.toLocaleString('en-US', { style:'currency', currency:'USD', minimumFractionDigits:0 });
+    const out: { text: string; kind: 'warn' | 'good' | 'info' }[] = [];
     const nw = totAssets - totLiab;
 
     out.push(gapVal > 0
-      ? { type:'warn', text:`SHORTFALL ALERT: A funding gap of ${$n(gapVal)} exists at your planned retirement age of ${data.plannedRetirementAge}. Increase monthly contributions, improve investment returns, or consider a later retirement date to close this gap.` }
-      : { type:'good', text:`ON TRACK: Your projected assets of ${$n(totProj)} exceed your total planning requirement of ${$n(totReq)}. Maintain current savings discipline. Consider increasing legacy or charitable goals with the surplus.` });
+      ? { kind:'warn', text:`SHORTFALL ALERT: A funding gap of ${$(gapVal)} exists at retirement age ${data.plannedRetirementAge}. Increase monthly contributions, improve investment returns, or consider a later retirement date.` }
+      : { kind:'good', text:`ON TRACK: Projected assets of ${$(totProj)} exceed the total planning requirement of ${$(totReq)}. Maintain savings discipline and consider increasing legacy goals with the surplus.` });
 
     if (totLiab > 0) {
-      const pct = ((totLiab / Math.max(totAssets, 1)) * 100).toFixed(0);
-      out.push(totLiab > totAssets * 0.5
-        ? { type:'warn', text:`HIGH DEBT-TO-ASSET RATIO (${pct}%): Liabilities exceed half your total assets. Use the debt avalanche method — pay minimums on all debts then throw extra money at the highest-interest balance first. This minimizes total interest paid.` }
-        : { type:'info', text:`DEBT MANAGEMENT: Your debt-to-asset ratio is ${pct}% with a net worth of ${$n(nw)}. Continue systematic repayments and avoid adding new high-interest debt. Redirect freed-up cash flow to retirement savings.` });
+      const pct = ((totLiab / Math.max(totAssets,1))*100).toFixed(0);
+      out.push(totLiab > totAssets*0.5
+        ? { kind:'warn', text:`HIGH DEBT-TO-ASSET RATIO (${pct}%): Liabilities exceed half of total assets. Use the debt avalanche method to systematically reduce high-interest balances and improve net worth of ${$(nw)}.` }
+        : { kind:'info', text:`DEBT MANAGEMENT: Debt-to-asset ratio is a manageable ${pct}% with net worth of ${$(nw)}. Continue structured repayments and avoid new high-interest debt.` });
     }
 
     if (data.monthlyIncomeNeeded > 0)
-      out.push({ type:'info', text:`RETIREMENT INCOME NEED: You'll need ${$n(data.monthlyRetirementIncome)}/month at retirement — today's ${$n(data.monthlyIncomeNeeded)}/month adjusted for 3% inflation over ${ytr} years. Build a diversified income stream: Social Security, IRA/401K withdrawals, and potentially dividend-paying investments.` });
+      out.push({ kind:'info', text:`RETIREMENT INCOME: You will need ${$(data.monthlyRetirementIncome)}/month at retirement - today's ${$(data.monthlyIncomeNeeded)}/month adjusted for 3% inflation over ${ytr} years. Build diversified income streams across Social Security, IRA/401K, and dividends.` });
 
     if (!assets.r1_present && !assets.r5_present && !assets.r6_present)
-      out.push({ type:'warn', text:`NO RETIREMENT ACCOUNTS RECORDED: Open a 401(K) immediately — especially if your employer matches contributions (free money you're leaving behind). Also open a Roth IRA for tax-free growth. In 2024: 401K limit $23,000 ($30,500 if 50+); Roth IRA $7,000 ($8,000 if 50+).` });
+      out.push({ kind:'warn', text:`NO RETIREMENT ACCOUNTS RECORDED: Open a 401(K) immediately - especially if your employer matches contributions. Also open a Roth IRA for tax-free growth. 2024 limits: 401K $23,000; Roth IRA $7,000.` });
     else if (!assets.r6_present)
-      out.push({ type:'info', text:`ROTH IRA OPPORTUNITY: No Roth IRA recorded. Roth contributions grow and withdraw tax-free in retirement — powerful if you expect higher income later. 2024 limit: $7,000/year ($8,000 if 50+). Consider a Roth conversion strategy if your income is lower this year.` });
+      out.push({ kind:'info', text:`ROTH IRA OPPORTUNITY: No Roth IRA recorded. Tax-free growth is powerful if you expect higher income at retirement. 2024 limit: $7,000/year ($8,000 if age 50+).` });
 
     if (!assets.f1_present && !assets.f2_present && !assets.f3_present)
-      out.push({ type:'warn', text:`LIFE INSURANCE GAP: No life insurance coverage recorded. Income replacement coverage of 10-12× your annual income protects your family. With ${ytr} years to retirement, consider Term insurance now (lower premiums) and a Permanent policy for estate transfer needs.` });
+      out.push({ kind:'warn', text:`LIFE INSURANCE GAP: No coverage recorded. Income replacement of 10-12x annual income protects your family. With ${ytr} years to retirement, consider Term insurance now and a Permanent policy for estate transfer.` });
 
-    const monthlyIncome = (assets.s6_present || 0) / 12;
-    if (monthlyIncome > 0 && (assets.s5_present || 0) < monthlyIncome * 3)
-      out.push({ type:'warn', text:`EMERGENCY FUND LOW: Current cash savings appear below the 3–6 month income threshold (target: ${$n(monthlyIncome * 6)} annually). Build this in a high-yield savings account FIRST before directing money to higher-risk investments.` });
+    const mInc = (assets.s6_present||0) / 12;
+    if (mInc > 0 && (assets.s5_present||0) < mInc*3)
+      out.push({ kind:'warn', text:`EMERGENCY FUND LOW: Cash savings appear below the 3-6 month income threshold (target: ${$(mInc*6)}). Build this in a high-yield savings account before directing funds to higher-risk investments.` });
 
-    const r72 = Math.round(72 / intRate);
-    out.push({ type:'info', text:`RULE OF 72 — COMPOUND GROWTH: At your ${intRate}% projection rate, money doubles every ${r72} years. Starting or increasing contributions today has an exponential effect — waiting even 5 years can cost hundreds of thousands in potential retirement wealth.` });
+    const r72 = Math.round(72/intRate);
+    out.push({ kind:'info', text:`RULE OF 72: At your ${intRate}% projection rate, investments double every ${r72} years. Starting or increasing contributions today has an exponential effect on retirement wealth.` });
 
     if (data.child1CollegeAmount > 0 || data.child2CollegeAmount > 0)
-      out.push({ type:'info', text:`COLLEGE SAVINGS: College funding goals total ${$n(data.child1CollegeAmount + data.child2CollegeAmount)}. Consider 529 Education Savings Plans — contributions grow and withdraw tax-free for qualified education expenses. Many states also offer state income tax deductions on contributions.` });
+      out.push({ kind:'info', text:`COLLEGE SAVINGS: Goals total ${$(data.child1CollegeAmount+data.child2CollegeAmount)}. Consider 529 Plans - contributions grow and withdraw tax-free for qualified education expenses. Many states offer additional state income tax deductions.` });
 
     if (!assets.c2_c1 && !assets.c2_c2)
-      out.push({ type:'warn', text:`ESTATE PLANNING ACTION NEEDED: No Will or Trust on record. Without these, your state's intestacy laws control asset distribution — which may not match your wishes. Consult an estate attorney to establish a Will, Living Will, and Healthcare Power of Attorney for both you and your spouse.` });
+      out.push({ kind:'warn', text:`ESTATE PLANNING NEEDED: No Will or Trust on record. Without these, state intestacy laws control asset distribution. Consult an estate attorney for a Will, Living Will, and Healthcare Power of Attorney.` });
 
-    if (data.healthcareExpenses > 0)
-      out.push({ type:'info', text:`HEALTHCARE IN RETIREMENT: Estimated healthcare costs of ${$n(data.healthcareExpenses)} represent a major planning item. Maximize your HSA contributions — the only triple-tax-advantaged account (deductible contributions, tax-free growth, tax-free medical withdrawals). 2024 limits: $4,150 individual / $8,300 family.` });
+    if (totProj > totReq && gapVal <= 0)
+      out.push({ kind:'good', text:`SURPLUS STRATEGY: Assets projected to cover ${((totProj/Math.max(totReq,1))*100).toFixed(0)}% of requirements. Consider accelerating charitable giving, increasing life insurance death benefit, or reviewing tax diversification across Traditional and Roth accounts.` });
 
     return out;
   };
@@ -1220,137 +1225,204 @@ export default function FNAPage() {
     if (!data.clientId || !data.clientName) { alert('Please select a client first.'); return; }
     setReportGenerating(true);
     try {
-      // Load jsPDF from CDN at runtime — avoids TypeScript/webpack errors entirely
+      // ── Load jsPDF from CDN (no npm install, no TypeScript errors) ─────────
       const doc: any = await new Promise((resolve, reject) => {
         if ((window as any).jspdf?.jsPDF) {
-          resolve(new (window as any).jspdf.jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }));
+          resolve(new (window as any).jspdf.jsPDF({ orientation:'portrait', unit:'pt', format:'letter' }));
           return;
         }
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-        script.onload = () => {
-          try { resolve(new (window as any).jspdf.jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' })); }
-          catch (e) { reject(e); }
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s.onload = () => {
+          try { resolve(new (window as any).jspdf.jsPDF({ orientation:'portrait', unit:'pt', format:'letter' })); }
+          catch(e) { reject(e); }
         };
-        script.onerror = () => reject(new Error('Failed to load jsPDF from CDN. Check internet connection.'));
-        document.head.appendChild(script);
+        s.onerror = () => reject(new Error('Failed to load jsPDF from CDN'));
+        document.head.appendChild(s);
       });
 
-      const PW = 612, PH = 792, M = 50, TW = PW - M * 2;
+      // ── Constants ──────────────────────────────────────────────────────────
+      const PW = 612, PH = 792, M = 50, TW = PW - M*2;
+
+      // Consistent colour palette (used throughout all pages)
       const NAVY:  [number,number,number] = [26, 44, 94];
       const LBLUE: [number,number,number] = [189, 215, 238];
       const WHITE: [number,number,number] = [255, 255, 255];
       const BLACK: [number,number,number] = [0, 0, 0];
-      const LGRAY: [number,number,number] = [245, 247, 250];
+      const LGRAY: [number,number,number] = [247, 249, 251];
+      const MGRAY: [number,number,number] = [230, 234, 238];
       const DGRAY: [number,number,number] = [100, 100, 100];
       const RED:   [number,number,number] = [180, 30, 30];
       const GRN:   [number,number,number] = [21, 128, 61];
-      const RH = 16;  // standard row height
 
-      const today = new Date();
+      // Consistent row heights
+      const HDR_H = 22;   // page header band
+      const BAN_H = 20;   // section banner height
+      const TBL_H = 18;   // table row height
+      const KV_H  = 20;   // key/value row height
+
+      const FONT = 'helvetica';  // ONE font used throughout
+
+      const today    = new Date();
       const mmddyyyy = `${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}-${today.getFullYear()}`;
-      const $f  = (n: number) => (n||0).toLocaleString('en-US', { style:'currency', currency:'USD', minimumFractionDigits:2 });
-      const yn  = (v: boolean) => v ? 'Y' : 'N';
 
+      // Currency formatter
+      const $f = (n: number) => (n||0).toLocaleString('en-US', { style:'currency', currency:'USD', minimumFractionDigits:2 });
+
+      // Y / N indicator
+      const yn = (v: boolean) => v ? 'Y' : 'N';
+
+      // CRITICAL: sanitise text — strip/replace all characters outside latin-1
+      // that jsPDF Helvetica cannot render (they cause letter-spacing corruption)
+      const S = (t: any): string => String(t ?? '')
+        .replace(/\u2212/g, '-')       // minus sign  −
+        .replace(/\u00D7/g, 'x')       // multiplication  ×
+        .replace(/\u2014/g, ' - ')     // em dash  —
+        .replace(/\u2013/g, '-')       // en dash  –
+        .replace(/\u201C|\u201D/g, '"')// curly double quotes
+        .replace(/\u2018|\u2019/g, "'")// curly apostrophes
+        .replace(/\u25B2/g, '>>')      // ▲
+        .replace(/\u25BC/g, '<<')      // ▼
+        .replace(/[^\x00-\xFF]/g, ''); // strip any other non-latin1
+
+      // ── Compute totals ─────────────────────────────────────────────────────
       const totalLiabilities = liabilityRows.reduce((s, r) => {
         const n = parseFloat(String(r.balance ?? '').replace(/[$,\s]/g, ''));
         return s + (Number.isFinite(n) ? n : 0);
       }, 0);
       const netWorth = totalPresent - totalLiabilities;
-      const Gap = data.totalRequirement - totalProjected - totalLiabilities;
+      const Gap      = data.totalRequirement - totalProjected - totalLiabilities;
       const logoData = await loadLogoBase64();
       let _pg = 0;
 
-      // ── Page top band ────────────────────────────────────────────────────
+      // ══════════════════════════════════════════════════════════════════════
+      // HELPER: page header band (logo + FLS title)
+      // returns Y position below the header
+      // ══════════════════════════════════════════════════════════════════════
       const topBar = (subtitle = ''): number => {
-        doc.setFillColor(...LBLUE); doc.rect(0, 0, PW, 34, 'F');
+        doc.setFillColor(...LBLUE);
+        doc.rect(0, 0, PW, HDR_H + 10, 'F');
+
+        // Logo (transparent PNG drawn onto white-free canvas)
         if (logoData) {
-          try { doc.addImage(logoData, 'PNG', M, 3, 56, 28); } catch {}
+          try { doc.addImage(logoData, 'PNG', M, 3, 60, HDR_H + 4); } catch {}
         } else {
-          doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...NAVY); doc.text('AnuNathan', M, 20);
+          doc.setFont(FONT,'bold'); doc.setFontSize(8); doc.setTextColor(...NAVY);
+          doc.text('AnuNathan', M, HDR_H - 2);
         }
-        doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...NAVY);
-        doc.text('FLS Document', PW/2, 22, { align:'center' });
-        doc.setFillColor(...NAVY); doc.rect(PW-M-60, 4, 60, 26, 'F');
-        doc.setFont('helvetica','bold'); doc.setFontSize(5.5); doc.setTextColor(...WHITE);
-        ['FINANCIAL','LIFESTYLE','STRATEGY'].forEach((w,i) => doc.text(w, PW-M-56, 13+i*7));
+
+        // Centre title
+        doc.setFont(FONT,'bold'); doc.setFontSize(12); doc.setTextColor(...NAVY);
+        doc.text('FLS Document', PW/2, HDR_H - 2, { align:'center' });
+
+        // FLS badge (right)
+        doc.setFillColor(...NAVY); doc.rect(PW-M-64, 4, 64, HDR_H + 4, 'F');
+        doc.setFont(FONT,'bold'); doc.setFontSize(5.5); doc.setTextColor(...WHITE);
+        doc.text('FINANCIAL',  PW-M-60, 13);
+        doc.text('LIFESTYLE',  PW-M-60, 20);
+        doc.text('STRATEGY',   PW-M-60, 27);
         doc.setTextColor(...BLACK);
+
+        // Optional subtitle (right-aligned below header)
         if (subtitle) {
-          doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...DGRAY);
-          doc.text(subtitle, PW-M, 47, { align:'right' }); doc.setTextColor(...BLACK);
+          doc.setFont(FONT,'normal'); doc.setFontSize(7.5); doc.setTextColor(...DGRAY);
+          doc.text(S(subtitle), PW-M, HDR_H + 22, { align:'right' });
+          doc.setTextColor(...BLACK);
+          return HDR_H + 28;
         }
-        return 54;
+        return HDR_H + 18;
       };
 
+      // ── Page footer ────────────────────────────────────────────────────────
       const pgFoot = () => {
         _pg++;
-        doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...DGRAY);
-        doc.text(`Page ${_pg}`, PW/2, PH-16, { align:'center' });
-        doc.text('For Education Purpose Only. Not Legal or Tax Advice.', PW/2, PH-7, { align:'center' });
+        doc.setFont(FONT,'normal'); doc.setFontSize(7); doc.setTextColor(...DGRAY);
+        doc.text(`Page ${_pg}`, PW/2, PH-18, { align:'center' });
+        doc.text('For Education Purpose Only. Not Legal or Tax Advice.', PW/2, PH-8, { align:'center' });
         doc.setTextColor(...BLACK);
       };
 
-      // Navy section banner
+      // ── Section banner (navy bg, white bold text) ──────────────────────────
       const banner = (label: string, y: number): number => {
-        doc.setFillColor(...NAVY); doc.rect(M, y, TW, 18, 'F');
-        doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
-        doc.text(label, M+7, y+12.5); doc.setTextColor(...BLACK);
-        return y + 22;
+        doc.setFillColor(...NAVY);
+        doc.rect(M, y, TW, BAN_H, 'F');
+        doc.setFont(FONT,'bold'); doc.setFontSize(9); doc.setTextColor(...WHITE);
+        doc.text(S(label), M+8, y + BAN_H*0.68);
+        doc.setTextColor(...BLACK);
+        return y + BAN_H + 6;
       };
 
-      const hr = (y: number) => { doc.setDrawColor(210,215,220); doc.setLineWidth(0.4); doc.line(M,y,PW-M,y); };
-
-      // Key:Value pair helper (2-column layout)
-      const kv = (label: string, val: string, x: number, y: number, lw = 108) => {
-        doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text(label+':', x, y);
-        doc.setFont('helvetica','normal'); doc.setFontSize(8);
-        const maxW = TW/2 - lw - 4;
-        const lines = doc.splitTextToSize(String(val||'-'), Math.max(maxW, 80));
-        doc.text(lines[0] || '-', x+lw, y);
+      // ── Horizontal rule ────────────────────────────────────────────────────
+      const hr = (y: number) => {
+        doc.setDrawColor(...MGRAY as [number,number,number]);
+        doc.setLineWidth(0.4);
+        doc.line(M, y, PW-M, y);
       };
 
-      // Table header (LBLUE background)
+      // ── Key:Value row (Confirmation of Facts layout) ───────────────────────
+      // lw = fixed pixel offset from x where value starts
+      const kv = (label: string, val: string, x: number, y: number, lw = 112) => {
+        const baseline = y + KV_H*0.62;
+        doc.setFont(FONT,'bold'); doc.setFontSize(8);
+        doc.text(S(label)+':', x, baseline);
+        doc.setFont(FONT,'normal'); doc.setFontSize(8);
+        // Clip value to avoid overflow into the next column
+        const maxW = (TW/2) - lw - 8;
+        const lines = doc.splitTextToSize(S(val||'-'), Math.max(maxW, 80));
+        doc.text(lines[0]||'-', x + lw, baseline);
+      };
+
+      // ── Table header row (LBLUE background) ───────────────────────────────
       const thead = (cells: string[], y: number, colW: number[]): number => {
-        doc.setFillColor(...LBLUE); doc.rect(M, y, TW, RH, 'F');
+        doc.setFillColor(...LBLUE);
+        doc.rect(M, y, TW, TBL_H, 'F');
         let x = M;
+        const baseline = y + TBL_H*0.7;
         cells.forEach((c, i) => {
-          doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...NAVY);
-          const isAmt = i === cells.length-1 && /value|amount|balance|payment|project/i.test(c);
-          if (isAmt) doc.text(c, x + colW[i] - 4, y + 11, { align:'right' });
-          else doc.text(c, x + 4, y + 11);
+          doc.setFont(FONT,'bold'); doc.setFontSize(7.5); doc.setTextColor(...NAVY);
+          // Last column: right-aligned if it looks like a number/amount column
+          const isAmt = i===cells.length-1 && /value|amount|balance|payment|project/i.test(c);
+          if (isAmt) doc.text(S(c), x+colW[i]-5, baseline, { align:'right' });
+          else       doc.text(S(c), x+5, baseline);
           x += colW[i];
         });
         doc.setTextColor(...BLACK);
-        return y + RH;
+        return y + TBL_H;
       };
 
-      // Table data row
-      const trow = (cells: string[], y: number, colW: number[], bold = false, bg?: [number,number,number]): number => {
-        if (bg) { doc.setFillColor(...bg); doc.rect(M, y, TW, RH, 'F'); }
+      // ── Table data row ─────────────────────────────────────────────────────
+      const trow = (
+        cells: string[], y: number, colW: number[],
+        bold = false, bg?: [number,number,number]
+      ): number => {
+        if (bg) { doc.setFillColor(...bg); doc.rect(M, y, TW, TBL_H, 'F'); }
         let x = M;
+        const baseline = y + TBL_H*0.7;
         cells.forEach((cell, i) => {
-          doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(7.5);
-          const txt = String(cell ?? '');
-          const isAmt = /^\-?\$/.test(txt.trim()) && i === cells.length-1;
-          if (isAmt) doc.text(txt, x + colW[i] - 4, y + 11, { align:'right' });
-          else {
-            const maxCW = colW[i] - 7;
-            const lines = doc.splitTextToSize(txt, maxCW);
-            doc.text(lines[0] || '', x + 4, y + 11);
+          doc.setFont(FONT, bold?'bold':'normal'); doc.setFontSize(8);
+          const txt = S(cell);
+          // Detect currency value — right-align in its column
+          const isAmt = /^-?\$/.test(txt.trim());
+          if (isAmt) {
+            doc.text(txt, x+colW[i]-5, baseline, { align:'right' });
+          } else {
+            const lines = doc.splitTextToSize(txt, colW[i]-9);
+            doc.text(lines[0]||'', x+5, baseline);
           }
           x += colW[i];
         });
-        return y + RH;
+        return y + TBL_H;
       };
 
-      // Totals row (LBLUE background, bold)
-      const totalRow = (label: string, val: string, y: number, colW: number[]): number => {
-        doc.setFillColor(...LBLUE); doc.rect(M, y, TW, RH, 'F');
-        doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...NAVY);
-        doc.text(label, M + 4, y + 11);
-        doc.text(val, M + TW - 4, y + 11, { align:'right' });
+      // ── Totals / summary row (LBLUE bg) ───────────────────────────────────
+      const totalRow = (label: string, val: string, y: number): number => {
+        doc.setFillColor(...LBLUE); doc.rect(M, y, TW, TBL_H+2, 'F');
+        const baseline = y + (TBL_H+2)*0.7;
+        doc.setFont(FONT,'bold'); doc.setFontSize(8.5); doc.setTextColor(...NAVY);
+        doc.text(S(label), M+5, baseline);
+        doc.text(S(val), M+TW-5, baseline, { align:'right' });
         doc.setTextColor(...BLACK);
-        return y + RH;
+        return y + TBL_H + 2;
       };
 
       // ══════════════════════════════════════════════════════════════════════
@@ -1358,174 +1430,204 @@ export default function FNAPage() {
       // ══════════════════════════════════════════════════════════════════════
       topBar(); pgFoot();
 
-      doc.setFillColor(...NAVY); doc.rect(M, 54, TW, 20, 'F');
-      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...WHITE);
-      doc.text('Prepared For', M+8, 67); doc.setTextColor(...BLACK);
+      // "Prepared For" band
+      doc.setFillColor(...NAVY); doc.rect(M, 46, TW, 22, 'F');
+      doc.setFont(FONT,'bold'); doc.setFontSize(9); doc.setTextColor(...WHITE);
+      doc.text('Prepared For', M+8, 61); doc.setTextColor(...BLACK);
 
-      doc.setFont('helvetica','bold'); doc.setFontSize(22);
-      doc.text(data.clientName || '—', M, 110);
+      doc.setFont(FONT,'bold'); doc.setFontSize(22);
+      doc.text(S(data.clientName||'-'), M, 106);
 
-      doc.setFillColor(...NAVY); doc.rect(M, 130, TW, 20, 'F');
-      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...WHITE);
-      doc.text('Prepared By:', M+8, 143); doc.setTextColor(...BLACK);
+      // "Prepared By" band
+      doc.setFillColor(...NAVY); doc.rect(M, 124, TW, 22, 'F');
+      doc.setFont(FONT,'bold'); doc.setFontSize(9); doc.setTextColor(...WHITE);
+      doc.text('Prepared By:', M+8, 139); doc.setTextColor(...BLACK);
 
-      doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text('Chidambaranathan Alagar', M, 176);
-      doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.text('AnuNathan Financial Group', M, 192);
-      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('Email:', M, 212);
-      doc.setFont('helvetica','normal'); doc.setTextColor(26,86,219); doc.text('chidam.alagar@gmail.com', M+34, 212); doc.setTextColor(...BLACK);
-      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('Analysis Date:', M, 228);
-      doc.setFont('helvetica','normal'); doc.text(data.analysisDate || mmddyyyy, M+74, 228);
+      doc.setFont(FONT,'bold');  doc.setFontSize(16); doc.text('Chidambaranathan Alagar', M, 172);
+      doc.setFont(FONT,'normal'); doc.setFontSize(10); doc.text('AnuNathan Financial Group', M, 188);
 
-      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('In the USA:', M, 250);
-      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-      const usL = doc.splitTextToSize('Hegemon Group International, (HGI) is a marketing company offering a vast array of products and services through a network of independent affiliates. HGI does not provide insurance products, legal or tax advice. Insurance products offered through Hegemon Financial Group (HFG); and in California, insurance products offered through Hegemon Insurance Solutions collectively HFG. HFG is licensed in all states and the District of Columbia. California License #0I0198. World Headquarters: 11405 Old Roswell Rd, Alpharetta GA 30009.', TW-42);
-      doc.text(usL, M+42, 250);
-      const uY = 250 + usL.length * 10;
-      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('In Canada:', M, uY+14);
-      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-      doc.text(doc.splitTextToSize('Hegemon Group International of Canada ULC (HGI) is a life insurance agency and marketing company offering products and services through a network of independent affiliates in Canada. Insurance products offered only in Provinces and Territories where HGI is licensed. Canada Headquarters: 2866 Portland Drive, Oakville, ON L6H5W8', TW-42), M+42, uY+14);
+      doc.setFont(FONT,'bold');  doc.setFontSize(8.5); doc.text('Email:', M, 208);
+      doc.setFont(FONT,'normal'); doc.setTextColor(26,86,219);
+      doc.text('chidam.alagar@gmail.com', M+38, 208);
+      doc.setTextColor(...BLACK);
+
+      doc.setFont(FONT,'bold');  doc.setFontSize(8.5); doc.text('Analysis Date:', M, 224);
+      doc.setFont(FONT,'normal'); doc.text(S(data.analysisDate||mmddyyyy), M+76, 224);
+
+      // Disclaimer text blocks
+      doc.setFont(FONT,'bold');  doc.setFontSize(8.5); doc.text('In the USA:', M, 248);
+      doc.setFont(FONT,'normal'); doc.setFontSize(7.5);
+      const usaL = doc.splitTextToSize('Hegemon Group International, (HGI) is a marketing company offering a vast array of products and services through a network of independent affiliates. HGI does not provide insurance products, legal or tax advice. Insurance products offered through Hegemon Financial Group (HFG); and in California, insurance products offered through Hegemon Insurance Solutions. California License #0I0198. World Headquarters: 11405 Old Roswell Rd, Alpharetta GA 30009.', TW-44);
+      doc.text(usaL, M+44, 248);
+      const uY = 248 + usaL.length*10;
+
+      doc.setFont(FONT,'bold');  doc.setFontSize(8.5); doc.text('In Canada:', M, uY+14);
+      doc.setFont(FONT,'normal'); doc.setFontSize(7.5);
+      doc.text(doc.splitTextToSize('Hegemon Group International of Canada ULC (HGI) is a life insurance agency and marketing company. Canada Headquarters: 2866 Portland Drive, Oakville, ON L6H5W8.', TW-44), M+44, uY+14);
 
       // ══════════════════════════════════════════════════════════════════════
       // PAGE 2 — Important Disclaimer
       // ══════════════════════════════════════════════════════════════════════
       doc.addPage(); let y = topBar(); pgFoot();
-      doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('Important Disclaimer', M, y+22); y += 42;
-      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
-      [
+      doc.setFont(FONT,'bold'); doc.setFontSize(15); doc.text('Important Disclaimer', M, y+22); y+=44;
+      doc.setFont(FONT,'normal'); doc.setFontSize(8.5);
+      const discParas = [
         'This analysis provides only broad, general guidelines, which may be helpful in determining your personal financial needs. It can serve as a guide for discussions with your professional advisors. Each of the recommendations in this analysis are calculated independently and are not intended to be a comprehensive financial plan.',
-        'Calculations contained in this analysis are estimates only based on the information you provided, such as the value of your assets today, and the rate at which the assets appreciate. The actual values, rates of growth, and tax rates may be significantly different from those illustrated. No guarantee can be made regarding values. These computations are not a guarantee of future performance of any asset, including insurance or other financial products.',
+        'Calculations contained in this analysis are estimates only based on the information you provided, such as the value of your assets today and the rate at which the assets appreciate. The actual values, rates of growth, and tax rates may be significantly different from those illustrated. No guarantee can be made regarding values as all rates are the hypothetical rates you provided. These computations are not a guarantee of future performance of any asset, including insurance or other financial products.',
         'No legal or accounting advice is being rendered either by this report or through any other oral or written communications. Nothing in this report is intended to be used on any tax form or to support any tax deduction. State laws vary regarding the distribution of property. You should discuss all strategies, transfers, and assumptions with your legal and tax advisors.',
         'To implement a strategy, it may be necessary to restructure the ownership of property, or change designated beneficiaries before specific will or trust provisions become effective. The transfer of a life insurance policy may not result in its removal from the estate of the prior owner for three years.',
-        'IMPORTANT: The projections or other information generated by this financial needs analysis tool regarding the likelihood of various investment outcomes are hypothetical in nature, do not reflect actual investment results and are not guarantees of future results. All investments involve risk, including the loss of principal.',
-      ].forEach(p => {
-        if (y > PH-70) { doc.addPage(); y = topBar()+24; pgFoot(); }
+        'IMPORTANT: The projections generated by this financial needs analysis tool regarding the likelihood of various investment outcomes are hypothetical in nature, do not reflect actual investment results, and are not guarantees of future results. All investments involve risk, including the loss of principal.',
+      ];
+      discParas.forEach(p => {
+        if (y > PH-72) { doc.addPage(); y = topBar()+24; pgFoot(); }
         const ls = doc.splitTextToSize(p, TW);
-        doc.text(ls, M, y); y += ls.length*11+10;
+        doc.text(ls, M, y); y += ls.length*11.5+10;
       });
 
       // ══════════════════════════════════════════════════════════════════════
       // PAGE 3 — Confirmation of Facts
       // ══════════════════════════════════════════════════════════════════════
       doc.addPage(); y = topBar(); pgFoot();
-      doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('Confirmation of Facts', M, y+22); y += 42;
+      doc.setFont(FONT,'bold'); doc.setFontSize(15); doc.text('Confirmation of Facts', M, y+22); y+=44;
 
-      const C1 = M, C2 = M + TW/2 + 8, LW = 96;
+      // Two-column layout constants
+      const C1 = M;
+      const C2 = M + TW/2 + 10;
+      const LW = 112;  // label width for kv rows
+
+      // ── Client Information ──────────────────────────────────────────────
       y = banner('Client Information', y);
       const cliRows: [string,string,string,string][] = [
-        ['Client Name',   data.clientName||'-',                 'Country',   'USA'],
-        ['Date of Birth', data.dob||data.clientDob||'-',        'State',     data.state||'-'],
-        ['Cell Phone',    data.clientPhone||'-',                'Gender',    '-'],
-        ['Email',         data.clientEmail||'-',                'Height',    'N/A'],
-        ['City / State',  `${data.city||'-'}, ${data.state||''}`.trim(),   'Weight',    '-'],
-        ['Analysis Date', data.analysisDate||mmddyyyy,          'Ret. Age',  String(data.plannedRetirementAge)],
+        ['Client Name',   data.clientName||'-',              'Country',    'USA'],
+        ['Date of Birth', S(data.dob||data.clientDob||'-'), 'State',      data.state||'-'],
+        ['Cell Phone',    data.clientPhone||'-',             'Gender',     '-'],
+        ['Email',         data.clientEmail||'-',             'Height',     'N/A'],
+        ['City / State',  `${data.city||''}, ${data.state||''}`.replace(/^,\s*/,'').trim()||'-', 'Weight', '-'],
+        ['Analysis Date', S(data.analysisDate||mmddyyyy),   'Ret. Age',   String(data.plannedRetirementAge)],
       ];
       cliRows.forEach(([l1,v1,l2,v2]) => {
-        if (y > PH-60) { doc.addPage(); y = topBar()+30; pgFoot(); }
-        kv(l1,v1,C1,y,LW); kv(l2,v2,C2,y,LW);
-        y += RH; hr(y-4);
+        if (y > PH-64) { doc.addPage(); y = topBar()+30; pgFoot(); }
+        // Light zebra for readability
+        kv(l1, v1, C1, y, LW);
+        kv(l2, v2, C2, y, LW);
+        y += KV_H;
+        hr(y-3);
       });
-      y += 12;
+      y += 14;
 
+      // ── Spouse Information ──────────────────────────────────────────────
       y = banner('Spouse Information', y);
       const spRows: [string,string,string,string][] = [
-        ['Spouse Name',  data.spouseName||'-', 'Gender',  '-'],
-        ['Date of Birth','-',                  'Height',  'N/A'],
-        ['Cell Phone',   '-',                  'Weight',  '-'],
-        ['Email',        '-',                  '',        ''],
+        ['Spouse Name',  data.spouseName||'-', 'Gender', '-'],
+        ['Date of Birth','-',                  'Height', 'N/A'],
+        ['Cell Phone',   '-',                  'Weight', '-'],
+        ['Email',        '-',                  '',       ''],
       ];
       spRows.forEach(([l1,v1,l2,v2]) => {
-        kv(l1,v1,C1,y,LW); if (l2) kv(l2,v2,C2,y,LW);
-        y += RH; hr(y-4);
+        kv(l1, v1, C1, y, LW);
+        if (l2) kv(l2, v2, C2, y, LW);
+        y += KV_H;
+        hr(y-3);
       });
+      y += 14;
 
       // ══════════════════════════════════════════════════════════════════════
       // PAGE 4 — Financial Summary
       // ══════════════════════════════════════════════════════════════════════
       doc.addPage(); y = topBar('Financial Summary'); pgFoot();
-      doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('Financial Summary', M, y+22); y += 42;
+      doc.setFont(FONT,'bold'); doc.setFontSize(15); doc.text('Financial Summary', M, y+22); y+=44;
 
-      // Summary strip (3 cols × 2 rows)
-      doc.setFillColor(...LBLUE); doc.rect(M, y, TW, 32, 'F');
-      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...NAVY);
+      // ── 6-cell summary strip (3 cols x 2 rows) ─────────────────────────
+      // Each cell: label on its own line (bold), value below (normal)
+      const SH = 42;
+      doc.setFillColor(...LBLUE); doc.rect(M, y, TW, SH, 'F');
       const T3 = TW/3;
-      const strip: [string,string][] = [
-        ['Total Assets',     $f(totalPresent)],
-        ['Annual Income',    $f(assets.s6_present||0)],
-        ['Planning Req.',    $f(data.totalRequirement)],
-        ['Total Liabilities',$f(totalLiabilities)],
-        ['Net Worth',        $f(netWorth)],
-        ['GAP @ '+data.plannedRetirementAge, $f(Gap)],
+      const cells6: [string,string][] = [
+        ['Total Assets',        $f(totalPresent)],
+        ['Annual Income',       $f(assets.s6_present||0)],
+        ['Planning Req.',       $f(data.totalRequirement)],
+        ['Total Liabilities',   $f(totalLiabilities)],
+        ['Net Worth',           $f(netWorth)],
+        [`GAP @ ${data.plannedRetirementAge}`, $f(Gap)],
       ];
-      strip.forEach(([l,v], i) => {
-        const col = i % 3, row = Math.floor(i/3);
-        doc.text(`${l}: `, M + col*T3 + 6, y + 12 + row*14);
-        doc.setFont('helvetica','normal');
-        doc.text(v, M + col*T3 + 6 + doc.getStringUnitWidth(`${l}: `) * 8 / doc.internal.scaleFactor, y + 12 + row*14);
-        doc.setFont('helvetica','bold');
+      cells6.forEach(([lbl, val], i) => {
+        const col = i%3, row = Math.floor(i/3);
+        const cx  = M + col*T3 + 7;
+        const cy1 = y + 10 + row*18;   // label baseline
+        const cy2 = cy1 + 10;           // value baseline
+        doc.setFont(FONT,'bold');   doc.setFontSize(7.5); doc.setTextColor(...NAVY);
+        doc.text(S(lbl)+':', cx, cy1);
+        doc.setFont(FONT,'normal'); doc.setFontSize(8);   doc.setTextColor(50,50,50);
+        doc.text(S(val), cx, cy2);
       });
-      doc.setTextColor(...BLACK); y += 40;
+      doc.setTextColor(...BLACK); y += SH + 12;
 
-      // Income section
+      // ── Income ─────────────────────────────────────────────────────────
       y = banner('Income', y);
       const incPairs: [string,string,string,string][] = [
-        ['Client Annual Income',       $f(assets.s6_present||0), 'Client Occupation',     '-'],
-        ['Spouse Annual Income',        '$0.00',                  'Spouse Occupation',     '-'],
-        ['Yrs Income Replacement',      String(data.yearsToRetirement||0), 'Interest Rate',  `${data.calculatedInterestPercentage}%`],
+        ['Client Annual Income',   $f(assets.s6_present||0), 'Client Occupation',   '-'],
+        ['Spouse Annual Income',   '$0.00',                   'Spouse Occupation',   '-'],
+        ['Yrs to Retirement',      String(data.yearsToRetirement||0), 'Interest Rate', `${data.calculatedInterestPercentage}%`],
       ];
       incPairs.forEach(([l1,v1,l2,v2], i) => {
-        if (i%2===0) { doc.setFillColor(...LGRAY); doc.rect(M,y,TW,RH,'F'); }
-        kv(l1,v1,C1,y,140); kv(l2,v2,C2,y,120); y+=RH; hr(y-2);
-      }); y += 10;
+        if (i%2===0) { doc.setFillColor(...LGRAY); doc.rect(M,y,TW,KV_H,'F'); }
+        kv(l1,v1,C1,y,140); kv(l2,v2,C2,y,130);
+        y+=KV_H; hr(y-3);
+      }); y+=12;
 
-      // Mortgage/Properties
+      // ── Mortgage / Properties ──────────────────────────────────────────
       y = banner('Mortgage / Properties', y);
       const morts = liabilityRows.filter(r=>String(r.liability_type||'').toLowerCase().includes('mortgage'));
-      if (morts.length===0) {
-        doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(...DGRAY);
+      if (!morts.length) {
+        doc.setFont(FONT,'italic'); doc.setFontSize(8.5); doc.setTextColor(...DGRAY);
         doc.text('No mortgage recorded.', M, y+8); doc.setTextColor(...BLACK); y+=20;
       } else {
-        const mC=[130,100,110,80,92];
-        y=thead(['Lender / Type','Balance','Monthly Payment','Int. Rate','Notes'], y, mC);
-        morts.forEach((r,i)=>{ y=trow([String(r.lender||r.liability_type||'-'),$f(Number(r.balance)||0),$f(Number(r.current_payment||r.min_payment)||0),r.interest_rate!=null?`${r.interest_rate}%`:'-',String(r.notes||'').substring(0,18)],y,mC,false,i%2===0?LGRAY:undefined); });
-      } y += 10;
+        const mC=[134,100,112,82,84];
+        y=thead(['Lender / Type','Balance','Monthly Payment','Int. Rate','Notes'],y,mC);
+        morts.forEach((r,i)=>{ y=trow([S(r.lender||r.liability_type||'-'), $f(Number(r.balance)||0), $f(Number(r.current_payment||r.min_payment)||0), r.interest_rate!=null?`${r.interest_rate}%`:'-', S(String(r.notes||'').substring(0,20))],y,mC,false,i%2===0?LGRAY:undefined); });
+      }
+      y+=12;
 
-      // Retirement summary
+      // ── Retirement ─────────────────────────────────────────────────────
       y = banner('Retirement', y);
       const retPairs: [string,string,string,string][] = [
-        ['Retirement Savings Desired',$f(data.totalRetirementIncome), 'Current Age', String(data.currentAge||'-')],
-        ['Planned Retirement Age',    String(data.plannedRetirementAge),  'Years To Retirement', String(data.yearsToRetirement||0)],
-        ['Annual Income Needed',      $f(data.annualRetirementIncome), 'Monthly (Today)',   $f(data.monthlyIncomeNeeded)],
-        ['Monthly @ Retirement (3%)', $f(data.monthlyRetirementIncome), 'Ret. Years (to 85)', String(data.retirementYears||0)],
+        ['Retirement Savings Desired', $f(data.totalRetirementIncome), 'Current Age', String(data.currentAge||'-')],
+        ['Planned Retirement Age',     String(data.plannedRetirementAge), 'Years to Retirement', String(data.yearsToRetirement||0)],
+        ['Annual Income Needed',       $f(data.annualRetirementIncome), 'Monthly (Today)',     $f(data.monthlyIncomeNeeded)],
+        ['Monthly @ Ret. (3% infl.)', $f(data.monthlyRetirementIncome), 'Retirement Years',    String(data.retirementYears||0)],
       ];
       retPairs.forEach(([l1,v1,l2,v2],i)=>{
-        if(i%2===0){doc.setFillColor(...LGRAY);doc.rect(M,y,TW,RH,'F');}
-        kv(l1,v1,C1,y,140); kv(l2,v2,C2,y,120); y+=RH; hr(y-2);
-      }); y+=10;
+        if(i%2===0){doc.setFillColor(...LGRAY);doc.rect(M,y,TW,KV_H,'F');}
+        kv(l1,v1,C1,y,145); kv(l2,v2,C2,y,130);
+        y+=KV_H; hr(y-3);
+      }); y+=12;
 
-      // Monthly Expenses
-      if (y>PH-130){doc.addPage();y=topBar('Financial Summary (cont.)')+30;pgFoot();}
-      y=banner('Monthly Expenses',y);
-      const totalMortPmt=liabilityRows.filter(r=>String(r.liability_type||'').toLowerCase().includes('mortgage')).reduce((s,r)=>s+(parseFloat(String(r.current_payment||r.min_payment||0))||0),0);
-      const expPairs:[string,string,string,string][]=[
-        ['All Mortgages',$f(totalMortPmt),'Retirement Plans',$f(data.monthlyIncomeNeeded)],
-        ['Rent','$0.00','Health Insurance','$0.00'],
-        ['Groceries','$0.00','Cell Phone','$0.00'],
-        ['Gasoline','$0.00','Entertainment','$0.00'],
-        ['Savings / Liquid','$0.00','Other','$0.00'],
+      // ── Monthly Expenses ───────────────────────────────────────────────
+      if (y>PH-130){ doc.addPage(); y=topBar('Financial Summary (cont.)')+30; pgFoot(); }
+      y = banner('Monthly Expenses', y);
+      const totalMortPmt = liabilityRows.filter(r=>String(r.liability_type||'').toLowerCase().includes('mortgage')).reduce((s,r)=>s+(parseFloat(String(r.current_payment||r.min_payment||0))||0),0);
+      const expPairs: [string,string,string,string][] = [
+        ['All Mortgages',     $f(totalMortPmt),              'Retirement Plans', $f(data.monthlyIncomeNeeded)],
+        ['Rent',              '$0.00',                        'Health Insurance', '$0.00'],
+        ['Groceries',         '$0.00',                        'Cell Phone',       '$0.00'],
+        ['Gasoline',          '$0.00',                        'Entertainment',    '$0.00'],
+        ['Savings / Liquid',  '$0.00',                        'Other',            '$0.00'],
       ];
       expPairs.forEach(([l1,v1,l2,v2],i)=>{
-        if(i%2===0){doc.setFillColor(...LGRAY);doc.rect(M,y,TW,RH,'F');}
-        kv(l1,v1,C1,y,120); kv(l2,v2,C2,y,120); y+=RH; hr(y-2);
+        if(i%2===0){doc.setFillColor(...LGRAY);doc.rect(M,y,TW,KV_H,'F');}
+        kv(l1,v1,C1,y,120); kv(l2,v2,C2,y,120);
+        y+=KV_H; hr(y-3);
       });
 
       // ══════════════════════════════════════════════════════════════════════
       // PAGE 5 — Assets Summary
       // ══════════════════════════════════════════════════════════════════════
-      doc.addPage(); y=topBar('Assets & Liabilities'); pgFoot();
-      doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('Assets Summary', M, y+22); y+=42;
+      doc.addPage(); y=topBar('Assets'); pgFoot();
+      doc.setFont(FONT,'bold'); doc.setFontSize(15); doc.text('Assets Summary', M, y+22); y+=44;
 
-      const aC=[196,34,34,100,148];
-      y=thead(['Asset Description','Him','Her','Present Value',`Projected @ ${data.plannedRetirementAge} (${data.calculatedInterestPercentage}%)`], y, aC);
+      const aC=[198,34,34,98,148];  // desc | him | her | present | projected
+      y=thead(['Asset Description','Him','Her','Present Value',`Projected @ ${data.plannedRetirementAge} (${data.calculatedInterestPercentage}%)`],y,aC);
+
       const aRows:[string,boolean,boolean,number,number][]=[
         ['Current 401K / 403B',          assets.r1_him,assets.r1_her,assets.r1_present,autoProj(assets.r1_present)],
         ['Company Match %',              assets.r2_him,assets.r2_her,assets.r2_present,0],
@@ -1541,247 +1643,279 @@ export default function FNAPage() {
         ['Stocks / MFs / Bonds / ETFs', assets.s1_him,assets.s1_her,assets.s1_present,assets.s1_proj||0],
         ['Business Ownership',           assets.s2_him,assets.s2_her,assets.s2_present,assets.s2_proj||0],
         ['Alternative Investments',      assets.s3_him,assets.s3_her,assets.s3_present,assets.s3_proj||0],
-        ['Certificate of Deposits (CD)', assets.s4_him,assets.s4_her,assets.s4_present,autoProj(assets.s4_present)],
+        ['CDs (Certificate of Deposit)', assets.s4_him,assets.s4_her,assets.s4_present,autoProj(assets.s4_present)],
         ['Cash in Bank / Emergency',     assets.s5_him,assets.s5_her,assets.s5_present,assets.s5_proj||0],
         ['Annual Household Income',      assets.s6_him,assets.s6_her,assets.s6_present,0],
         ['Annual Savings Forward',       assets.s7_him,assets.s7_her,assets.s7_present,assets.s7_proj||0],
         ['Life Insurance (Work)',        assets.f1_him,assets.f1_her,assets.f1_present,0],
         ['Life Insurance (Outside)',     assets.f2_him,assets.f2_her,assets.f2_present,assets.f2_proj||0],
-        ['Cash Value Life Ins.',         assets.f3_him,assets.f3_her,assets.f3_present,assets.f3_proj||0],
+        ['Cash Value Life Insurance',    assets.f3_him,assets.f3_her,assets.f3_present,assets.f3_proj||0],
         ['HSA',                          assets.f7_him,assets.f7_her,assets.f7_present,assets.f7_proj||0],
         ['529 College Plans',            assets.c1_c1, assets.c1_c2, assets.c1_present,assets.c1_proj||0],
         ['Foreign Real Estate',          assets.x1_him,assets.x1_her,assets.x1_present,assets.x1_proj||0],
         ['Foreign Non-Real Estate',      assets.x2_him,assets.x2_her,assets.x2_present,assets.x2_proj||0],
       ];
       aRows.forEach((r,i)=>{
-        if(y>PH-52){doc.addPage();y=topBar('Assets (cont.)')+30;pgFoot();}
-        const pv=r[3],pj=r[4];
-        y=trow([r[0],yn(r[1]),yn(r[2]),pv>0?$f(pv):'',pj>0?$f(pj):(pv>0?'N/A':'')],y,aC,false,i%2===0?LGRAY:undefined);
+        if(y>PH-50){doc.addPage();y=topBar('Assets (cont.)')+28;pgFoot();}
+        const pv=r[3], pj=r[4];
+        y=trow([S(r[0]),yn(r[1]),yn(r[2]),pv>0?$f(pv):'',pj>0?$f(pj):(pv>0?'N/A':'')],y,aC,false,i%2===0?LGRAY:undefined);
       });
-      if(y>PH-42){doc.addPage();y=topBar('Assets (cont.)')+30;pgFoot();}
-      y=totalRow('TOTAL ASSETS — Present Value / Projected',$f(totalPresent)+' / '+$f(totalProjected),y,aC);
-      y+=10;
+      if(y>PH-44){doc.addPage();y=topBar('Assets (cont.)')+28;pgFoot();}
+      // Assets totals row
+      doc.setFillColor(...LBLUE); doc.rect(M,y,TW,TBL_H+2,'F');
+      doc.setFont(FONT,'bold'); doc.setFontSize(8.5); doc.setTextColor(...NAVY);
+      doc.text('TOTAL ASSETS', M+5, y+(TBL_H+2)*0.7);
+      // Present total under 4th col
+      const pvX = M+aC[0]+aC[1]+aC[2];
+      doc.text($f(totalPresent), pvX+aC[3]-5, y+(TBL_H+2)*0.7, {align:'right'});
+      // Projected total under 5th col
+      doc.text($f(totalProjected), M+TW-5, y+(TBL_H+2)*0.7, {align:'right'});
+      doc.setTextColor(...BLACK); y+=TBL_H+2+14;
 
       // ══════════════════════════════════════════════════════════════════════
       // PAGE 6 — Liabilities (always new page)
       // ══════════════════════════════════════════════════════════════════════
       doc.addPage(); y=topBar('Liabilities'); pgFoot();
-      doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('Liabilities', M, y+22); y+=42;
+      doc.setFont(FONT,'bold'); doc.setFontSize(15); doc.text('Liabilities', M, y+22); y+=44;
 
-      if(liabilityRows.length===0){
-        doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(...DGRAY);
+      if(!liabilityRows.length){
+        doc.setFont(FONT,'italic'); doc.setFontSize(9); doc.setTextColor(...DGRAY);
         doc.text('No liabilities recorded.', M, y+8); doc.setTextColor(...BLACK); y+=22;
       } else {
-        const lC=[106,88,88,90,70,70];
-        y=thead(['Type','Description','Lender','Balance','Min Pmt/mo','Cur Pmt/mo'],y,lC);
+        const lC=[108,88,88,90,70,68];
+        y=thead(['Type','Description','Lender','Balance','Min Pmt','Cur Pmt'],y,lC);
         liabilityRows.forEach((r,i)=>{
-          if(y>PH-52){doc.addPage();y=topBar('Liabilities (cont.)')+30;pgFoot();}
-          y=trow([String(r.liability_type||'').substring(0,16),String(r.description||'-').substring(0,13),String(r.lender||'-').substring(0,13),$f(Number(r.balance)||0),$f(Number(r.min_payment)||0),$f(Number(r.current_payment)||0)],y,lC,false,i%2===0?LGRAY:undefined);
+          if(y>PH-50){doc.addPage();y=topBar('Liabilities (cont.)')+28;pgFoot();}
+          y=trow([S(String(r.liability_type||'').substring(0,16)),S(String(r.description||'-').substring(0,14)),S(String(r.lender||'-').substring(0,14)),$f(Number(r.balance)||0),$f(Number(r.min_payment)||0),$f(Number(r.current_payment)||0)],y,lC,false,i%2===0?LGRAY:undefined);
         });
-        if(y>PH-42){doc.addPage();y=topBar('Liabilities (cont.)')+30;pgFoot();}
-        y=totalRow('TOTAL LIABILITIES',$f(totalLiabilities),y,lC);
-        y+=10;
+        if(y>PH-44){doc.addPage();y=topBar('Liabilities (cont.)')+28;pgFoot();}
+        y=totalRow('TOTAL LIABILITIES', $f(totalLiabilities), y); y+=8;
       }
 
       // GAP analysis box
-      if(y>PH-78){doc.addPage();y=topBar()+30;pgFoot();}
-      const gapBg:[number,number,number]=Gap>0?[255,240,240]:[240,255,240];
-      doc.setFillColor(...gapBg); doc.rect(M,y,TW,54,'F');
-      doc.setDrawColor(...(Gap>0?RED:GRN) as [number,number,number]); doc.setLineWidth(2); doc.line(M,y,M,y+54); doc.setLineWidth(0.5);
-      doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(...BLACK);
-      doc.text(`GAP @ Retirement Age ${data.plannedRetirementAge}:`, M+10, y+16);
-      doc.setTextColor(...(Gap>0?RED:GRN));
-      doc.text($f(Gap), PW-M-8, y+16, {align:'right'}); doc.setTextColor(...BLACK);
-      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-      doc.text(`= Total Planning (${$f(data.totalRequirement)}) − Projected Assets @ ${data.plannedRetirementAge} (${$f(totalProjected)}) − Liabilities (${$f(totalLiabilities)})`, M+10, y+30);
-      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...(Gap>0?RED:GRN));
-      doc.text(Gap>0?'▲ SHORTFALL — Additional planning needed to meet retirement goals':'▼ SURPLUS — Projected assets exceed total planning requirements', M+10, y+44);
-      doc.setTextColor(...BLACK); y+=62;
+      if(y>PH-82){doc.addPage();y=topBar()+28;pgFoot();}
+      const gapBg:[number,number,number]=Gap>0?[255,238,238]:[237,253,237];
+      const gapBdr:[number,number,number]=Gap>0?RED:GRN;
+      doc.setFillColor(...gapBg); doc.rect(M,y,TW,56,'F');
+      doc.setFillColor(...gapBdr); doc.rect(M,y,5,56,'F'); // left colour bar
+      doc.setFont(FONT,'bold'); doc.setFontSize(10); doc.setTextColor(...BLACK);
+      doc.text(`GAP @ Retirement Age ${data.plannedRetirementAge}:`, M+12, y+16);
+      doc.setTextColor(...gapBdr);
+      doc.text(S($f(Gap)), PW-M-8, y+16, {align:'right'});
+      doc.setTextColor(...BLACK);
+      doc.setFont(FONT,'normal'); doc.setFontSize(7.5);
+      doc.text(S(`= Total Planning (${$f(data.totalRequirement)}) - Projected Assets @ ${data.plannedRetirementAge} (${$f(totalProjected)}) - Liabilities (${$f(totalLiabilities)})`), M+12, y+30);
+      doc.setFont(FONT,'bold'); doc.setFontSize(8.5); doc.setTextColor(...gapBdr);
+      doc.text(Gap>0?'SHORTFALL - Additional planning needed to meet retirement goals':'SURPLUS - Projected assets exceed total planning requirements', M+12, y+46);
+      doc.setTextColor(...BLACK); y+=64;
 
       // ══════════════════════════════════════════════════════════════════════
       // PAGE 7 — Financial Goals & Planning
       // ══════════════════════════════════════════════════════════════════════
       doc.addPage(); y=topBar('Financial Goals & Planning'); pgFoot();
-      doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('Financial Goals & Planning', M, y+22); y+=42;
+      doc.setFont(FONT,'bold'); doc.setFontSize(15); doc.text('Financial Goals & Planning', M, y+22); y+=44;
 
-      const gC=[32,316,164];
+      const gC=[32,322,158];  // # | description | amount
 
-      // Retirement planning table
+      // Retirement Planning
       y=banner('Retirement Planning',y);
       y=thead(['#','Description','Amount'],y,gC);
       const retGR:[string,string,string][]=[
-        ['#5','Current Age',String(data.currentAge||0)],
-        ['#6',`Years To Retirement (${data.plannedRetirementAge} − Current Age)`,String(data.yearsToRetirement||0)],
-        ['#7','Retirement Years (85 − Planned Ret. Age)',String(data.retirementYears||0)],
-        ['#8',"Monthly Income Needed (Today's Dollars)",$f(data.monthlyIncomeNeeded)],
-        ['#9','Monthly Income Needed (At Retirement @ 3%)',$f(data.monthlyRetirementIncome)],
-        ['#10','Annual Retirement Income Needed',$f(data.annualRetirementIncome)],
-        ['#11','Total Retirement Income Needed',$f(data.totalRetirementIncome)],
+        ['#5',  'Current Age',                                      String(data.currentAge||0)],
+        ['#6',  `Years To Retirement (${data.plannedRetirementAge} - Current Age)`, String(data.yearsToRetirement||0)],
+        ['#7',  'Retirement Years (85 - Planned Ret. Age)',          String(data.retirementYears||0)],
+        ['#8',  "Monthly Income Needed (Today's Dollars)",           $f(data.monthlyIncomeNeeded)],
+        ['#9',  'Monthly Income Needed (At Retirement @ 3%)',        $f(data.monthlyRetirementIncome)],
+        ['#10', 'Annual Retirement Income Needed',                   $f(data.annualRetirementIncome)],
+        ['#11', 'Total Retirement Income Needed',                    $f(data.totalRetirementIncome)],
       ];
-      retGR.forEach((r,i)=>{const last=i===retGR.length-1;y=trow(r,y,gC,last,!last&&i%2===0?LGRAY:undefined);}); y+=10;
+      retGR.forEach((r,i)=>{
+        const last=i===retGR.length-1;
+        y=trow(r,y,gC,last,!last&&i%2===0?LGRAY:undefined);
+      }); y+=12;
 
       // College & Wedding
-      if(y>PH-108){doc.addPage();y=topBar('Goals (cont.)')+30;pgFoot();}
+      if(y>PH-110){doc.addPage();y=topBar('Goals (cont.)')+28;pgFoot();}
       y=banner('College & Wedding Planning',y);
       y=thead(['#','Description','Amount'],y,gC);
-      [['#1',`Child 1 College: ${data.child1CollegeName||''}  ${data.child1CollegeNotes?'('+data.child1CollegeNotes+')':''}`,$f(data.child1CollegeAmount)],
-       ['#2',`Child 2 College: ${data.child2CollegeName||''}`,$f(data.child2CollegeAmount)],
-       ['#3',`Child 1 Wedding: ${data.child1CollegeName||''}`,$f(data.child1WeddingAmount)],
-       ['#4',`Child 2 Wedding: ${data.child2CollegeName||''}`,$f(data.child2WeddingAmount)]
-      ].forEach((r,i)=>{y=trow(r as [string,string,string],y,gC,false,i%2===0?LGRAY:undefined);}); y+=10;
+      ([
+        ['#1',`Child 1 College: ${S(data.child1CollegeName||'')}`, $f(data.child1CollegeAmount)],
+        ['#2',`Child 2 College: ${S(data.child2CollegeName||'')}`, $f(data.child2CollegeAmount)],
+        ['#3',`Child 1 Wedding: ${S(data.child1CollegeName||'')}`, $f(data.child1WeddingAmount)],
+        ['#4',`Child 2 Wedding: ${S(data.child2CollegeName||'')}`, $f(data.child2WeddingAmount)],
+      ] as [string,string,string][]).forEach((r,i)=>{
+        y=trow(r,y,gC,false,i%2===0?LGRAY:undefined);
+      }); y+=12;
 
       // Healthcare
-      if(y>PH-80){doc.addPage();y=topBar('Goals (cont.)')+30;pgFoot();}
+      if(y>PH-84){doc.addPage();y=topBar('Goals (cont.)')+28;pgFoot();}
       y=banner('Healthcare Planning',y);
       y=thead(['#','Description','Amount'],y,gC);
-      y=trow(['#12',`Healthcare Expenses  (${data.healthcareNote1})`,$f(data.healthcareExpenses)],y,gC,false,LGRAY);
-      y=trow(['#13','Long-Term Care (3% × years × 2)',$f(data.longTermCare)],y,gC); y+=10;
+      y=trow(['#12',`Healthcare Expenses  (${S(data.healthcareNote1||'')})`, $f(data.healthcareExpenses)],y,gC,false,LGRAY);
+      y=trow(['#13','Long-Term Care (3% x years x 2)',                        $f(data.longTermCare)],y,gC);
+      y+=12;
 
-      // Life Goals
-      if(y>PH-148){doc.addPage();y=topBar('Goals (cont.)')+30;pgFoot();}
+      // Life Goals & Legacy
+      if(y>PH-150){doc.addPage();y=topBar('Goals (cont.)')+28;pgFoot();}
       y=banner('Life Goals & Legacy Planning',y);
       y=thead(['#','Description','Amount'],y,gC);
-      [['#14','Travel Budget',$f(data.travelBudget)],
-       ['#15','Vacation Home',$f(data.vacationHome)],
-       ['#16','Charity / Giving',$f(data.charity)],
-       ['#17','Other Goals',$f(data.otherGoals)],
-       ['#18','Headstart Fund (Grandkids)',$f(data.headstartFund)],
-       ['#19','Family Legacy',$f(data.familyLegacy)],
-       ['#20','Family Support',$f(data.familySupport)],
-      ].forEach((r,i)=>{y=trow(r as [string,string,string],y,gC,false,i%2===0?LGRAY:undefined);}); y+=10;
+      ([
+        ['#14','Travel Budget',              $f(data.travelBudget)],
+        ['#15','Vacation Home',              $f(data.vacationHome)],
+        ['#16','Charity / Giving',           $f(data.charity)],
+        ['#17','Other Goals',                $f(data.otherGoals)],
+        ['#18','Headstart Fund (Grandkids)', $f(data.headstartFund)],
+        ['#19','Family Legacy',              $f(data.familyLegacy)],
+        ['#20','Family Support',             $f(data.familySupport)],
+      ] as [string,string,string][]).forEach((r,i)=>{
+        y=trow(r,y,gC,false,i%2===0?LGRAY:undefined);
+      }); y+=12;
 
-      if(y>PH-38){doc.addPage();y=topBar()+30;pgFoot();}
-      doc.setFillColor(255,255,153); doc.rect(M,y,TW,22,'F');
-      doc.setFont('helvetica','bold'); doc.setFontSize(10);
-      doc.text('TOTAL REQUIREMENT',M+7,y+15);
-      doc.setTextColor(21,128,61); doc.text($f(data.totalRequirement),PW-M-7,y+15,{align:'right'}); doc.setTextColor(...BLACK);
-      y+=30;
+      // Total Requirement highlight row
+      if(y>PH-38){doc.addPage();y=topBar()+28;pgFoot();}
+      doc.setFillColor(255,255,130); doc.rect(M,y,TW,TBL_H+4,'F');
+      doc.setFont(FONT,'bold'); doc.setFontSize(10); doc.setTextColor(30,80,30);
+      doc.text('TOTAL REQUIREMENT', M+7, y+(TBL_H+4)*0.7);
+      doc.text(S($f(data.totalRequirement)), M+TW-7, y+(TBL_H+4)*0.7, {align:'right'});
+      doc.setTextColor(...BLACK); y+=TBL_H+16;
 
       // ══════════════════════════════════════════════════════════════════════
-      // FINANCIAL SUGGESTIONS PAGE
+      // FINANCIAL RECOMMENDATIONS PAGE
       // ══════════════════════════════════════════════════════════════════════
       doc.addPage(); y=topBar('Financial Recommendations'); pgFoot();
-      doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('Financial Recommendations', M, y+22); y+=42;
+      doc.setFont(FONT,'bold'); doc.setFontSize(15); doc.text('Financial Recommendations', M, y+22); y+=44;
 
-      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
-      const introL=doc.splitTextToSize(`Based on the financial profile of ${data.clientName}, the following recommendations are offered as educational guidance. Please consult a qualified financial advisor before making any financial decisions.`,TW);
-      doc.text(introL,M,y); y+=introL.length*11+14;
+      doc.setFont(FONT,'normal'); doc.setFontSize(8.5);
+      const introTxt = `Based on the financial profile of ${S(data.clientName)}, the following recommendations are provided as educational guidance. Please consult a qualified financial advisor before making financial decisions.`;
+      const introL = doc.splitTextToSize(introTxt, TW);
+      doc.text(introL, M, y); y+=introL.length*11.5+14;
 
       const suggs=buildSuggestions(totalPresent,totalLiabilities,data.totalRequirement,totalProjected,Gap,data.yearsToRetirement,data.calculatedInterestPercentage);
       suggs.forEach(s=>{
-        if(y>PH-70){doc.addPage();y=topBar('Recommendations (cont.)')+30;pgFoot();}
-        const bdrClr:[number,number,number]=s.type==='warn'?[200,80,30]:s.type==='good'?[30,140,60]:[60,100,200];
-        const bgClr:[number,number,number]=s.type==='warn'?[255,243,228]:s.type==='good'?[232,252,232]:[232,242,255];
-        const sL=doc.splitTextToSize(s.text,TW-16);
+        if(y>PH-72){doc.addPage();y=topBar('Recommendations (cont.)')+28;pgFoot();}
+        const bdrClr:[number,number,number]=s.kind==='warn'?[200,80,30]:s.kind==='good'?[30,140,60]:[60,100,200];
+        const bgClr: [number,number,number]=s.kind==='warn'?[255,244,228]:s.kind==='good'?[232,252,232]:[230,240,255];
+        const sL=doc.splitTextToSize(S(s.text), TW-16);
         const boxH=sL.length*11+16;
         doc.setFillColor(...bgClr); doc.rect(M,y,TW,boxH,'F');
         doc.setFillColor(...bdrClr); doc.rect(M,y,5,boxH,'F');
-        doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...BLACK);
-        doc.text(sL,M+12,y+12);
+        doc.setFont(FONT,'normal'); doc.setFontSize(8.5); doc.setTextColor(...BLACK);
+        doc.text(sL, M+12, y+11.5);
         y+=boxH+8;
       });
 
       // ══════════════════════════════════════════════════════════════════════
-      // Attempt to merge template pages 6-12 using pdf-lib
-      // Requires: npm install pdf-lib  AND  /public/FNA_Report_Template.pdf
+      // PAGES 8-13 — Merge template pages via pdf-lib (with images)
+      //              Requires: /public/FNA_Report_Template.pdf
+      //              Fallback:  text-only standard pages
       // ══════════════════════════════════════════════════════════════════════
-      let templateMerged = false;
+      let templateMerged=false;
       try {
-        // Load pdf-lib from CDN at runtime
-        const PDFDocument: any = await new Promise((res, rej) => {
-          if ((window as any).PDFLib?.PDFDocument) { res((window as any).PDFLib.PDFDocument); return; }
-          const s = document.createElement('script');
-          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
-          s.onload = () => (window as any).PDFLib?.PDFDocument ? res((window as any).PDFLib.PDFDocument) : rej(new Error('pdf-lib load failed'));
-          s.onerror = () => rej(new Error('pdf-lib CDN load failed'));
+        const PDFDocument: any = await new Promise((res,rej)=>{
+          if((window as any).PDFLib?.PDFDocument){res((window as any).PDFLib.PDFDocument);return;}
+          const s=document.createElement('script');
+          s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+          s.onload=()=>(window as any).PDFLib?.PDFDocument?res((window as any).PDFLib.PDFDocument):rej(new Error('pdf-lib not found'));
+          s.onerror=()=>rej(new Error('pdf-lib CDN load failed'));
           document.head.appendChild(s);
         });
         const clientBytes = doc.output('arraybuffer');
         const clientPdf: any = await PDFDocument.load(clientBytes);
-        const tplResp     = await fetch('/FNA_Report_Template.pdf');
-        if (tplResp.ok) {
-          const tplBytes = await tplResp.arrayBuffer();
-          const tplPdf: any  = await PDFDocument.load(tplBytes);
-          const tplCount = tplPdf.getPageCount();   // 12 pages in template
-          // Copy pages 6-12 (0-based: indices 5-11) = template standard pages
-          const idxs: number[] = [];
-          for (let i = 5; i < Math.min(tplCount, 12); i++) idxs.push(i);
-          const copied = await clientPdf.copyPages(tplPdf, idxs);
-          copied.forEach((p: any) => clientPdf.addPage(p));
-          const finalBytes = await clientPdf.save();
-          const blob = new Blob([finalBytes], { type:'application/pdf' });
-          const url  = URL.createObjectURL(blob);
-          const a    = document.createElement('a');
-          const safe = data.clientName.replace(/[^a-zA-Z0-9 ]/g,'').replace(/\s+/g,'_');
-          a.href=url; a.download=`${safe}_${mmddyyyy}.pdf`; a.click();
+        const tplResp = await fetch('/FNA_Report_Template.pdf');
+        if(tplResp.ok){
+          const tplBytes=await tplResp.arrayBuffer();
+          const tplPdf: any=await PDFDocument.load(tplBytes);
+          const tplCount=tplPdf.getPageCount();
+          const idxs: number[]=[];
+          for(let i=5;i<Math.min(tplCount,12);i++) idxs.push(i);
+          const copied=await clientPdf.copyPages(tplPdf,idxs);
+          copied.forEach((p: any)=>clientPdf.addPage(p));
+          const finalBytes=await clientPdf.save();
+          const blob=new Blob([finalBytes],{type:'application/pdf'});
+          const url=URL.createObjectURL(blob);
+          const a=document.createElement('a');
+          const safeName=S(data.clientName).replace(/[^a-zA-Z0-9 ]/g,'').replace(/\s+/g,'_');
+          a.href=url; a.download=`${safeName}_${mmddyyyy}.pdf`; a.click();
           URL.revokeObjectURL(url);
-          templateMerged = true;
+          templateMerged=true;
         }
-      } catch (_) { /* pdf-lib not installed or template not found */ }
+      } catch(_){}
 
-      if (!templateMerged) {
-        // Fallback: text-only standard pages (no images)
+      if(!templateMerged){
+        // Fallback text-only standard pages
         const stdPgs=[
           {title:'Your Financial Lifestyle Strategies',secs:[
-            {h:null,b:'This analysis provides only broad, general guidelines to help determine your personal financial needs and serve as a guide for discussions with your professional advisors.'},
-            {h:'Estate Preservation & Legal Protection',b:'Review wills, living wills, healthcare power of attorney, and legal representation for you and your spouse. Ensure your estate plan reflects current wishes.'},
-            {h:'Debt & Credit Management',b:`Monthly Debt Payments: ${$f(liabilityRows.reduce((s,r)=>s+(parseFloat(String(r.min_payment||0))||0),0))} | Total Liabilities: ${$f(totalLiabilities)} | Net Worth: ${$f(netWorth)}`},
+            {h:'',         b:'This analysis provides broad general guidelines to help determine your personal financial needs and serve as a guide for discussions with your professional advisors.'},
+            {h:'Estate Preservation & Legal Protection', b:'Review wills, living wills, healthcare power of attorney, and legal representation for you and your spouse.'},
+            {h:'Debt & Credit Management', b:`Monthly Debt Payments: ${$f(liabilityRows.reduce((s,r)=>s+(parseFloat(String(r.min_payment||0))||0),0))} | Total Liabilities: ${$f(totalLiabilities)} | Net Worth: ${$f(netWorth)}`},
           ]},
           {title:'6 Steps to Financial Security',secs:[
-            {h:null,b:'As you move through these 6 Steps to Financial Security, your HGI Associate will guide you to suitable products and solutions to help you reach your financial goals.'},
-            {h:'Step 1 — Increase Cash Flow',b:'Earn additional income. Manage expenses. Increase monthly surplus for savings.'},
-            {h:'Step 2 — Debt Management',b:'Consolidate high-interest debt. Eliminate debt systematically.'},
-            {h:"Step 3 — Emergency Fund",b:"Build 3–6 months of income in liquid savings before investing."},
-            {h:'Step 4 — Proper Protection',b:'Insure against loss of income. Protect family assets with adequate life and disability insurance.'},
-            {h:'Step 5 — Build Wealth',b:'Invest consistently. Outpace inflation. Maximize retirement accounts.'},
-            {h:'Step 6 — Preserve Wealth',b:'Avoid probate. Reduce taxation. Create an estate plan.'},
+            {h:'',b:'As you move through these 6 Steps to Financial Security your HGI Associate will guide you to suitable products and solutions.'},
+            {h:'Step 1 - Increase Cash Flow',b:'Earn additional income. Manage expenses.'},
+            {h:'Step 2 - Debt Management',  b:'Consolidate high-interest debt. Eliminate debt systematically.'},
+            {h:'Step 3 - Emergency Fund',   b:'Build 3-6 months of income in liquid savings.'},
+            {h:'Step 4 - Proper Protection',b:'Insure against loss of income. Protect family assets.'},
+            {h:'Step 5 - Build Wealth',     b:'Invest consistently. Outpace inflation.'},
+            {h:'Step 6 - Preserve Wealth',  b:'Avoid probate. Reduce taxation. Create estate plan.'},
           ]},
           {title:'The Wealth Flow Formula',secs:[
-            {h:null,b:"The Wealth Flow Formula shows the relationship between your responsibilities and wealth. It combines two key concepts:"},
-            {h:'1. Theory of Decreasing Responsibility',b:"In early years, you need Term Life Insurance as a substitute for wealth you haven't yet accumulated. Young children, high debt, a mortgage, and college expenses mean a loss of income would be devastating."},
-            {h:'2. Law of Building Equity',b:"Over time, responsibilities decrease as wealth accumulates. In later years, Permanent Life Insurance protects against longevity, taxes, and estate transfer needs."},
+            {h:'',b:'The Wealth Flow Formula shows the relationship between your responsibilities and wealth building.'},
+            {h:'Theory of Decreasing Responsibility',b:'Term Life Insurance replaces wealth you have not yet accumulated. Young children, high debt and a mortgage mean loss of income would be devastating.'},
+            {h:'Law of Building Equity',b:'As wealth accumulates and responsibilities decrease, Permanent Life Insurance protects against longevity, taxes, and estate transfer needs.'},
           ]},
           {title:'The Rule of 72',secs:[
-            {h:null,b:'Divide 72 by your rate of return to find how many years your money takes to double. Banks use this against you — charge 8-12% on loans while paying under 1% on savings. Make it work FOR you.'},
-            {h:'Doubling Times by Rate',b:`2% = 36 years  |  4% = 18 years  |  6% = 12 years  |  8% = 9 years  |  12% = 6 years\nAt your rate of ${data.calculatedInterestPercentage}%: money doubles every ${Math.round(72/data.calculatedInterestPercentage)} years`},
+            {h:'',b:'Divide 72 by your rate of return to find how many years for money to double. Make compound interest work FOR you.'},
+            {h:'Doubling Times',b:`2% = 36 yrs | 4% = 18 yrs | 6% = 12 yrs | 8% = 9 yrs | 12% = 6 yrs\nAt ${data.calculatedInterestPercentage}%: doubles every ${Math.round(72/data.calculatedInterestPercentage)} years`},
           ]},
           {title:'Time & Consistency',secs:[
-            {h:null,b:"All it takes is the right combination of time, consistency, and the Magic of Compound Interest. Start now — every year of delay has an exponential cost."},
-            {h:'The High Cost of Waiting ($100/month @ 12%)',b:"Age 25 start → $979,307 at 65\nAge 26 start → $873,241 at 65  (Cost: $106,066)\nAge 30 start → $551,083 at 65  (Cost: $428,224)"},
+            {h:'',b:'Time, consistency, and compound interest are all it takes. Start now - every year of delay has an exponential cost.'},
+            {h:'High Cost of Waiting ($100/month at 12%)',b:'Age 25 start = $979,307 at 65\nAge 26 start = $873,241 at 65  (Cost: $106,066)\nAge 30 start = $551,083 at 65  (Cost: $428,224)'},
           ]},
           {title:'Your HGI Associate',secs:[
             {h:'HGI Associate Details',b:'Name: Chidambaranathan Alagar\nCode: CAE4E3CF\nEmail: chidam.alagar@gmail.com\nPhone: 4029578693'},
-            {h:'Advisor Notes',b:(data.notes&&!data.notes.startsWith('__ASSETS__'))?data.notes:'No advisor notes recorded.'},
-            {h:null,b:`Report for: ${data.clientName}  |  Generated: ${mmddyyyy}\nAnalysis Date: ${data.analysisDate||mmddyyyy}  |  Ret. Age: ${data.plannedRetirementAge}  |  Rate: ${data.calculatedInterestPercentage}%`},
+            {h:'Advisor Notes',b:(data.notes&&!data.notes.startsWith('__ASSETS__'))?S(data.notes):'No advisor notes recorded.'},
+            {h:'',b:`Report for: ${S(data.clientName)} | Generated: ${mmddyyyy}\nRet. Age: ${data.plannedRetirementAge} | Rate: ${data.calculatedInterestPercentage}%`},
           ]},
         ];
         stdPgs.forEach(pg=>{
           doc.addPage(); let py=topBar(); pgFoot();
-          doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...NAVY);
-          doc.text(pg.title,M,py+22); doc.setTextColor(...BLACK); py+=42;
+          doc.setFont(FONT,'bold'); doc.setFontSize(13); doc.setTextColor(...NAVY);
+          doc.text(S(pg.title),M,py+22); doc.setTextColor(...BLACK); py+=44;
           pg.secs.forEach(sec=>{
-            if(py>PH-80){doc.addPage();py=topBar()+30;pgFoot();}
+            if(py>PH-82){doc.addPage();py=topBar()+28;pgFoot();}
             if(sec.h){py=banner(sec.h,py);}
-            doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+            doc.setFont(FONT,'normal'); doc.setFontSize(8.5);
             sec.b.split('\n').forEach(line=>{
-              if(py>PH-55){doc.addPage();py=topBar()+30;pgFoot();}
-              const ll=doc.splitTextToSize(line,TW);
-              doc.text(ll,M,py); py+=ll.length*11+4;
-            }); py+=6;
+              if(py>PH-56){doc.addPage();py=topBar()+28;pgFoot();}
+              const ll=doc.splitTextToSize(S(line),TW);
+              doc.text(ll,M,py); py+=ll.length*11.5+5;
+            }); py+=8;
           });
         });
-        const safe=data.clientName.replace(/[^a-zA-Z0-9 ]/g,'').replace(/\s+/g,'_');
-        doc.save(`${safe}_${mmddyyyy}.pdf`);
+
+        // Disclaimer footer on last page
+        doc.setFillColor(30,30,30); doc.rect(M,PH-52,TW,26,'F');
+        doc.setFont(FONT,'bold'); doc.setFontSize(8); doc.setTextColor(...WHITE);
+        doc.text('DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE.', PW/2, PH-38, {align:'center'});
+        doc.setFont(FONT,'normal'); doc.setFontSize(7);
+        doc.text('All projections are hypothetical estimates. Past performance does not guarantee future results.', PW/2, PH-28, {align:'center'});
+        doc.setTextColor(...BLACK);
+
+        const safeName=S(data.clientName).replace(/[^a-zA-Z0-9 ]/g,'').replace(/\s+/g,'_');
+        doc.save(`${safeName}_${mmddyyyy}.pdf`);
       }
 
-      showMessage('✅ Report downloaded!', 'success');
-    } catch (err: any) {
-      console.error('PDF error:', err);
-      alert(`Report generation failed: ${err?.message}\n\nFor template pages (pages 6-12): place FNA_Report_Template.pdf in your /public folder`);
+      showMessage('Report downloaded!', 'success');
+    } catch(err: any){
+      console.error('PDF error:',err);
+      alert(`Report failed: ${err?.message}\n\nFor template pages: place FNA_Report_Template.pdf in /public folder`);
     } finally {
       setReportGenerating(false);
     }
   };
+
+
+
 
 
 
