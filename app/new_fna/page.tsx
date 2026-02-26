@@ -1220,7 +1220,7 @@ export default function FNAPage() {
     if (!data.clientId || !data.clientName) { alert('Please select a client first.'); return; }
     setReportGenerating(true);
     try {
-      const jsPDFMod = await import('jspdf');
+      const jsPDFMod = await import(/* webpackIgnore: true */ 'jspdf');
       const jsPDF = jsPDFMod.default;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
 
@@ -1675,7 +1675,7 @@ export default function FNAPage() {
       // ══════════════════════════════════════════════════════════════════════
       let templateMerged = false;
       try {
-        const { PDFDocument } = await import('pdf-lib');
+        const { PDFDocument } = await import(/* webpackIgnore: true */ 'pdf-lib');
         const clientBytes = doc.output('arraybuffer');
         const clientPdf   = await PDFDocument.load(clientBytes);
         const tplResp     = await fetch('/FNA_Report_Template.pdf');
