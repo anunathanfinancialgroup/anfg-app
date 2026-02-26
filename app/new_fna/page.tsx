@@ -1707,7 +1707,7 @@ export default function FNAPage() {
           const idxs: number[] = [];
           for (let i = 5; i < Math.min(tplCount, 12); i++) idxs.push(i);
           const copied = await clientPdf.copyPages(tplPdf, idxs);
-          copied.forEach(p => clientPdf.addPage(p));
+          copied.forEach((p: any) => clientPdf.addPage(p));
           const finalBytes = await clientPdf.save();
           const blob = new Blob([finalBytes], { type:'application/pdf' });
           const url  = URL.createObjectURL(blob);
