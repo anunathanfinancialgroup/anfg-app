@@ -1851,128 +1851,61 @@ export default function FNAPage() {
       });
 
       // ══════════════════════════════════════════════════════════════════════
-      // PAGES 8-13 — Merge template pages via pdf-lib (with images)
-      //              Requires: /public/FNA_Report_Template.pdf
-      //              Fallback:  text-only standard pages
       // ══════════════════════════════════════════════════════════════════════
-      let templateMerged=false;
+      // PAGES 10+ — Append all pages of /public/hgi_template.pdf unchanged
+      //              after page 9 of the generated report.
+      //              If template not found, save the 9-page report as-is.
+      // ══════════════════════════════════════════════════════════════════════
+      const safeName=S(data.clientName).replace(/[^a-zA-Z0-9 ]/g,'').replace(/\s+/g,'_');
+
+      // Load pdf-lib
+      const PDFDocument: any = await new Promise((res,rej)=>{
+        if((window as any).PDFLib?.PDFDocument){res((window as any).PDFLib.PDFDocument);return;}
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+        s.onload=()=>(window as any).PDFLib?.PDFDocument
+          ?res((window as any).PDFLib.PDFDocument)
+          :rej(new Error('pdf-lib not found after load'));
+        s.onerror=()=>rej(new Error('pdf-lib CDN load failed'));
+        document.head.appendChild(s);
+      });
+
+      // Convert jsPDF output to pdf-lib document
+      const clientBytes = doc.output('arraybuffer');
+      const clientPdf: any = await PDFDocument.load(clientBytes);
+
+      // Try to fetch and append the HGI template — all pages, unmodified
+      let finalBytes: Uint8Array;
       try {
-        const PDFDocument: any = await new Promise((res,rej)=>{
-          if((window as any).PDFLib?.PDFDocument){res((window as any).PDFLib.PDFDocument);return;}
-          const s=document.createElement('script');
-          s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
-          s.onload=()=>(window as any).PDFLib?.PDFDocument?res((window as any).PDFLib.PDFDocument):rej(new Error('pdf-lib not found'));
-          s.onerror=()=>rej(new Error('pdf-lib CDN load failed'));
-          document.head.appendChild(s);
-        });
-        const clientBytes = doc.output('arraybuffer');
-        const clientPdf: any = await PDFDocument.load(clientBytes);
-        const tplResp = await fetch('/FNA_Report_Template.pdf');
-        if(tplResp.ok){
-          const tplBytes=await tplResp.arrayBuffer();
-          const tplPdf: any=await PDFDocument.load(tplBytes);
-          const tplCount=tplPdf.getPageCount();
-          const idxs: number[]=[];
-          for(let i=5;i<Math.min(tplCount,12);i++) idxs.push(i);
-          const copied=await clientPdf.copyPages(tplPdf,idxs);
-          copied.forEach((p: any)=>clientPdf.addPage(p));
-          const finalBytes=await clientPdf.save();
-          const blob=new Blob([finalBytes],{type:'application/pdf'});
-          const url=URL.createObjectURL(blob);
-          const a=document.createElement('a');
-          const safeName=S(data.clientName).replace(/[^a-zA-Z0-9 ]/g,'').replace(/\s+/g,'_');
-          a.href=url; a.download=`${safeName}_${mmddyyyy}.pdf`; a.click();
-          URL.revokeObjectURL(url);
-          templateMerged=true;
-        }
-      } catch(_){}
-
-      if(!templateMerged){
-        // Fallback text-only standard pages
-        const stdPgs=[
-          {title:'Your Financial Lifestyle Strategies',secs:[
-            {h:'',         b:'This analysis provides broad general guidelines to help determine your personal financial needs and serve as a guide for discussions with your professional advisors.'},
-            {h:'Estate Preservation & Legal Protection', b:'Review wills, living wills, healthcare power of attorney, and legal representation for you and your spouse.'},
-            {h:'Debt & Credit Management', b:`Monthly Debt Payments: ${$f(liabilityRows.reduce((s,r)=>s+(parseFloat(String(r.min_payment||0))||0),0))} | Total Liabilities: ${$f(totalLiabilities)} | Net Worth: ${$f(netWorth)}`},
-          ]},
-          {title:'6 Steps to Financial Security',secs:[
-            {h:'',b:'As you move through these 6 Steps to Financial Security your HGI Associate will guide you to suitable products and solutions.'},
-            {h:'Step 1 - Increase Cash Flow',b:'Earn additional income. Manage expenses.'},
-            {h:'Step 2 - Debt Management',  b:'Consolidate high-interest debt. Eliminate debt systematically.'},
-            {h:'Step 3 - Emergency Fund',   b:'Build 3-6 months of income in liquid savings.'},
-            {h:'Step 4 - Proper Protection',b:'Insure against loss of income. Protect family assets.'},
-            {h:'Step 5 - Build Wealth',     b:'Invest consistently. Outpace inflation.'},
-            {h:'Step 6 - Preserve Wealth',  b:'Avoid probate. Reduce taxation. Create estate plan.'},
-          ]},
-          {title:'The Wealth Flow Formula',secs:[
-            {h:'',b:'The Wealth Flow Formula shows the relationship between your responsibilities and wealth building.'},
-            {h:'Theory of Decreasing Responsibility',b:'Term Life Insurance replaces wealth you have not yet accumulated. Young children, high debt and a mortgage mean loss of income would be devastating.'},
-            {h:'Law of Building Equity',b:'As wealth accumulates and responsibilities decrease, Permanent Life Insurance protects against longevity, taxes, and estate transfer needs.'},
-          ]},
-          {title:'The Rule of 72',secs:[
-            {h:'',b:'Divide 72 by your rate of return to find how many years for money to double. Make compound interest work FOR you.'},
-            {h:'Doubling Times',b:`2% = 36 yrs | 4% = 18 yrs | 6% = 12 yrs | 8% = 9 yrs | 12% = 6 yrs\nAt ${data.calculatedInterestPercentage}%: doubles every ${Math.round(72/data.calculatedInterestPercentage)} years`},
-          ]},
-          {title:'Time & Consistency',secs:[
-            {h:'',b:'Time, consistency, and compound interest are all it takes. Start now - every year of delay has an exponential cost.'},
-            {h:'High Cost of Waiting ($100/month at 12%)',b:'Age 25 start = $979,307 at 65\nAge 26 start = $873,241 at 65  (Cost: $106,066)\nAge 30 start = $551,083 at 65  (Cost: $428,224)'},
-          ]},
-          {title:'Your HGI Associate',secs:[
-            {h:'HGI Associate Details',b:'Name: Chidambaranathan Alagar\nCode: CAE4E3CF\nEmail: chidam.alagar@gmail.com\nPhone: 4029578693'},
-            {h:'Advisor Notes',b:(data.notes&&!data.notes.startsWith('__ASSETS__'))?S(data.notes):'No advisor notes recorded.'},
-            {h:'',b:`Report for: ${S(data.clientName)} | Generated: ${mmddyyyy}\nRet. Age: ${data.plannedRetirementAge} | Rate: ${data.calculatedInterestPercentage}%`},
-          ]},
-        ];
-        stdPgs.forEach(pg=>{
-          doc.addPage(); let py=topBar(); pgFoot();
-          // Page title
-          doc.setFont(FONT,'bold'); doc.setFontSize(13); doc.setTextColor(...NAVY);
-          doc.text(S(pg.title), M, py+18); doc.setTextColor(...BLACK); py+=32;
-
-          pg.secs.forEach(sec=>{
-            if(py>PH-70){doc.addPage();py=topBar()+18;pgFoot();}
-
-            if(sec.h){
-              // Banner — tight spacing: body text starts immediately after
-              py=banner(sec.h, py);
-              // No extra gap — body text follows directly below banner
-            } else if(sec.b){
-              // Intro paragraph (no banner) — small top margin only on first item
-              py+=4;
-            }
-
-            // Body text — compact line spacing
-            doc.setFont(FONT,'normal'); doc.setFontSize(8.5);
-            const bodyLines = sec.b.split('\n');
-            bodyLines.forEach((line, li)=>{
-              if(py>PH-48){doc.addPage();py=topBar()+18;pgFoot();}
-              const ll=doc.splitTextToSize(S(line), TW);
-              doc.text(ll, M, py);
-              // Tight line spacing: 10pt between lines within same block
-              py += ll.length*10.5 + (li<bodyLines.length-1 ? 2 : 0);
-            });
-
-            // Gap BETWEEN sections — small breathing room only
-            py += sec.h ? 10 : 8;
-          });
-        });
-
-        // Disclaimer footer on last page
-        doc.setFillColor(30,30,30); doc.rect(M,PH-52,TW,26,'F');
-        doc.setFont(FONT,'bold'); doc.setFontSize(8); doc.setTextColor(...WHITE);
-        doc.text('DISCLAIMER: FOR EDUCATION PURPOSE ONLY. WE DO NOT PROVIDE ANY LEGAL OR TAX ADVICE.', PW/2, PH-38, {align:'center'});
-        doc.setFont(FONT,'normal'); doc.setFontSize(7);
-        doc.text('All projections are hypothetical estimates. Past performance does not guarantee future results.', PW/2, PH-28, {align:'center'});
-        doc.setTextColor(...BLACK);
-
-        const safeName=S(data.clientName).replace(/[^a-zA-Z0-9 ]/g,'').replace(/\s+/g,'_');
-        doc.save(`${safeName}_${mmddyyyy}.pdf`);
+        const tplResp = await fetch('/hgi_template.pdf');
+        if(!tplResp.ok) throw new Error(`Template not found (HTTP ${tplResp.status})`);
+        const tplBytes = await tplResp.arrayBuffer();
+        const tplPdf: any = await PDFDocument.load(tplBytes);
+        const tplCount = tplPdf.getPageCount();
+        // Copy every page from the template, in order, without modification
+        const allIdxs: number[] = Array.from({length: tplCount}, (_,i)=>i);
+        const copied = await clientPdf.copyPages(tplPdf, allIdxs);
+        copied.forEach((p: any) => clientPdf.addPage(p));
+        finalBytes = await clientPdf.save();
+      } catch(tplErr: any) {
+        console.warn('hgi_template.pdf not loaded:', tplErr?.message,
+          '— saving 9-page report without template pages.');
+        finalBytes = await clientPdf.save();
       }
+
+      // Download
+      const blob = new Blob([finalBytes], {type:'application/pdf'});
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${safeName}_${mmddyyyy}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
 
       showMessage('Report downloaded!', 'success');
     } catch(err: any){
       console.error('PDF error:',err);
-      alert(`Report failed: ${err?.message}\n\nFor template pages: place FNA_Report_Template.pdf in /public folder`);
+      alert(`Report failed: ${err?.message}\n\nEnsure hgi_template.pdf is placed in your /public folder.`);
     } finally {
       setReportGenerating(false);
     }
