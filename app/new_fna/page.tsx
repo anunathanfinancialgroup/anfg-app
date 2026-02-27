@@ -228,15 +228,16 @@ function PageHeader({
   title: string; subtitle?: string; onLogout?: () => void; actions?: React.ReactNode;
 }) {
   return (
-    <header className="bg-white rounded-lg shadow-sm border border-gray-200 px-4 py-3">
+    <header className="bg-white rounded-lg shadow-sm border border-gray-200 px-4 py-2">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex-shrink-0">
+          {/* Logo — height matches the two text rows (~18px title + 4px gap + ~16px subtitle + 8px padding ≈ 56px) */}
+          <div className="flex-shrink-0" style={{ width: 100, height: 56 }}>
             <Image
               src="/anunathan-logo.png"
               alt="AnuNathan Financial Group"
-              width={64} height={64}
-              className="object-contain"
+              width={100} height={56}
+              className="object-contain w-full h-full"
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             />
           </div>
@@ -245,7 +246,7 @@ function PageHeader({
               {title}
             </div>
             {subtitle && (
-              <div className="text-sm font-semibold whitespace-nowrap mt-0.5" style={{ color: "#808000" }}>
+              <div className="text-sm font-semibold whitespace-nowrap mt-1" style={{ color: "#808000" }}>
                 {subtitle}
               </div>
             )}
