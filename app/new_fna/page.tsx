@@ -53,7 +53,7 @@ interface Client {
 interface FNAData {
   fnaId?: string;
   clientId: string; clientName: string; clientPhone: string; clientEmail: string;
-  spouseName: string; city: string; state: string; clientDob: string; analysisDate: string;
+  spouseName: string; spouseDob: string; city: string; state: string; clientDob: string; analysisDate: string;
   dob: string; notes: string; plannedRetirementAge: number; calculatedInterestPercentage: number;
   child1CollegeName: string; child1CollegeNotes: string; child1CollegeAmount: number;
   child2CollegeName: string; child2CollegeNotes: string; child2CollegeAmount: number;
@@ -127,7 +127,7 @@ interface CardVisibility {
 // ─────────────────────────────────────────────────────────────────────────────
 const initialData: FNAData = {
   clientId: "", clientName: "", clientPhone: "", clientEmail: "",
-  spouseName: "", city: "", state: "", clientDob: "",
+  spouseName: "", spouseDob: "", city: "", state: "", clientDob: "",
   analysisDate: new Date().toISOString().split('T')[0],
   dob: "", notes: "", plannedRetirementAge: 65, calculatedInterestPercentage: 6,
   child1CollegeName: "", child1CollegeNotes: "", child1CollegeAmount: 0,
@@ -533,6 +533,9 @@ NoteTd.displayName = 'NoteTd';
 export default function FNAPage() {
   const router = useRouter();
   const contentRef = useRef<HTMLDivElement>(null);
+  // Track manual edits to #6/#7 so useEffect doesn't overwrite user input
+  const ytrManualRef    = useRef(false);
+  const rYearsManualRef = useRef(false);
   const [data, setData] = useState<FNAData>(initialData);
   const [assets, setAssets] = useState<AssetsData>(initialAssets);
   const [activeTab, setActiveTab] = useState<'goals' | 'assets' | 'liabilities'>('goals');
@@ -723,7 +726,7 @@ export default function FNAPage() {
       clientId: c.id,
       clientName: `${c.first_name} ${c.last_name}`,
       clientPhone: c.phone || '', clientEmail: c.email || '',
-      spouseName: c.spouse_name || '', city: c.city || '', state: c.state || '',
+      spouseName: c.spouse_name || '', spouseDob: '', city: c.city || '', state: c.state || '',
       clientDob: c.date_of_birth || '',
       analysisDate: new Date().toISOString().split('T')[0],
       healthcareNote1: "~$315K For Couple In Today's Dollars",
@@ -807,6 +810,19 @@ export default function FNAPage() {
           if (wrapper._fna_note !== undefined) {
             setData(prev => ({ ...prev, notes: wrapper._fna_note }));
           }
+          // Restore Spouse DOB
+          if (wrapper._spouseDob !== undefined) {
+            setData(prev => ({ ...prev, spouseDob: wrapper._spouseDob || '' }));
+          }
+          // Restore manually-edited #6/#7 values
+          if (wrapper._ytrManual && wrapper._ytr !== undefined) {
+            ytrManualRef.current = true;
+            setData(prev => ({ ...prev, yearsToRetirement: wrapper._ytr }));
+          }
+          if (wrapper._rYearsManual && wrapper._rYears !== undefined) {
+            rYearsManualRef.current = true;
+            setData(prev => ({ ...prev, retirementYears: wrapper._rYears }));
+          }
         } catch {}
       }
 
@@ -846,16 +862,24 @@ export default function FNAPage() {
     } finally { setLoading(false); }
   };
 
+  // Reset manual overrides when the primary base values (age / retirement age) change
+  useEffect(() => {
+    ytrManualRef.current    = false;
+    rYearsManualRef.current = false;
+  }, [data.currentAge, data.plannedRetirementAge]);
+
   // ── Goals recalculation — uses plannedRetirementAge (dynamic, not hardcoded 65) ──
   useEffect(() => {
     const retAge = data.plannedRetirementAge || 65;
-    const ytr  = data.currentAge > 0 ? Math.max(0, retAge - data.currentAge) : 0;
-    // Retirement years: from planned retirement age to 85
-    const rYrs = data.currentAge > 0 ? Math.max(0, (retAge + 20) - data.currentAge) : 0;
+    const autoYtr  = data.currentAge > 0 ? Math.max(0, retAge - data.currentAge) : 0;
+    const autoRYrs = retAge < 85 ? 85 - retAge : 0;
+    // Use manual value if user overrode; otherwise auto-calculate
+    const ytr  = ytrManualRef.current    ? data.yearsToRetirement  : autoYtr;
+    const rYrs = rYearsManualRef.current ? data.retirementYears     : autoRYrs;
     const mri  = data.monthlyIncomeNeeded > 0 && ytr > 0
       ? data.monthlyIncomeNeeded * Math.pow(1.03, ytr) : 0;
     const ari  = mri * 12;
-    const tri  = ari * (retAge >= 85 ? 1 : 85 - retAge);
+    const tri  = ari * (rYrs > 0 ? rYrs : 1);
     const ltc  = data.healthcareExpenses * 0.03 * ((85 - retAge) * 2);
     const total =
       data.child1CollegeAmount + data.child2CollegeAmount +
@@ -864,12 +888,15 @@ export default function FNAPage() {
       data.travelBudget + data.vacationHome + data.charity + data.otherGoals +
       data.headstartFund + data.familyLegacy + data.familySupport;
     setData(prev => ({
-      ...prev, yearsToRetirement: ytr, retirementYears: 85 - retAge > 0 ? 85 - retAge : 0,
+      ...prev,
+      ...(ytrManualRef.current    ? {} : { yearsToRetirement: autoYtr }),
+      ...(rYearsManualRef.current ? {} : { retirementYears:   autoRYrs }),
       monthlyRetirementIncome: mri, annualRetirementIncome: ari,
       totalRetirementIncome: tri, longTermCare: ltc, totalRequirement: total,
     }));
   }, [
     data.currentAge, data.plannedRetirementAge, data.monthlyIncomeNeeded, data.healthcareExpenses,
+    data.yearsToRetirement, data.retirementYears,
     data.child1CollegeAmount, data.child2CollegeAmount,
     data.child1WeddingAmount, data.child2WeddingAmount,
     data.travelBudget, data.vacationHome, data.charity, data.otherGoals,
@@ -938,7 +965,7 @@ export default function FNAPage() {
 
       // Strategy 2: Save to fna_records.notes as __ASSETS__:{json}
       // Embeds user note + full assets in one field (guaranteed text column, no schema risk)
-      const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets });
+      const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob, _ytr: data.yearsToRetirement, _rYears: data.retirementYears, _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current });
       const notesWithAssets = `__ASSETS__:${notesPayload}`;
       const { error: notesErr } = await supabase.from('fna_records')
         .update({ notes: notesWithAssets, updated_at: new Date().toISOString() })
@@ -984,13 +1011,14 @@ export default function FNAPage() {
     const cSpou  = data.spouseName;
     const cCity  = data.city;
     const cSt    = data.state;
-    const cDob   = data.clientDob;
+    const cDob    = data.clientDob;
+    const cSpDob  = data.spouseDob;
 
     // Clear goals / assets / liabilities to defaults
     setAssets(initialAssets);
     setLiabilityRows([]);
     setData({ ...initialData, clientId: cId, clientName: cName, clientPhone: cPhone,
-      clientEmail: cEmail, spouseName: cSpou, city: cCity, state: cSt, clientDob: cDob });
+      clientEmail: cEmail, spouseName: cSpou, spouseDob: cSpDob, city: cCity, state: cSt, clientDob: cDob });
     setCardsExpanded(false);
     setCardVisibility(allCardsClosed);
 
@@ -1522,10 +1550,10 @@ export default function FNAPage() {
       // ── Spouse Information ──────────────────────────────────────────────
       y = banner('Spouse Information', y);
       const spRows: [string,string,string,string][] = [
-        ['Spouse Name',  data.spouseName||'-', 'Gender', '-'],
-        ['Date of Birth','-',                  'Height', 'N/A'],
-        ['Cell Phone',   '-',                  'Weight', '-'],
-        ['Email',        '-',                  '',       ''],
+        ['Spouse Name',  data.spouseName||'-',      'Gender', '-'],
+        ['Date of Birth',S(data.spouseDob||'-'),    'Height', 'N/A'],
+        ['Cell Phone',   '-',                       'Weight', '-'],
+        ['Email',        '-',                       '',       ''],
       ];
       spRows.forEach(([l1,v1,l2,v2]) => {
         kv(l1, v1, C1, y, LW);
@@ -1967,7 +1995,9 @@ export default function FNAPage() {
         {/* Client Information */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
           <h3 className="text-xs font-bold text-gray-800 mb-2 pb-1 border-b">📋 Client Information</h3>
-          <div className="grid grid-cols-3 gap-2 mb-2">
+
+          {/* Row 1: Client Name* | Phone | Email | Client DOB */}
+          <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: '2fr 1fr 1.4fr 1fr' }}>
             <div>
               <label className="block text-xs font-semibold mb-1 text-gray-600">Client Name *</label>
               <select value={data.clientId} disabled={loading}
@@ -1979,17 +2009,31 @@ export default function FNAPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1 text-gray-600">Phone Number</label>
-              <input readOnly value={data.clientPhone} className="w-full border border-gray-200 rounded px-2 py-1 text-xs bg-gray-100" />
+              <input readOnly value={data.clientPhone} className="w-full border border-gray-200 rounded px-2 py-1 text-xs bg-gray-100 truncate" />
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1 text-gray-600">Email</label>
-              <input readOnly value={data.clientEmail} className="w-full border border-gray-200 rounded px-2 py-1 text-xs bg-gray-100" />
+              <input readOnly value={data.clientEmail} className="w-full border border-gray-200 rounded px-2 py-1 text-xs bg-gray-100 truncate" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Client Date of Birth</label>
+              <input type="date" value={data.dob}
+                onChange={e => setData(p => ({ ...p, dob: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none" />
             </div>
           </div>
+
+          {/* Row 2: Spouse Name | Spouse DOB | City | State */}
           <div className="grid grid-cols-4 gap-2 mb-2">
             <div>
               <label className="block text-xs font-semibold mb-1 text-gray-600">Spouse Name</label>
               <input value={data.spouseName} onChange={e => setData(p => ({ ...p, spouseName: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Spouse Date of Birth</label>
+              <input type="date" value={data.spouseDob}
+                onChange={e => setData(p => ({ ...p, spouseDob: e.target.value }))}
                 className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none" />
             </div>
             <div>
@@ -2000,20 +2044,10 @@ export default function FNAPage() {
               <label className="block text-xs font-semibold mb-1 text-gray-600">State</label>
               <input readOnly value={data.state} className="w-full border border-gray-200 rounded px-2 py-1 text-xs bg-gray-100" />
             </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1 text-gray-600">Analysis Date</label>
-              <input type="date" value={data.analysisDate}
-                onChange={e => setData(p => ({ ...p, analysisDate: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none" />
-            </div>
           </div>
-          <div className="grid grid-cols-4 gap-2">
-            <div>
-              <label className="block text-xs font-semibold mb-1 text-gray-600">Date of Birth</label>
-              <input type="date" value={data.dob}
-                onChange={e => setData(p => ({ ...p, dob: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none" />
-            </div>
+
+          {/* Row 3: Planned Retirement Age | Interest% | Analysis Date */}
+          <div className="grid grid-cols-3 gap-2 mb-2">
             <div>
               <label className="block text-xs font-semibold mb-1 text-gray-600">Planned Retirement Age</label>
               <select value={data.plannedRetirementAge}
@@ -2031,11 +2065,24 @@ export default function FNAPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1 text-gray-600">Note</label>
-              <input type="text" value={data.notes} placeholder="Add notes..."
-                onChange={e => setData(p => ({ ...p, notes: e.target.value }))}
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Analysis Date</label>
+              <input type="date" value={data.analysisDate}
+                onChange={e => setData(p => ({ ...p, analysisDate: e.target.value }))}
                 className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none" />
             </div>
+          </div>
+
+          {/* Row 4: Note — full-width multi-line textarea */}
+          <div>
+            <label className="block text-xs font-semibold mb-1 text-gray-600">Note</label>
+            <textarea
+              value={data.notes}
+              placeholder="Add notes..."
+              rows={3}
+              onChange={e => setData(p => ({ ...p, notes: e.target.value }))}
+              className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:border-blue-500 focus:outline-none resize-y leading-relaxed"
+              style={{ minHeight: 56 }}
+            />
           </div>
           {yearsToRetirement > 0 && (
             <p className="mt-1.5 text-xs text-blue-600 font-medium">
@@ -2185,7 +2232,7 @@ export default function FNAPage() {
                         <input
                           type="number" min="0" max="99"
                           value={data.yearsToRetirement || 0}
-                          onChange={e => setData(p => ({ ...p, yearsToRetirement: parseInt(e.target.value) || 0 }))}
+                          onChange={e => { ytrManualRef.current = true; setData(p => ({ ...p, yearsToRetirement: parseInt(e.target.value) || 0 })); }}
                           className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-yellow-50"
                           title="Auto-calculated from Current Age. You may override manually."
                         />
@@ -2199,7 +2246,7 @@ export default function FNAPage() {
                         <input
                           type="number" min="0" max="99"
                           value={data.retirementYears || 0}
-                          onChange={e => setData(p => ({ ...p, retirementYears: parseInt(e.target.value) || 0 }))}
+                          onChange={e => { rYearsManualRef.current = true; setData(p => ({ ...p, retirementYears: parseInt(e.target.value) || 0 })); }}
                           className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-yellow-50"
                           title="Auto-calculated from Planned Retirement Age. You may override manually."
                         />
