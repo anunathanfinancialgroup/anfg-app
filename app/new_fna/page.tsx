@@ -78,10 +78,10 @@ interface FNAData {
 // Full asset state — all sections from the Excel sheet
 interface AssetsData {
   // ── RETIREMENT PLANNING (USA) ───────────────────────────────────────────
-  r1_him: boolean; r1_her: boolean; r1_notes: string; r1_present: number; // 401K/403B – auto
+  r1_him: boolean; r1_her: boolean; r1_notes: string; r1_present: number; r1_proj: number; // 401K/403B – calc+edit
   r2_him: boolean; r2_her: boolean; r2_notes: string; r2_present: number; // Company Match – N/A proj
-  r3_him: boolean; r3_her: boolean; r3_notes: string; r3_present: number; // Max Funding – N/A proj
-  r4_him: boolean; r4_her: boolean; r4_notes: string; r4_present: number; // Previous 401K – auto
+  r3_him: boolean; r3_her: boolean; r3_notes: string; r3_present: number; r3_proj: number; // Max Funding – editable proj
+  r4_him: boolean; r4_her: boolean; r4_notes: string; r4_present: number; r4_proj: number; // Previous 401K – calc+edit
   r5_him: boolean; r5_her: boolean; r5_notes: string; r5_present: number; // Traditional IRA – auto
   r6_him: boolean; r6_her: boolean; r6_notes: string; r6_present: number; // Roth IRA – auto
   r7_him: boolean; r7_her: boolean; r7_notes: string; r7_present: number; r7_proj: number; // ESPP/RSU – calc+edit
@@ -96,7 +96,7 @@ interface AssetsData {
   s3_him: boolean; s3_her: boolean; s3_notes: string; s3_present: number; s3_proj: number; // Alt Investments – calc+edit
   s4_him: boolean; s4_her: boolean; s4_notes: string; s4_present: number; // CDs – auto
   s5_him: boolean; s5_her: boolean; s5_notes: string; s5_present: number; s5_proj: number; // Cash in Bank – calc+edit
-  s6_him: boolean; s6_her: boolean; s6_notes: string; s6_present: number; // Annual Income – N/A proj
+  s6_him: boolean; s6_her: boolean; s6_notes: string; s6_present: number; s6_proj: number; // Annual Income – editable proj
   s7_him: boolean; s7_her: boolean; s7_notes: string; s7_present: number; s7_proj: number; // Annual Savings – manual
   // ── FAMILY PROTECTION & INSURANCE ──────────────────────────────────────
   f1_him: boolean; f1_her: boolean; f1_notes: string; f1_present: number; // Life Ins Work – N/A proj
@@ -146,10 +146,10 @@ const initialData: FNAData = {
 };
 
 const initialAssets: AssetsData = {
-  r1_him:false, r1_her:false, r1_notes:"", r1_present:0,
+  r1_him:false, r1_her:false, r1_notes:"", r1_present:0, r1_proj:0,
   r2_him:false, r2_her:false, r2_notes:"", r2_present:0,
-  r3_him:false, r3_her:false, r3_notes:"", r3_present:0,
-  r4_him:false, r4_her:false, r4_notes:"", r4_present:0,
+  r3_him:false, r3_her:false, r3_notes:"", r3_present:0, r3_proj:0,
+  r4_him:false, r4_her:false, r4_notes:"", r4_present:0, r4_proj:0,
   r5_him:false, r5_her:false, r5_notes:"", r5_present:0,
   r6_him:false, r6_her:false, r6_notes:"", r6_present:0,
   r7_him:false, r7_her:false, r7_notes:"", r7_present:0, r7_proj:0,
@@ -162,7 +162,7 @@ const initialAssets: AssetsData = {
   s3_him:false, s3_her:false, s3_notes:"", s3_present:0, s3_proj:0,
   s4_him:false, s4_her:false, s4_notes:"", s4_present:0,
   s5_him:false, s5_her:false, s5_notes:"", s5_present:0, s5_proj:0,
-  s6_him:false, s6_her:false, s6_notes:"", s6_present:0,
+  s6_him:false, s6_her:false, s6_notes:"", s6_present:0, s6_proj:0,
   s7_him:false, s7_her:false, s7_notes:"", s7_present:0, s7_proj:0,
   f1_him:false, f1_her:false, f1_notes:"", f1_present:0,
   f2_him:false, f2_her:false, f2_notes:"", f2_present:0, f2_proj:0,
@@ -654,17 +654,21 @@ export default function FNAPage() {
   }, [assets]);
 
   const totalProjected = useMemo(() => {
-    // Auto (read-only) projected rows — still using autoProj formula
+    // Auto (read-only) projected rows — using autoProj formula
     const autoRows = [
-      assets.r1_present, assets.r4_present, assets.r5_present, assets.r6_present,
+      assets.r5_present, assets.r6_present,  // Traditional IRA + Roth IRA still auto
     ].reduce((s, p) => s + autoProj(p), 0);
     // Calc+edit projected rows — user may have overridden, so use stored proj value
     const calcEditRows = [
+      assets.r1_proj,  // 401K/403B — calc+edit (was auto)
+      assets.r3_proj,  // Max Funding — editable $0 default
+      assets.r4_proj,  // Previous 401K — calc+edit (was auto)
       assets.r7_proj,  // ESPP/RSU
       assets.s1_proj,  // Stocks/MFs
       assets.s3_proj,  // Alt Investments
       assets.s4_present > 0 ? autoProj(assets.s4_present) : 0, // CDs still auto
       assets.s5_proj,  // Cash in Bank
+      assets.s6_proj,  // Annual Income — editable $0 default
       assets.f7_proj,  // HSA
       assets.c1_proj,  // 529 Plans
       // Real Estate
@@ -951,7 +955,7 @@ export default function FNAPage() {
           current_401k_her: assets.r1_her,
           current_401k_notes: `__FNA_ASSETS_JSON__:${assetsJson}`,
           current_401k_present_value: assets.r1_present,
-          current_401k_projected_value: autoProj(assets.r1_present),
+          current_401k_projected_value: assets.r1_proj || autoProj(assets.r1_present),
         }, { onConflict: 'fna_id' });
       } catch { /* silent — strategies 1+2 cover this */ }
 
@@ -1629,10 +1633,10 @@ export default function FNAPage() {
       y=thead(['Asset Description','Him','Her','Present Value',`Projected @ ${data.plannedRetirementAge} (${data.calculatedInterestPercentage}%)`],y,aC);
 
       const aRows:[string,boolean,boolean,number,number][]=[
-        ['Current 401K / 403B',          assets.r1_him,assets.r1_her,assets.r1_present,autoProj(assets.r1_present)],
+        ['Current 401K / 403B',          assets.r1_him,assets.r1_her,assets.r1_present,assets.r1_proj||autoProj(assets.r1_present)],
         ['Company Match %',              assets.r2_him,assets.r2_her,assets.r2_present,0],
-        ['Max Funding (~$23K)?',         assets.r3_him,assets.r3_her,assets.r3_present,0],
-        ['Previous 401K / Rollover',     assets.r4_him,assets.r4_her,assets.r4_present,autoProj(assets.r4_present)],
+        ['Max Funding (~$23K)?',         assets.r3_him,assets.r3_her,assets.r3_present,assets.r3_proj||0],
+        ['Previous 401K / Rollover',     assets.r4_him,assets.r4_her,assets.r4_present,assets.r4_proj||autoProj(assets.r4_present)],
         ['Traditional IRA / SEP-IRA',   assets.r5_him,assets.r5_her,assets.r5_present,autoProj(assets.r5_present)],
         ['Roth IRA / Roth 401K',         assets.r6_him,assets.r6_her,assets.r6_present,autoProj(assets.r6_present)],
         ['ESPP / RSU / Annuities',       assets.r7_him,assets.r7_her,assets.r7_present,assets.r7_proj||0],
@@ -1645,7 +1649,7 @@ export default function FNAPage() {
         ['Alternative Investments',      assets.s3_him,assets.s3_her,assets.s3_present,assets.s3_proj||0],
         ['CDs (Certificate of Deposit)', assets.s4_him,assets.s4_her,assets.s4_present,autoProj(assets.s4_present)],
         ['Cash in Bank / Emergency',     assets.s5_him,assets.s5_her,assets.s5_present,assets.s5_proj||0],
-        ['Annual Household Income',      assets.s6_him,assets.s6_her,assets.s6_present,0],
+        ['Annual Household Income',      assets.s6_him,assets.s6_her,assets.s6_present,assets.s6_proj||0],
         ['Annual Savings Forward',       assets.s7_him,assets.s7_her,assets.s7_present,assets.s7_proj||0],
         ['Life Insurance (Work)',        assets.f1_him,assets.f1_her,assets.f1_present,0],
         ['Life Insurance (Outside)',     assets.f2_him,assets.f2_her,assets.f2_present,assets.f2_proj||0],
@@ -1879,17 +1883,35 @@ export default function FNAPage() {
         ];
         stdPgs.forEach(pg=>{
           doc.addPage(); let py=topBar(); pgFoot();
+          // Page title
           doc.setFont(FONT,'bold'); doc.setFontSize(13); doc.setTextColor(...NAVY);
-          doc.text(S(pg.title),M,py+22); doc.setTextColor(...BLACK); py+=44;
+          doc.text(S(pg.title), M, py+18); doc.setTextColor(...BLACK); py+=32;
+
           pg.secs.forEach(sec=>{
-            if(py>PH-82){doc.addPage();py=topBar()+28;pgFoot();}
-            if(sec.h){py=banner(sec.h,py);}
+            if(py>PH-70){doc.addPage();py=topBar()+18;pgFoot();}
+
+            if(sec.h){
+              // Banner — tight spacing: body text starts immediately after
+              py=banner(sec.h, py);
+              // No extra gap — body text follows directly below banner
+            } else if(sec.b){
+              // Intro paragraph (no banner) — small top margin only on first item
+              py+=4;
+            }
+
+            // Body text — compact line spacing
             doc.setFont(FONT,'normal'); doc.setFontSize(8.5);
-            sec.b.split('\n').forEach(line=>{
-              if(py>PH-56){doc.addPage();py=topBar()+28;pgFoot();}
-              const ll=doc.splitTextToSize(S(line),TW);
-              doc.text(ll,M,py); py+=ll.length*11.5+5;
-            }); py+=8;
+            const bodyLines = sec.b.split('\n');
+            bodyLines.forEach((line, li)=>{
+              if(py>PH-48){doc.addPage();py=topBar()+18;pgFoot();}
+              const ll=doc.splitTextToSize(S(line), TW);
+              doc.text(ll, M, py);
+              // Tight line spacing: 10pt between lines within same block
+              py += ll.length*10.5 + (li<bodyLines.length-1 ? 2 : 0);
+            });
+
+            // Gap BETWEEN sections — small breathing room only
+            py += sec.h ? 10 : 8;
           });
         });
 
@@ -2159,13 +2181,29 @@ export default function FNAPage() {
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#6</td>
                       <td className="border border-black px-2 py-1 text-xs">Years To Retirement ({data.plannedRetirementAge} - Current Age)</td>
                       <NoteTd value={data.retirementNote2} onChange={v => setData(p => ({ ...p, retirementNote2: v }))}/>
-                      <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{data.yearsToRetirement}</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="number" min="0" max="99"
+                          value={data.yearsToRetirement || 0}
+                          onChange={e => setData(p => ({ ...p, yearsToRetirement: parseInt(e.target.value) || 0 }))}
+                          className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-yellow-50"
+                          title="Auto-calculated from Current Age. You may override manually."
+                        />
+                      </td>
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#7</td>
                       <td className="border border-black px-2 py-1 text-xs">Retirement Years (85 - {data.plannedRetirementAge})</td>
                       <NoteTd value={data.retirementNote3} onChange={v => setData(p => ({ ...p, retirementNote3: v }))}/>
-                      <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{data.retirementYears}</td>
+                      <td className="border border-black p-0">
+                        <input
+                          type="number" min="0" max="99"
+                          value={data.retirementYears || 0}
+                          onChange={e => setData(p => ({ ...p, retirementYears: parseInt(e.target.value) || 0 }))}
+                          className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-yellow-50"
+                          title="Auto-calculated from Planned Retirement Age. You may override manually."
+                        />
+                      </td>
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#8</td>
@@ -2313,12 +2351,11 @@ export default function FNAPage() {
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
                   <AssetTHead projLabel="Projected Value" />
                   <tbody>
-                    {/* r1 – 401K auto */}
+                    {/* r1 – 401K calc+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#1</td>
                       <td className="border border-black px-2 py-1 text-xs">Current 401K | 403B</td>
-                      {stdCells("r1_him","r1_her","r1_notes","r1_present")}
-                      <AutoProjCell present={assets.r1_present} />
+                      {stdCellsCalc("r1_him","r1_her","r1_notes","r1_present","r1_proj")}
                     </tr>
                     {/* r2 – Company Match N/A proj */}
                     <tr>
@@ -2327,19 +2364,18 @@ export default function FNAPage() {
                       {stdCells("r2_him","r2_her","r2_notes","r2_present")}
                       <NAProjCell />
                     </tr>
-                    {/* r3 – Max Funding N/A proj */}
+                    {/* r3 – Max Funding editable proj */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#3</td>
                       <td className="border border-black px-2 py-1 text-xs">Are You Max Funding (~$22.5K)?</td>
                       {stdCells("r3_him","r3_her","r3_notes","r3_present")}
-                      <NAProjCell />
+                      {manualProjCell("r3_proj")}
                     </tr>
-                    {/* r4 – Prev 401K auto */}
+                    {/* r4 – Prev 401K calc+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#4</td>
                       <td className="border border-black px-2 py-1 text-xs">Previous 401K | Rollover 401K</td>
-                      {stdCells("r4_him","r4_her","r4_notes","r4_present")}
-                      <AutoProjCell present={assets.r4_present} />
+                      {stdCellsCalc("r4_him","r4_her","r4_notes","r4_present","r4_proj")}
                     </tr>
                     {/* r5 – Traditional IRA auto */}
                     <tr>
@@ -2431,7 +2467,7 @@ export default function FNAPage() {
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#17</td>
                       <td className="border border-black px-2 py-1 text-xs">Annual House-Hold Income</td>
                       {stdCells("s6_him","s6_her","s6_notes","s6_present")}
-                      <NAProjCell />
+                      {manualProjCell("s6_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#18</td>
@@ -2485,7 +2521,7 @@ export default function FNAPage() {
                       <td className="border border-black text-center py-1 w-12"><input type="checkbox" checked={assets.f4_him} className="w-4 h-4" onChange={e => upd('f4_him', e.target.checked)} /></td>
                       <td className="border border-black text-center py-1 w-12"><input type="checkbox" checked={assets.f4_her} className="w-4 h-4" onChange={e => upd('f4_her', e.target.checked)} /></td>
                       <NoteTd value={assets.f4_notes} onChange={v => upd('f4_notes', v)} />
-                      <td className="border border-black px-2 py-1 text-xs text-center text-gray-400 bg-gray-50">N/A</td>
+                      <NAProjCell />
                       <NAProjCell />
                     </tr>
                     <tr>
