@@ -533,9 +533,10 @@ NoteTd.displayName = 'NoteTd';
 export default function FNAPage() {
   const router = useRouter();
   const contentRef = useRef<HTMLDivElement>(null);
-  // Track manual edits to #6/#7 so useEffect doesn't overwrite user input
+  // Track manual edits to #6/#7/#13 so useEffect doesn't overwrite user input
   const ytrManualRef    = useRef(false);
   const rYearsManualRef = useRef(false);
+  const ltcManualRef    = useRef(false);
   const [data, setData] = useState<FNAData>(initialData);
   const [assets, setAssets] = useState<AssetsData>(initialAssets);
   const [activeTab, setActiveTab] = useState<'goals' | 'assets' | 'liabilities'>('goals');
@@ -823,6 +824,11 @@ export default function FNAPage() {
             rYearsManualRef.current = true;
             setData(prev => ({ ...prev, retirementYears: wrapper._rYears }));
           }
+          // Restore manually-edited #13 Long-Term Care
+          if (wrapper._ltcManual && wrapper._ltc !== undefined) {
+            ltcManualRef.current = true;
+            setData(prev => ({ ...prev, longTermCare: wrapper._ltc }));
+          }
         } catch {}
       }
 
@@ -862,11 +868,16 @@ export default function FNAPage() {
     } finally { setLoading(false); }
   };
 
-  // Reset manual overrides when the primary base values (age / retirement age) change
+  // Reset manual overrides when the primary base values change
   useEffect(() => {
     ytrManualRef.current    = false;
     rYearsManualRef.current = false;
   }, [data.currentAge, data.plannedRetirementAge]);
+
+  // Reset ltc manual override when healthcare base values change
+  useEffect(() => {
+    ltcManualRef.current = false;
+  }, [data.healthcareExpenses, data.plannedRetirementAge]);
 
   // ── Goals recalculation — uses plannedRetirementAge (dynamic, not hardcoded 65) ──
   useEffect(() => {
@@ -880,7 +891,8 @@ export default function FNAPage() {
       ? data.monthlyIncomeNeeded * Math.pow(1.03, ytr) : 0;
     const ari  = mri * 12;
     const tri  = ari * (rYrs > 0 ? rYrs : 1);
-    const ltc  = data.healthcareExpenses * 0.03 * ((85 - retAge) * 2);
+    const autoLtc = data.healthcareExpenses * 0.03 * ((85 - retAge) * 2);
+    const ltc = ltcManualRef.current ? data.longTermCare : autoLtc;
     const total =
       data.child1CollegeAmount + data.child2CollegeAmount +
       data.child1WeddingAmount + data.child2WeddingAmount +
@@ -891,12 +903,13 @@ export default function FNAPage() {
       ...prev,
       ...(ytrManualRef.current    ? {} : { yearsToRetirement: autoYtr }),
       ...(rYearsManualRef.current ? {} : { retirementYears:   autoRYrs }),
+      ...(ltcManualRef.current    ? {} : { longTermCare: autoLtc }),
       monthlyRetirementIncome: mri, annualRetirementIncome: ari,
-      totalRetirementIncome: tri, longTermCare: ltc, totalRequirement: total,
+      totalRetirementIncome: tri, totalRequirement: total,
     }));
   }, [
     data.currentAge, data.plannedRetirementAge, data.monthlyIncomeNeeded, data.healthcareExpenses,
-    data.yearsToRetirement, data.retirementYears,
+    data.yearsToRetirement, data.retirementYears, data.longTermCare,
     data.child1CollegeAmount, data.child2CollegeAmount,
     data.child1WeddingAmount, data.child2WeddingAmount,
     data.travelBudget, data.vacationHome, data.charity, data.otherGoals,
@@ -965,7 +978,7 @@ export default function FNAPage() {
 
       // Strategy 2: Save to fna_records.notes as __ASSETS__:{json}
       // Embeds user note + full assets in one field (guaranteed text column, no schema risk)
-      const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob, _ytr: data.yearsToRetirement, _rYears: data.retirementYears, _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current });
+      const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob, _ytr: data.yearsToRetirement, _rYears: data.retirementYears, _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current, _ltc: data.longTermCare, _ltcManual: ltcManualRef.current });
       const notesWithAssets = `__ASSETS__:${notesPayload}`;
       const { error: notesErr } = await supabase.from('fna_records')
         .update({ notes: notesWithAssets, updated_at: new Date().toISOString() })
@@ -2303,7 +2316,17 @@ export default function FNAPage() {
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#13</td>
                       <td className="border border-black px-2 py-1 text-xs">Long-Term Care</td>
                       <NoteTd value={data.healthcareNote2} placeholder="3% of healthcare × years × 2" onChange={v => setData(p => ({ ...p, healthcareNote2: v }))} />
-                      <td className="border border-black px-2 py-1 text-xs text-right font-semibold bg-gray-100">{formatCurrency(data.longTermCare)}</td>
+                      <td className="border border-black p-0">
+                        <CurrencyInput
+                          value={data.longTermCare}
+                          placeholder="$0.00"
+                          onChange={val => {
+                            ltcManualRef.current = true;
+                            setData(p => ({ ...p, longTermCare: val }));
+                          }}
+                          className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-yellow-50"
+                        />
+                      </td>
                     </tr>
                   </tbody>
                 </table>
