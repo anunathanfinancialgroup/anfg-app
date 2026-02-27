@@ -235,7 +235,7 @@ function PageHeader({
           <div className="flex-shrink-0" style={{ width: 100, height: 56 }}>
             <Image
               src="/anunathan-logo.png"
-              alt="AnuNathan Financial Group"
+              alt="AnNa Financial Group"
               width={100} height={56}
               className="object-contain w-full h-full"
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
@@ -1238,7 +1238,7 @@ export default function FNAPage() {
     }
 
     if (data.monthlyIncomeNeeded > 0)
-      out.push({ kind:'info', text:`RETIREMENT INCOME: You will need ${$(data.monthlyRetirementIncome)}/month at retirement - today's ${$(data.monthlyIncomeNeeded)}/month adjusted for 3% inflation over ${ytr} years. Build diversified income streams across Social Security, IRA/401K, and dividends.` });
+      out.push({ kind:'info', text:`RETIREMENT INCOME: You will need ${$(data.monthlyRetirementIncome)}/month at retirement (today's ${$(data.monthlyIncomeNeeded)}/month, adjusted 3% inflation, ${ytr} years). A properly structured Indexed Universal Life (IUL) policy and Fixed Indexed Annuity (FIA) can provide tax-advantaged, guaranteed lifetime income. Consider funding an IUL now for tax-free retirement distributions and explore annuity options to ensure you never outlive your income.` });
 
     if (!assets.r1_present && !assets.r5_present && !assets.r6_present)
       out.push({ kind:'warn', text:`NO RETIREMENT ACCOUNTS RECORDED: Open a 401(K) immediately - especially if your employer matches contributions. Also open a Roth IRA for tax-free growth. 2024 limits: 401K $23,000; Roth IRA $7,000.` });
@@ -1354,7 +1354,7 @@ export default function FNAPage() {
           try { doc.addImage(logoData, 'PNG', M, 3, 60, HDR_H + 4); } catch {}
         } else {
           doc.setFont(FONT,'bold'); doc.setFontSize(8); doc.setTextColor(...NAVY);
-          doc.text('AnuNathan', M, HDR_H - 2);
+          doc.text('AnNa Financial Group', M, HDR_H - 2);
         }
 
         // Centre title
@@ -1481,7 +1481,7 @@ export default function FNAPage() {
       doc.setFont(FONT,'bold'); doc.setFontSize(9); doc.setTextColor(...WHITE);
       doc.text('Prepared For', M+8, 61); doc.setTextColor(...BLACK);
 
-      doc.setFont(FONT,'bold'); doc.setFontSize(22);
+      doc.setFont(FONT,'bold'); doc.setFontSize(16);
       doc.text(S(data.clientName||'-'), M, 106);
 
       // "Prepared By" band
@@ -1489,8 +1489,8 @@ export default function FNAPage() {
       doc.setFont(FONT,'bold'); doc.setFontSize(9); doc.setTextColor(...WHITE);
       doc.text('Prepared By:', M+8, 139); doc.setTextColor(...BLACK);
 
-      doc.setFont(FONT,'bold');  doc.setFontSize(16); doc.text('Chidambaranathan Alagar', M, 172);
-      doc.setFont(FONT,'normal'); doc.setFontSize(10); doc.text('AnuNathan Financial Group', M, 188);
+      doc.setFont(FONT,'bold');  doc.setFontSize(12); doc.text('Chidambaranathan Alagar', M, 172);
+      doc.setFont(FONT,'normal'); doc.setFontSize(10); doc.text('AnNa Financial Group', M, 188);
 
       doc.setFont(FONT,'bold');  doc.setFontSize(8.5); doc.text('Email:', M, 208);
       doc.setFont(FONT,'normal'); doc.setTextColor(26,86,219);
@@ -1503,13 +1503,14 @@ export default function FNAPage() {
       // Disclaimer text blocks
       doc.setFont(FONT,'bold');  doc.setFontSize(8.5); doc.text('In the USA:', M, 248);
       doc.setFont(FONT,'normal'); doc.setFontSize(7.5);
-      const usaL = doc.splitTextToSize('Hegemon Group International, (HGI) is a marketing company offering a vast array of products and services through a network of independent affiliates. HGI does not provide insurance products, legal or tax advice. Insurance products offered through Hegemon Financial Group (HFG); and in California, insurance products offered through Hegemon Insurance Solutions. California License #0I0198. World Headquarters: 11405 Old Roswell Rd, Alpharetta GA 30009.', TW-44);
-      doc.text(usaL, M+44, 248);
-      const uY = 248 + usaL.length*10;
+      const usaL = doc.splitTextToSize('Hegemon Group International, (HGI) is a marketing company offering a vast array of products and services through a network of independent affiliates. HGI does not provide insurance products, legal or tax advice. Insurance products offered through Hegemon Financial Group (HFG); and in California, insurance products offered through Hegemon Insurance Solutions. California License #0I0198. World Headquarters: 11405 Old Roswell Rd, Alpharetta GA 30009.', TW-16);
+      doc.text(usaL, M+16, 260);
+      const uY = 260 + usaL.length*10;
 
       doc.setFont(FONT,'bold');  doc.setFontSize(8.5); doc.text('In Canada:', M, uY+14);
       doc.setFont(FONT,'normal'); doc.setFontSize(7.5);
-      doc.text(doc.splitTextToSize('Hegemon Group International of Canada ULC (HGI) is a life insurance agency and marketing company. Canada Headquarters: 2866 Portland Drive, Oakville, ON L6H5W8.', TW-44), M+44, uY+14);
+      const canL = doc.splitTextToSize('Hegemon Group International of Canada ULC (HGI) is a life insurance agency and marketing company. Canada Headquarters: 2866 Portland Drive, Oakville, ON L6H5W8.', TW-16);
+      doc.text(canL, M+16, uY+26);
 
       // ══════════════════════════════════════════════════════════════════════
       // PAGE 2 — Important Disclaimer
@@ -1852,9 +1853,10 @@ export default function FNAPage() {
 
       // ══════════════════════════════════════════════════════════════════════
       // ══════════════════════════════════════════════════════════════════════
-      // PAGES 10+ — Append all pages of /public/hgi_template.pdf unchanged
-      //              after page 9 of the generated report.
-      //              If template not found, save the 9-page report as-is.
+      // TEMPLATE APPEND — Insert all /public/hgi_template.pdf pages after
+      //   page 8 of the generated report (pages 1-8 = FNA data pages).
+      //   Extra overflow pages, if any, follow the template pages.
+      //   If template not found, save the generated report as-is.
       // ══════════════════════════════════════════════════════════════════════
       const safeName=S(data.clientName).replace(/[^a-zA-Z0-9 ]/g,'').replace(/\s+/g,'_');
 
@@ -1874,22 +1876,43 @@ export default function FNAPage() {
       const clientBytes = doc.output('arraybuffer');
       const clientPdf: any = await PDFDocument.load(clientBytes);
 
-      // Try to fetch and append the HGI template — all pages, unmodified
+      // Try to fetch and insert the HGI template after page 8 (index 7),
+      // then any overflow pages follow. If template missing, save as-is.
       let finalBytes: Uint8Array;
       try {
         const tplResp = await fetch('/hgi_template.pdf');
         if(!tplResp.ok) throw new Error(`Template not found (HTTP ${tplResp.status})`);
         const tplBytes = await tplResp.arrayBuffer();
-        const tplPdf: any = await PDFDocument.load(tplBytes);
-        const tplCount = tplPdf.getPageCount();
-        // Copy every page from the template, in order, without modification
-        const allIdxs: number[] = Array.from({length: tplCount}, (_,i)=>i);
-        const copied = await clientPdf.copyPages(tplPdf, allIdxs);
-        copied.forEach((p: any) => clientPdf.addPage(p));
-        finalBytes = await clientPdf.save();
+        const tplPdf: any  = await PDFDocument.load(tplBytes);
+        const tplCount      = tplPdf.getPageCount();
+
+        const totalGenPages = clientPdf.getPageCount();
+        const splitAt       = Math.min(8, totalGenPages); // insert after page 8 (or last page)
+
+        // Build a new PDF: pages 1-8 of generated + all template + remaining generated
+        const mergedPdf: any  = await PDFDocument.create();
+
+        // Part A: first 8 generated pages
+        const firstIdxs: number[] = Array.from({length: splitAt}, (_,i)=>i);
+        const firstPages = await mergedPdf.copyPages(clientPdf, firstIdxs);
+        firstPages.forEach((p: any) => mergedPdf.addPage(p));
+
+        // Part B: all template pages — unmodified, as-is
+        const tplIdxs: number[] = Array.from({length: tplCount}, (_,i)=>i);
+        const tplPages = await mergedPdf.copyPages(tplPdf, tplIdxs);
+        tplPages.forEach((p: any) => mergedPdf.addPage(p));
+
+        // Part C: any overflow generated pages beyond page 8
+        if(totalGenPages > splitAt) {
+          const restIdxs: number[] = Array.from({length: totalGenPages - splitAt}, (_,i)=>i+splitAt);
+          const restPages = await mergedPdf.copyPages(clientPdf, restIdxs);
+          restPages.forEach((p: any) => mergedPdf.addPage(p));
+        }
+
+        finalBytes = await mergedPdf.save();
       } catch(tplErr: any) {
         console.warn('hgi_template.pdf not loaded:', tplErr?.message,
-          '— saving 9-page report without template pages.');
+          '— saving generated report without template pages.');
         finalBytes = await clientPdf.save();
       }
 
@@ -2576,7 +2599,7 @@ export default function FNAPage() {
                       <th className="border border-black px-2 py-1 text-xs font-bold">Notes</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-36">Present Value</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-44 whitespace-nowrap">
-                        PROJECTED VALUE @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
+                        Projected Value @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
                       </th>
                     </tr>
                   </thead>
