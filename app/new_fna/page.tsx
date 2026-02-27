@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from '@supabase/supabase-js';
+import HGI_TEMPLATE_B64 from "./hgi_template_b64";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -1853,68 +1854,58 @@ export default function FNAPage() {
 
       // ══════════════════════════════════════════════════════════════════════
       // ══════════════════════════════════════════════════════════════════════
-      // TEMPLATE APPEND — Insert all /public/hgi_template.pdf pages after
-      //   page 8 of the generated report (pages 1-8 = FNA data pages).
-      //   Extra overflow pages, if any, follow the template pages.
-      //   If template not found, save the generated report as-is.
+      // TEMPLATE MERGE — hgi_template.pdf embedded as base64 (always available).
+      //   Structure: FNA pages 1-8 → ALL template pages (unmodified) → overflow FNA pages.
       // ══════════════════════════════════════════════════════════════════════
       const safeName=S(data.clientName).replace(/[^a-zA-Z0-9 ]/g,'').replace(/\s+/g,'_');
 
-      // Load pdf-lib
+      // Load pdf-lib from CDN
       const PDFDocument: any = await new Promise((res,rej)=>{
         if((window as any).PDFLib?.PDFDocument){res((window as any).PDFLib.PDFDocument);return;}
         const s=document.createElement('script');
         s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
         s.onload=()=>(window as any).PDFLib?.PDFDocument
           ?res((window as any).PDFLib.PDFDocument)
-          :rej(new Error('pdf-lib not found after load'));
-        s.onerror=()=>rej(new Error('pdf-lib CDN load failed'));
+          :rej(new Error('pdf-lib not found'));
+        s.onerror=()=>rej(new Error('pdf-lib CDN failed'));
         document.head.appendChild(s);
       });
 
-      // Convert jsPDF output to pdf-lib document
-      const clientBytes = doc.output('arraybuffer');
+      // Decode base64 template → Uint8Array (no fetch, always available)
+      const b64ToBytes = (b64: string): Uint8Array => {
+        const bin = atob(b64);
+        const out = new Uint8Array(bin.length);
+        for(let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+        return out;
+      };
+
+      // Load both PDFs into pdf-lib
+      const clientBytes   = doc.output('arraybuffer');
       const clientPdf: any = await PDFDocument.load(clientBytes);
+      const tplPdf: any    = await PDFDocument.load(b64ToBytes(HGI_TEMPLATE_B64));
 
-      // Try to fetch and insert the HGI template after page 8 (index 7),
-      // then any overflow pages follow. If template missing, save as-is.
-      let finalBytes: Uint8Array;
-      try {
-        const tplResp = await fetch('/hgi_template.pdf');
-        if(!tplResp.ok) throw new Error(`Template not found (HTTP ${tplResp.status})`);
-        const tplBytes = await tplResp.arrayBuffer();
-        const tplPdf: any  = await PDFDocument.load(tplBytes);
-        const tplCount      = tplPdf.getPageCount();
+      const totalGenPages = clientPdf.getPageCount();
+      const splitAt       = Math.min(8, totalGenPages);  // after page 8
+      const tplCount      = tplPdf.getPageCount();
 
-        const totalGenPages = clientPdf.getPageCount();
-        const splitAt       = Math.min(8, totalGenPages); // insert after page 8 (or last page)
+      // Build merged PDF
+      const mergedPdf: any = await PDFDocument.create();
 
-        // Build a new PDF: pages 1-8 of generated + all template + remaining generated
-        const mergedPdf: any  = await PDFDocument.create();
+      // Part A: FNA pages 1–8
+      const firstPages = await mergedPdf.copyPages(clientPdf, Array.from({length:splitAt},(_,i)=>i));
+      firstPages.forEach((p: any) => mergedPdf.addPage(p));
 
-        // Part A: first 8 generated pages
-        const firstIdxs: number[] = Array.from({length: splitAt}, (_,i)=>i);
-        const firstPages = await mergedPdf.copyPages(clientPdf, firstIdxs);
-        firstPages.forEach((p: any) => mergedPdf.addPage(p));
+      // Part B: ALL template pages — completely unmodified
+      const tplPages = await mergedPdf.copyPages(tplPdf, Array.from({length:tplCount},(_,i)=>i));
+      tplPages.forEach((p: any) => mergedPdf.addPage(p));
 
-        // Part B: all template pages — unmodified, as-is
-        const tplIdxs: number[] = Array.from({length: tplCount}, (_,i)=>i);
-        const tplPages = await mergedPdf.copyPages(tplPdf, tplIdxs);
-        tplPages.forEach((p: any) => mergedPdf.addPage(p));
-
-        // Part C: any overflow generated pages beyond page 8
-        if(totalGenPages > splitAt) {
-          const restIdxs: number[] = Array.from({length: totalGenPages - splitAt}, (_,i)=>i+splitAt);
-          const restPages = await mergedPdf.copyPages(clientPdf, restIdxs);
-          restPages.forEach((p: any) => mergedPdf.addPage(p));
-        }
-
-        finalBytes = await mergedPdf.save();
-      } catch(tplErr: any) {
-        console.warn('hgi_template.pdf not loaded:', tplErr?.message,
-          '— saving generated report without template pages.');
-        finalBytes = await clientPdf.save();
+      // Part C: overflow FNA pages beyond page 8 (if Goals/Recs spill to extra pages)
+      if(totalGenPages > splitAt) {
+        const restPages = await mergedPdf.copyPages(clientPdf, Array.from({length:totalGenPages-splitAt},(_,i)=>i+splitAt));
+        restPages.forEach((p: any) => mergedPdf.addPage(p));
       }
+
+      const finalBytes: Uint8Array = await mergedPdf.save();
 
       // Download
       const blob = new Blob([finalBytes as BlobPart], {type:'application/pdf'});
@@ -2599,7 +2590,7 @@ export default function FNAPage() {
                       <th className="border border-black px-2 py-1 text-xs font-bold">Notes</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-36">Present Value</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-44 whitespace-nowrap">
-                        Projected Value @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
+                        PROJECTED VALUE @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
                       </th>
                     </tr>
                   </thead>
