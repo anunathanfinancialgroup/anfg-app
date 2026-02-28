@@ -3,7 +3,7 @@
 "use client";
 
 /** 
- * AnuNathan Financial Group — Dashboard (page_0 (2).tsx) 
+ * AnNa Financial Group — Dashboard (page_0 (2).tsx) 
  * 
  * Minimal, scoped UI-layer changes only: 
  * - Added/kept new columns: spouse_name, date_of_birth, children, city, state, immigration_status, work_details. 
