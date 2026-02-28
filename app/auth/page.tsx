@@ -45,7 +45,7 @@ export default function LoginPage() {
 
         <div className="flex flex-col items-center gap-1 mb-4">
    <img src="/anunathan-logo.png" 
-                alt="AnuNathan Financial Group" 
+                alt="AnNa Financial Group" 
                 className="h-16 md:h-20 lg:h-24 w-auto mx-auto mb-3 object-contain max-w-full" 
                 style={{ maxHeight: '96px' }}
               />
@@ -112,7 +112,7 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 text-center text-[11px] text-slate-500">
-          AnuNathan Financial Group &mdash; Build your career. Protect their future
+          AnNa Financial Group &mdash; Build your career. Protect their future
         </div>
       </div>
     </div>
