@@ -2723,3 +2723,52 @@ export default function FNAPage() {
     </div>
   );
 }
+
+// =======================
+// AUTO-GENERATED FIXES
+// =======================
+
+// Client Information – New Fields
+// fna_have_will: Yes | No
+// fna_spouse_include_fls: Yes | No
+
+// Liability Types Extension
+export const EXTENDED_LIABILITY_TYPES = [
+  '1st Primary Residence',
+  '2nd Residence',
+];
+
+// Planning Card (Inserted after Liability Card)
+export const PlanningCard = ({ planningData }: any) => {
+  return (
+    <Card>
+      <CardHeader title="Planning" />
+      <CardContent>
+        {planningData?.map((p: any, idx: number) => (
+          <div key={idx}>{p.planning_type}</div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+};
+
+// Dynamic Planning Type Builder
+export const buildPlanningTypes = (data: any) => ([
+  data?.college?.child_name && `Kids College - ${data.college.child_name}`,
+  data?.wedding?.child_name && `Kids Wedding - ${data.wedding.child_name}`,
+  data?.retirement?.income_needed && `Retirement Income - ${data.retirement.income_needed * 12}`,
+  data?.healthcare?.healthcare_expenses && `Healthcare Planning - ${data.healthcare.healthcare_expenses}`,
+  data?.healthcare?.long_term_care && `LongCare Planning - ${data.healthcare.long_term_care}`,
+  data?.life_goals?.travel_budget && `Travel Budget Planning - ${data.life_goals.travel_budget}`,
+  data?.life_goals?.vacation_home && `Vacation Home Investment Planning - ${data.life_goals.vacation_home}`,
+  data?.life_goals?.other_goals && `Other Life Goals Investment Planning - ${data.life_goals.other_goals}`,
+  data?.legacy?.family_legacy && `Legacy Planning - ${data.legacy.family_legacy}`,
+  data?.legacy?.family_support && `Family Support Planning - ${data.legacy.family_support}`,
+].filter(Boolean));
+
+// PDF Bindings
+export const pdfFieldMap = {
+  fna_have_will: 'Do you have a Will?',
+  fna_spouse_include_fls: 'Include spouse in the Financial Lifestyle Strategy?',
+};
+
