@@ -596,6 +596,8 @@ export default function FNAPage() {
   const [cardVisibility, setCardVisibility] = useState<CardVisibility>(allCardsClosed);
   const [createPlanRows, setCreatePlanRows] = useState<CreatePlanRow[]>([]);
   const [createPlanNotice, setCreatePlanNotice] = useState<string | null>(null);
+  const [createPlanVisible, setCreatePlanVisible] = useState(true);
+  const [planRowsLoading, setPlanRowsLoading] = useState(false);
 
   // ── Compound interest helpers ──────────────────────────────────────────────
   const yearsToRetirement = useMemo(() => {
@@ -741,6 +743,13 @@ export default function FNAPage() {
     else loadClients();
   }, [router]);
 
+  // ── Auto-fetch create plan rows when tab becomes active ───────────────────
+  useEffect(() => {
+    if (activeTab === 'createPlan' && data.fnaId) {
+      loadCreatePlanRows(data.fnaId);
+    }
+  }, [activeTab, data.fnaId]);
+
   const loadClients = async () => {
     setLoading(true);
     try {
@@ -752,6 +761,24 @@ export default function FNAPage() {
       setClients(cd || []);
     } catch { showMessage('Error loading clients', 'error'); }
     finally { setLoading(false); }
+  };
+
+  const loadCreatePlanRows = async (fnaId: string) => {
+    setPlanRowsLoading(true);
+    try {
+      const { data: planData, error } = await supabase
+        .from('fna_create_plan')
+        .select('*')
+        .eq('fna_id', fnaId)
+        .order('plan_goal', { ascending: true });
+      if (error) throw error;
+      setCreatePlanRows((planData ?? []).map((x: any) => ({ ...x, fna_id: fnaId })) as CreatePlanRow[]);
+    } catch (err: any) {
+      setCreatePlanNotice(`⚠️ ${err.message}`);
+      setTimeout(() => setCreatePlanNotice(null), 4000);
+    } finally {
+      setPlanRowsLoading(false);
+    }
   };
 
   const handleClientSelect = async (clientId: string) => {
@@ -2882,10 +2909,19 @@ export default function FNAPage() {
           if (data.familySupport > 0)
             planGoalOptions.push('Family Support Planning');
 
-          // ── Snapshot / checklist calculations ─────────────────────────────
+          // ── Amount formatting helpers ──────────────────────────────────────
+          // Display: $1,234.56  |  Store: numeric 1234.56
+          const fmtAmt = (n: number | null | undefined): string => {
+            if (n == null || n === 0) return '$0.00';
+            return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+          };
+          const parseAmt = (s: string): number => {
+            const n = parseFloat(s.replace(/[$,]/g, ''));
+            return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+          };
+
+          // Snapshot calculations
           const fmtC = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
-          const fmtAmt = (n: number | null | undefined) =>
-            n == null ? '' : `$${Math.round(n).toLocaleString('en-US')}`;
           const toN2 = (v: any) => { const n = parseFloat(String(v ?? "").replace(/[$,\s]/g, "")); return Number.isFinite(n) ? n : 0; };
           const totalLiab = liabilityRows.reduce((s, r) => s + toN2(r.balance), 0);
           const netWorth  = totalPresent - totalLiab;
@@ -2911,11 +2947,44 @@ export default function FNAPage() {
             setCreatePlanRows(prev => [...prev, emptyPlanRow(data.fnaId!)]);
           };
 
-          // Shared cell input styles — borderless inside <td>
+          const refreshRows = () => {
+            if (!data.fnaId) { alert("No FNA record loaded."); return; }
+            loadCreatePlanRows(data.fnaId);
+          };
+
+          // ── AmountCell: formatted display with $ comma decimal ─────────────
+          // Uses a text input: shows formatted on blur, raw on focus
+          const AmountCell = ({
+            rowId, field, value
+          }: { rowId: string; field: keyof CreatePlanRow; value: number | null }) => {
+            const [editing, setEditing] = React.useState(false);
+            const [raw, setRaw] = React.useState('');
+            return (
+              <input
+                type="text"
+                value={editing ? raw : fmtAmt(value ?? 0)}
+                onFocus={() => { setEditing(true); setRaw(value != null ? String(value) : ''); }}
+                onBlur={e => {
+                  setEditing(false);
+                  const parsed = parseAmt(e.target.value);
+                  updRow(rowId, field, parsed);
+                }}
+                onChange={e => setRaw(e.target.value)}
+                className="w-full px-1.5 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-transparent text-right"
+                style={{ minWidth: 80 }}
+              />
+            );
+          };
+
+          // Base cell / td styles
           const iBase = "w-full px-1.5 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-transparent";
           const iNum  = iBase + " text-right";
-          const iTd   = "border border-black p-0";
-          const iTdC  = "border border-black px-1 py-1 text-xs text-center align-middle";
+
+          // Sticky column left offsets (px)
+          // Col 0: # 32px  Col 1: Plan Created For 130px  Col 2: Goal Plan 190px
+          const stickyBase = "border border-black bg-white";
+          const thSticky   = `${stickyBase} px-2 py-1 text-xs font-bold whitespace-nowrap`;
+          const tdSticky   = `${stickyBase} p-0`;
 
           return (
             <div className="space-y-3">
@@ -2976,237 +3045,257 @@ export default function FNAPage() {
                 </div>
               </div>
 
-              {/* ── 📋 Create Plan — Goals-style table ───────────────────── */}
+              {/* ── 📋 Create Plan — frozen-column resizable table ────────── */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-                <div className="flex items-center justify-between mb-2">
+                {/* Header bar */}
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
                   <h3 className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: COLORS.headerBg }}>
                     📋 Create Plan
+                    {planRowsLoading && <span className="ml-2 text-blue-500 font-normal animate-pulse">Loading…</span>}
+                    {!planRowsLoading && createPlanRows.length > 0 &&
+                      <span className="ml-2 text-gray-500 font-normal">({createPlanRows.length} row{createPlanRows.length !== 1 ? 's' : ''})</span>
+                    }
                   </h3>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {createPlanNotice && (
                       <span className="text-xs text-green-600 font-semibold">{createPlanNotice}</span>
                     )}
                     {!data.fnaId && (
                       <span className="text-xs text-amber-600 font-medium">⚠️ Save FNA first (Goals tab).</span>
                     )}
+                    {/* Refresh */}
+                    <button onClick={refreshRows} disabled={planRowsLoading}
+                      title="Reload rows from database"
+                      className="px-2.5 py-1 text-xs font-semibold rounded bg-gray-500 text-white hover:bg-gray-600 disabled:opacity-50 transition-colors flex items-center gap-1">
+                      🔄 Refresh
+                    </button>
+                    {/* Show / Hide */}
+                    <button onClick={() => setCreatePlanVisible(v => !v)}
+                      className="px-2.5 py-1 text-xs font-semibold rounded bg-slate-500 text-white hover:bg-slate-600 transition-colors flex items-center gap-1">
+                      {createPlanVisible ? '🙈 Hide' : '👁 Show'}
+                    </button>
+                    {/* Add Row */}
                     <button onClick={addRow}
-                      className="px-2.5 py-1 text-xs font-semibold rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">
-                      + Add Row
+                      className="px-2.5 py-1 text-xs font-semibold rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-1">
+                      ＋ Add Row
                     </button>
                   </div>
                 </div>
 
-                {createPlanRows.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic px-2 py-4 text-center">
-                    No plan rows yet — click <strong>+ Add Row</strong> to begin.
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="border-2 border-black" style={{ borderCollapse: 'collapse', minWidth: '100%', tableLayout: 'auto' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: COLORS.headerBg }}>
-                          <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap w-8">#</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ minWidth: 120 }}>Plan Created For</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ minWidth: 180 }}>Goal Plan</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ minWidth: 72 }}>Plan Created</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ minWidth: 88 }}>Plan Amount</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ minWidth: 64 }}>Distr. Start Age</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ minWidth: 64 }}>Distr. End Age</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ minWidth: 88 }}>Distr. Amount</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ minWidth: 140 }}>Note</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ minWidth: 110 }}>Plan Provider</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ minWidth: 58 }}>Term Yrs</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ minWidth: 88 }}>Plan Type</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ minWidth: 88 }}>Face Amount</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ minWidth: 88 }}>Mo. Premium</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ minWidth: 88 }}>Ann. Premium</th>
-                          <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ minWidth: 90 }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {createPlanRows.map((row, idx) => {
-                          const rowBg = idx % 2 === 0 ? '#FFFFFF' : '#F5F9FF';
-                          return (
-                            <tr key={row.id} style={{ backgroundColor: rowBg }}>
-
-                              {/* # */}
-                              <td className="border border-black px-2 py-1 text-xs text-center font-semibold text-gray-500 align-middle">
-                                {idx + 1}
-                              </td>
-
-                              {/* Plan Created For */}
-                              <td className={iTd}>
-                                <input type="text" value={row.plan_beneficiary}
-                                  placeholder="Beneficiary name"
-                                  onChange={e => updRow(row.id, 'plan_beneficiary', e.target.value)}
-                                  className={iBase} />
-                              </td>
-
-                              {/* Goal Plan */}
-                              <td className={iTd}>
-                                <select value={row.plan_goal || ''}
-                                  onChange={e => updRow(row.id, 'plan_goal', e.target.value)}
-                                  className={iBase + " bg-white"}>
-                                  {planGoalOptions.map(o => (
-                                    <option key={o} value={o}>{o || '-- Select Goal --'}</option>
-                                  ))}
-                                </select>
-                              </td>
-
-                              {/* Plan Created — checkbox ✓/✕ */}
-                              <td className={iTdC}>
-                                <label className="flex flex-col items-center gap-0.5 cursor-pointer">
-                                  <input type="checkbox"
-                                    checked={row.plan_created === 'Y'}
-                                    onChange={e => updRow(row.id, 'plan_created', e.target.checked ? 'Y' : 'N')}
-                                    className="w-4 h-4 accent-green-600" />
-                                  <span className={`text-xs font-bold ${row.plan_created === 'Y' ? 'text-green-600' : 'text-red-400'}`}>
-                                    {row.plan_created === 'Y' ? '✓' : '✕'}
-                                  </span>
-                                </label>
-                              </td>
-
-                              {/* Plan Amount — integer, $ prefix */}
-                              <td className={iTd}>
-                                <div className="flex items-center">
-                                  <span className="pl-1.5 text-xs text-gray-400 flex-shrink-0">$</span>
-                                  <input type="number" min="0" step="1"
-                                    value={row.plan_amount ?? ''}
-                                    placeholder="0"
-                                    onChange={e => updRow(row.id, 'plan_amount', e.target.value === '' ? null : Math.round(parseFloat(e.target.value)))}
-                                    className={iNum + " flex-1"} style={{ minWidth: 60 }} />
-                                </div>
-                              </td>
-
-                              {/* Distribution Start Age */}
-                              <td className={iTd}>
-                                <input type="number" min="0" max="120" step="1"
-                                  value={row.plan_distr_start_age ?? ''}
-                                  placeholder="—"
-                                  onChange={e => updRow(row.id, 'plan_distr_start_age', e.target.value === '' ? null : parseInt(e.target.value, 10))}
-                                  className={iNum} />
-                              </td>
-
-                              {/* Distribution End Age */}
-                              <td className={iTd}>
-                                <input type="number" min="0" max="120" step="1"
-                                  value={row.plan_distr_end_age ?? ''}
-                                  placeholder="—"
-                                  onChange={e => updRow(row.id, 'plan_distr_end_age', e.target.value === '' ? null : parseInt(e.target.value, 10))}
-                                  className={iNum} />
-                              </td>
-
-                              {/* Distribution Amount */}
-                              <td className={iTd}>
-                                <div className="flex items-center">
-                                  <span className="pl-1.5 text-xs text-gray-400 flex-shrink-0">$</span>
-                                  <input type="number" min="0" step="0.01"
-                                    value={row.plan_distr_amount ?? ''}
-                                    placeholder="0.00"
-                                    onChange={e => updRow(row.id, 'plan_distr_amount', e.target.value === '' ? null : parseFloat(e.target.value))}
-                                    className={iNum + " flex-1"} style={{ minWidth: 60 }} />
-                                </div>
-                              </td>
-
-                              {/* Note — multiline textarea */}
-                              <td className={iTd} style={{ verticalAlign: 'top' }}>
-                                <textarea
-                                  value={row.plan_note || ''}
-                                  placeholder="Notes…"
-                                  rows={2}
-                                  onChange={e => updRow(row.id, 'plan_note', e.target.value)}
-                                  className={iBase + " resize-none"}
-                                  style={{ minHeight: 44, display: 'block' }} />
-                              </td>
-
-                              {/* Plan Provider */}
-                              <td className={iTd}>
-                                <input type="text" value={row.plan_provider || ''}
-                                  placeholder="Provider"
-                                  onChange={e => updRow(row.id, 'plan_provider', e.target.value)}
-                                  className={iBase} />
-                              </td>
-
-                              {/* Term Years */}
-                              <td className={iTd}>
-                                <input type="number" min="0" step="1"
-                                  value={row.plan_term_year ?? ''}
-                                  placeholder="0"
-                                  onChange={e => updRow(row.id, 'plan_term_year', e.target.value === '' ? null : parseInt(e.target.value, 10))}
-                                  className={iNum} />
-                              </td>
-
-                              {/* Plan Type — dropdown */}
-                              <td className={iTd}>
-                                <select value={row.plan_type || ''}
-                                  onChange={e => updRow(row.id, 'plan_type', e.target.value)}
-                                  className={iBase + " bg-white"}>
-                                  {PLAN_TYPES.map(o => (
-                                    <option key={o} value={o}>{o || '-- --'}</option>
-                                  ))}
-                                </select>
-                              </td>
-
-                              {/* Face Amount */}
-                              <td className={iTd}>
-                                <div className="flex items-center">
-                                  <span className="pl-1.5 text-xs text-gray-400 flex-shrink-0">$</span>
-                                  <input type="number" min="0" step="0.01"
-                                    value={row.plan_face_amount ?? ''}
-                                    placeholder="0.00"
-                                    onChange={e => updRow(row.id, 'plan_face_amount', e.target.value === '' ? null : parseFloat(e.target.value))}
-                                    className={iNum + " flex-1"} style={{ minWidth: 60 }} />
-                                </div>
-                              </td>
-
-                              {/* Monthly Premium */}
-                              <td className={iTd}>
-                                <div className="flex items-center">
-                                  <span className="pl-1.5 text-xs text-gray-400 flex-shrink-0">$</span>
-                                  <input type="number" min="0" step="0.01"
-                                    value={row.plan_premium_monthly ?? ''}
-                                    placeholder="0.00"
-                                    onChange={e => updRow(row.id, 'plan_premium_monthly', e.target.value === '' ? null : parseFloat(e.target.value))}
-                                    className={iNum + " flex-1"} style={{ minWidth: 60 }} />
-                                </div>
-                              </td>
-
-                              {/* Annually Premium */}
-                              <td className={iTd}>
-                                <div className="flex items-center">
-                                  <span className="pl-1.5 text-xs text-gray-400 flex-shrink-0">$</span>
-                                  <input type="number" min="0" step="0.01"
-                                    value={row.plan_premium_annually ?? ''}
-                                    placeholder="0.00"
-                                    onChange={e => updRow(row.id, 'plan_premium_annually', e.target.value === '' ? null : parseFloat(e.target.value))}
-                                    className={iNum + " flex-1"} style={{ minWidth: 60 }} />
-                                </div>
-                              </td>
-
-                              {/* Actions — Save + Delete */}
-                              <td className="border border-black px-1.5 py-1 text-center align-middle whitespace-nowrap">
-                                <div className="flex items-center justify-center gap-1">
-                                  <button
-                                    onClick={() => saveRow(row)}
-                                    title="Save row"
-                                    className="px-2 py-0.5 text-xs font-semibold rounded bg-green-600 text-white hover:bg-green-700 transition-colors leading-tight">
-                                    💾
-                                  </button>
-                                  <button
-                                    onClick={() => deleteRow(row.id)}
-                                    title="Delete row"
-                                    className="px-2 py-0.5 text-xs font-semibold rounded bg-red-500 text-white hover:bg-red-600 transition-colors leading-tight">
-                                    🗑
-                                  </button>
-                                </div>
-                              </td>
-
+                {createPlanVisible && (
+                  <>
+                    {planRowsLoading ? (
+                      <div className="flex items-center justify-center py-8 text-xs text-gray-400 gap-2">
+                        <span className="animate-spin text-blue-400 text-base">⟳</span>
+                        Fetching plan rows…
+                      </div>
+                    ) : createPlanRows.length === 0 ? (
+                      <p className="text-xs text-gray-400 italic px-2 py-4 text-center">
+                        No plan rows yet — click <strong>＋ Add Row</strong> to begin, or{' '}
+                        <button onClick={refreshRows} className="underline text-blue-500">refresh</button> to reload.
+                      </p>
+                    ) : (
+                      /* Scroll wrapper — overflow-x scroll with frozen first 3 cols */
+                      <div className="overflow-x-auto" style={{ maxHeight: 520, overflowY: 'auto' }}>
+                        <style>{`
+                          .cp-table { border-collapse: separate; border-spacing: 0; }
+                          .cp-table th, .cp-table td { border-right: 1px solid #000; border-bottom: 1px solid #000; }
+                          .cp-table thead tr th { border-top: 1px solid #000; position: sticky; top: 0; z-index: 3; }
+                          .cp-table tbody tr:first-child td { }
+                          .cp-table { border-left: 2px solid #000; border-top: 2px solid #000; }
+                          .cp-table th:last-child, .cp-table td:last-child { border-right: 2px solid #000; }
+                          .cp-table tbody tr:last-child td { border-bottom: 2px solid #000; }
+                          /* Resizable headers */
+                          .cp-table th { resize: horizontal; overflow: auto; }
+                          /* Frozen col shadows */
+                          .cp-col-sticky { position: sticky; z-index: 2; background: inherit; }
+                          .cp-col-0 { left: 0px; }
+                          .cp-col-1 { left: 34px; box-shadow: 2px 0 4px -2px rgba(0,0,0,0.15); }
+                          .cp-col-2 { left: 164px; box-shadow: 3px 0 6px -2px rgba(0,0,0,0.18); }
+                          .cp-table thead .cp-col-sticky { z-index: 4; }
+                          /* Alternate row colors */
+                          .cp-row-even { background-color: #ffffff; }
+                          .cp-row-odd  { background-color: #F0F7FF; }
+                        `}</style>
+                        <table className="cp-table" style={{ minWidth: 1600 }}>
+                          <thead>
+                            <tr style={{ backgroundColor: COLORS.headerBg }}>
+                              <th className={`cp-col-sticky cp-col-0 ${thSticky} text-center w-8`}
+                                  style={{ backgroundColor: COLORS.headerBg, minWidth: 34 }}>#</th>
+                              <th className={`cp-col-sticky cp-col-1 ${thSticky}`}
+                                  style={{ backgroundColor: COLORS.headerBg, minWidth: 130 }}>Plan Created For</th>
+                              <th className={`cp-col-sticky cp-col-2 ${thSticky}`}
+                                  style={{ backgroundColor: COLORS.headerBg, minWidth: 180 }}>Goal Plan</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 78 }}>Plan Created</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Plan Amount</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70 }}>Distr. Start Age</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70 }}>Distr. End Age</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Distr. Amount</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 150 }}>Note</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 120 }}>Plan Provider</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 60 }}>Term Yrs</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 96 }}>Plan Type</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Face Amount</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Mo. Premium</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Ann. Premium</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 80 }}>Actions</th>
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                          </thead>
+                          <tbody>
+                            {createPlanRows.map((row, idx) => {
+                              const rowCls = idx % 2 === 0 ? 'cp-row-even' : 'cp-row-odd';
+                              const rowBg  = idx % 2 === 0 ? '#ffffff' : '#F0F7FF';
+                              return (
+                                <tr key={row.id} className={rowCls}>
+
+                                  {/* # — frozen col 0 */}
+                                  <td className={`cp-col-sticky cp-col-0 border border-black px-1 py-1 text-xs text-center font-semibold text-gray-500 align-middle`}
+                                      style={{ background: rowBg }}>
+                                    {idx + 1}
+                                  </td>
+
+                                  {/* Plan Created For — frozen col 1 */}
+                                  <td className={`cp-col-sticky cp-col-1 border border-black p-0`}
+                                      style={{ background: rowBg }}>
+                                    <input type="text" value={row.plan_beneficiary}
+                                      placeholder="Beneficiary name"
+                                      onChange={e => updRow(row.id, 'plan_beneficiary', e.target.value)}
+                                      className={iBase} />
+                                  </td>
+
+                                  {/* Goal Plan — frozen col 2 */}
+                                  <td className={`cp-col-sticky cp-col-2 border border-black p-0`}
+                                      style={{ background: rowBg }}>
+                                    <select value={row.plan_goal || ''}
+                                      onChange={e => updRow(row.id, 'plan_goal', e.target.value)}
+                                      className={iBase + " bg-transparent"}>
+                                      {planGoalOptions.map(o => (
+                                        <option key={o} value={o}>{o || '-- Select Goal --'}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+
+                                  {/* Plan Created — checkbox ✓/✕ */}
+                                  <td className="border border-black px-1 py-1 text-xs text-center align-middle">
+                                    <label className="flex flex-col items-center gap-0.5 cursor-pointer">
+                                      <input type="checkbox"
+                                        checked={row.plan_created === 'Y'}
+                                        onChange={e => updRow(row.id, 'plan_created', e.target.checked ? 'Y' : 'N')}
+                                        className="w-4 h-4 accent-green-600" />
+                                      <span className={`text-xs font-bold ${row.plan_created === 'Y' ? 'text-green-600' : 'text-red-400'}`}>
+                                        {row.plan_created === 'Y' ? '✓' : '✕'}
+                                      </span>
+                                    </label>
+                                  </td>
+
+                                  {/* Plan Amount */}
+                                  <td className="border border-black p-0">
+                                    <AmountCell rowId={row.id} field="plan_amount" value={row.plan_amount} />
+                                  </td>
+
+                                  {/* Distribution Start Age */}
+                                  <td className="border border-black p-0">
+                                    <input type="number" min="0" max="120" step="1"
+                                      value={row.plan_distr_start_age ?? ''}
+                                      placeholder="—"
+                                      onChange={e => updRow(row.id, 'plan_distr_start_age', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                                      className={iNum} />
+                                  </td>
+
+                                  {/* Distribution End Age */}
+                                  <td className="border border-black p-0">
+                                    <input type="number" min="0" max="120" step="1"
+                                      value={row.plan_distr_end_age ?? ''}
+                                      placeholder="—"
+                                      onChange={e => updRow(row.id, 'plan_distr_end_age', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                                      className={iNum} />
+                                  </td>
+
+                                  {/* Distribution Amount */}
+                                  <td className="border border-black p-0">
+                                    <AmountCell rowId={row.id} field="plan_distr_amount" value={row.plan_distr_amount} />
+                                  </td>
+
+                                  {/* Note — textarea */}
+                                  <td className="border border-black p-0" style={{ verticalAlign: 'top' }}>
+                                    <textarea
+                                      value={row.plan_note || ''}
+                                      placeholder="Notes…"
+                                      rows={2}
+                                      onChange={e => updRow(row.id, 'plan_note', e.target.value)}
+                                      className={iBase + " resize-none"}
+                                      style={{ minHeight: 44, display: 'block' }} />
+                                  </td>
+
+                                  {/* Plan Provider */}
+                                  <td className="border border-black p-0">
+                                    <input type="text" value={row.plan_provider || ''}
+                                      placeholder="Provider"
+                                      onChange={e => updRow(row.id, 'plan_provider', e.target.value)}
+                                      className={iBase} />
+                                  </td>
+
+                                  {/* Term Years */}
+                                  <td className="border border-black p-0">
+                                    <input type="number" min="0" step="1"
+                                      value={row.plan_term_year ?? ''}
+                                      placeholder="0"
+                                      onChange={e => updRow(row.id, 'plan_term_year', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                                      className={iNum} />
+                                  </td>
+
+                                  {/* Plan Type */}
+                                  <td className="border border-black p-0">
+                                    <select value={row.plan_type || ''}
+                                      onChange={e => updRow(row.id, 'plan_type', e.target.value)}
+                                      className={iBase + " bg-transparent"}>
+                                      {PLAN_TYPES.map(o => (
+                                        <option key={o} value={o}>{o || '-- --'}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+
+                                  {/* Face Amount */}
+                                  <td className="border border-black p-0">
+                                    <AmountCell rowId={row.id} field="plan_face_amount" value={row.plan_face_amount} />
+                                  </td>
+
+                                  {/* Monthly Premium */}
+                                  <td className="border border-black p-0">
+                                    <AmountCell rowId={row.id} field="plan_premium_monthly" value={row.plan_premium_monthly} />
+                                  </td>
+
+                                  {/* Annually Premium */}
+                                  <td className="border border-black p-0">
+                                    <AmountCell rowId={row.id} field="plan_premium_annually" value={row.plan_premium_annually} />
+                                  </td>
+
+                                  {/* Actions — Save + Delete */}
+                                  <td className="border border-black px-1.5 py-1 text-center align-middle whitespace-nowrap">
+                                    <div className="flex items-center justify-center gap-1">
+                                      <button
+                                        onClick={() => saveRow(row)}
+                                        title="Save row"
+                                        className="px-2 py-0.5 text-xs font-semibold rounded bg-green-600 text-white hover:bg-green-700 transition-colors leading-tight">
+                                        💾
+                                      </button>
+                                      <button
+                                        onClick={() => deleteRow(row.id)}
+                                        title="Delete row"
+                                        className="px-2 py-0.5 text-xs font-semibold rounded bg-red-500 text-white hover:bg-red-600 transition-colors leading-tight">
+                                        🗑
+                                      </button>
+                                    </div>
+                                  </td>
+
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
