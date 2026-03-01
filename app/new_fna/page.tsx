@@ -93,8 +93,8 @@ interface FNAData {
   clientId: string; clientName: string; clientPhone: string; clientEmail: string;
   spouseName: string; spouseDob: string; city: string; state: string; clientDob: string; analysisDate: string;
   dob: string; notes: string; plannedRetirementAge: number; calculatedInterestPercentage: number;
-  child1CollegeName: string; child1CollegeNotes: string; child1CollegeAmount: number; child1CollegeYearFromToday: number; // CHANGE: added year_from_today
-  child2CollegeName: string; child2CollegeNotes: string; child2CollegeAmount: number; child2CollegeYearFromToday: number; // CHANGE: added year_from_today
+  child1CollegeName: string; child1CollegeNotes: string; child1CollegeAmount: number;
+  child2CollegeName: string; child2CollegeNotes: string; child2CollegeAmount: number;
   child1WeddingNotes: string; child1WeddingAmount: number;
   child2WeddingNotes: string; child2WeddingAmount: number;
   currentAge: number; yearsToRetirement: number; retirementYears: number;
@@ -170,8 +170,8 @@ const initialData: FNAData = {
   spouseName: "", spouseDob: "", city: "", state: "", clientDob: "",
   analysisDate: new Date().toISOString().split('T')[0],
   dob: "", notes: "", plannedRetirementAge: 65, calculatedInterestPercentage: 6,
-  child1CollegeName: "", child1CollegeNotes: "", child1CollegeAmount: 0, child1CollegeYearFromToday: 0, // CHANGE: added year_from_today
-  child2CollegeName: "", child2CollegeNotes: "", child2CollegeAmount: 0, child2CollegeYearFromToday: 0, // CHANGE: added year_from_today
+  child1CollegeName: "", child1CollegeNotes: "", child1CollegeAmount: 0,
+  child2CollegeName: "", child2CollegeNotes: "", child2CollegeAmount: 0,
   child1WeddingNotes: "", child1WeddingAmount: 0,
   child2WeddingNotes: "", child2WeddingAmount: 0,
   currentAge: 0, yearsToRetirement: 0, retirementYears: 0,
@@ -861,8 +861,8 @@ export default function FNAPage() {
         calculatedInterestPercentage: rec.calculated_interest_percentage || 6,
         haveWill: rec.fna_have_will ?? false,
         spouseIncludeFls: rec.fna_spouse_include_fls ?? false,
-        child1CollegeName: c1c?.child_name || '', child1CollegeNotes: c1c?.notes || '', child1CollegeAmount: c1c?.amount || 0, child1CollegeYearFromToday: c1c?.year_from_today || 0, // CHANGE: load year_from_today
-        child2CollegeName: c2c?.child_name || '', child2CollegeNotes: c2c?.notes || '', child2CollegeAmount: c2c?.amount || 0, child2CollegeYearFromToday: c2c?.year_from_today || 0, // CHANGE: load year_from_today
+        child1CollegeName: c1c?.child_name || '', child1CollegeNotes: c1c?.notes || '', child1CollegeAmount: c1c?.amount || 0,
+        child2CollegeName: c2c?.child_name || '', child2CollegeNotes: c2c?.notes || '', child2CollegeAmount: c2c?.amount || 0,
         child1WeddingNotes: c1w?.notes || '', child1WeddingAmount: c1w?.amount || 0,
         child2WeddingNotes: c2w?.notes || '', child2WeddingAmount: c2w?.amount || 0,
         currentAge: retirement?.current_age || 0,
@@ -1042,9 +1042,9 @@ export default function FNAPage() {
 
       const ins: any[] = [];
       if (data.child1CollegeName || data.child1CollegeAmount > 0)
-        ins.push(supabase.from('fna_college').insert({ fna_id: fnaId, child_number:1, child_name: data.child1CollegeName, notes: data.child1CollegeNotes, amount: data.child1CollegeAmount, year_from_today: data.child1CollegeYearFromToday || 0 })); // CHANGE: save year_from_today
+        ins.push(supabase.from('fna_college').insert({ fna_id: fnaId, child_number:1, child_name: data.child1CollegeName, notes: data.child1CollegeNotes, amount: data.child1CollegeAmount }));
       if (data.child2CollegeName || data.child2CollegeAmount > 0)
-        ins.push(supabase.from('fna_college').insert({ fna_id: fnaId, child_number:2, child_name: data.child2CollegeName, notes: data.child2CollegeNotes, amount: data.child2CollegeAmount, year_from_today: data.child2CollegeYearFromToday || 0 })); // CHANGE: save year_from_today
+        ins.push(supabase.from('fna_college').insert({ fna_id: fnaId, child_number:2, child_name: data.child2CollegeName, notes: data.child2CollegeNotes, amount: data.child2CollegeAmount }));
       if (data.child1WeddingAmount > 0)
         ins.push(supabase.from('fna_wedding').insert({ fna_id: fnaId, child_number:1, child_name: data.child1CollegeName, notes: data.child1WeddingNotes, amount: data.child1WeddingAmount }));
       if (data.child2WeddingAmount > 0)
@@ -1562,6 +1562,7 @@ export default function FNAPage() {
       };
 
       // ── Table header row (LBLUE background) ───────────────────────────────
+      // CHANGE: Right-align ANY column header containing $-related keywords (not just last column)
       const thead = (cells: string[], y: number, colW: number[]): number => {
         doc.setFillColor(...LBLUE);
         doc.rect(M, y, TW, TBL_H, 'F');
@@ -1569,8 +1570,8 @@ export default function FNAPage() {
         const baseline = y + TBL_H*0.7;
         cells.forEach((c, i) => {
           doc.setFont(FONT,'bold'); doc.setFontSize(7.5); doc.setTextColor(...NAVY);
-          // Last column: right-aligned if it looks like a number/amount column
-          const isAmt = i===cells.length-1 && /value|amount|balance|payment|project/i.test(c);
+          // CHANGE: Right-align any column whose header contains amount/value/balance/payment/projected/pmt
+          const isAmt = /value|amount|balance|payment|project|pmt/i.test(c);
           if (isAmt) doc.text(S(c), x+colW[i]-5, baseline, { align:'right' });
           else       doc.text(S(c), x+5, baseline);
           x += colW[i];
@@ -1721,19 +1722,6 @@ export default function FNAPage() {
       });
       y += 14;
 
-      // CHANGE: Added haveWill and spouseIncludeFls to Confirmation of Facts
-      y = banner('Additional Information', y);
-      const addlRows: [string,string,string,string][] = [
-        ['Do you have a Will?',  data.haveWill ? 'Yes' : 'No',   'Include spouse in the Financial Lifestyle Strategy?',  data.spouseIncludeFls ? 'Yes' : 'No'],
-      ];
-      addlRows.forEach(([l1,v1,l2,v2]) => {
-        kv(l1, v1, C1, y, LW);
-        kv(l2, v2, C2, y, 200);
-        y += KV_H;
-        hr(y-3);
-      });
-      y += 14;
-
       // ══════════════════════════════════════════════════════════════════════
       // PAGE 4 — Financial Summary
       // ══════════════════════════════════════════════════════════════════════
@@ -1745,7 +1733,8 @@ export default function FNAPage() {
       const SH = 42;
       doc.setFillColor(...LBLUE); doc.rect(M, y, TW, SH, 'F');
       const T3 = TW/3;
-      // CHANGE: Reordered summary strip to match UI layout
+      // CHANGE: Reordered — Row 1: Total Assets | Total Liabilities | Net Worth
+      //                      Row 2: Annual Income | Planning Req.  | GAP @ retirement
       const cells6: [string,string][] = [
         ['Total Assets',        $f(totalPresent)],
         ['Total Liabilities',   $f(totalLiabilities)],
@@ -1761,16 +1750,17 @@ export default function FNAPage() {
         const cy2 = cy1 + 10;           // value baseline
         doc.setFont(FONT,'bold');   doc.setFontSize(7.5); doc.setTextColor(...NAVY);
         doc.text(S(lbl)+':', cx, cy1);
+        // CHANGE: Right-align the $ values within each cell for clean columns
         doc.setFont(FONT,'normal'); doc.setFontSize(8);   doc.setTextColor(50,50,50);
-        doc.text(S(val), cx, cy2);
+        doc.text(S(val), cx + T3 - 14, cy2, { align:'right' });
       });
       doc.setTextColor(...BLACK); y += SH + 12;
 
       // ── Income ─────────────────────────────────────────────────────────
       y = banner('Income', y);
-      // CHANGE: Removed 'Spouse Annual Income' and 'Spouse Occupation' row
       const incPairs: [string,string,string,string][] = [
         ['Client Annual Income',   $f(assets.s6_present||0), 'Client Occupation',   '-'],
+        ['Spouse Annual Income',   '$0.00',                   'Spouse Occupation',   '-'],
         ['Yrs to Retirement',      String(data.yearsToRetirement||0), 'Interest Rate', `${data.calculatedInterestPercentage}%`],
       ];
       incPairs.forEach(([l1,v1,l2,v2], i) => {
@@ -1806,7 +1796,22 @@ export default function FNAPage() {
         y+=KV_H; hr(y-3);
       }); y+=12;
 
-      // CHANGE: Monthly Expenses section removed from PDF
+      // ── Monthly Expenses ───────────────────────────────────────────────
+      if (y>PH-130){ doc.addPage(); y=topBar('Financial Summary (cont.)')+30; pgFoot(); }
+      y = banner('Monthly Expenses', y);
+      const totalMortPmt = liabilityRows.filter(r=>String(r.liability_type||'').toLowerCase().includes('mortgage')).reduce((s,r)=>s+(parseFloat(String(r.current_payment||r.min_payment||0))||0),0);
+      const expPairs: [string,string,string,string][] = [
+        ['All Mortgages',     $f(totalMortPmt),              'Retirement Plans', $f(data.monthlyIncomeNeeded)],
+        ['Rent',              '$0.00',                        'Health Insurance', '$0.00'],
+        ['Groceries',         '$0.00',                        'Cell Phone',       '$0.00'],
+        ['Gasoline',          '$0.00',                        'Entertainment',    '$0.00'],
+        ['Savings / Liquid',  '$0.00',                        'Other',            '$0.00'],
+      ];
+      expPairs.forEach(([l1,v1,l2,v2],i)=>{
+        if(i%2===0){doc.setFillColor(...LGRAY);doc.rect(M,y,TW,KV_H,'F');}
+        kv(l1,v1,C1,y,120); kv(l2,v2,C2,y,120);
+        y+=KV_H; hr(y-3);
+      });
 
       // ══════════════════════════════════════════════════════════════════════
       // PAGE 5 — Assets Summary
@@ -2036,9 +2041,10 @@ export default function FNAPage() {
       const firstPages = await mergedPdf.copyPages(clientPdf, Array.from({length:splitAt},(_,i)=>i));
       firstPages.forEach((p: any) => mergedPdf.addPage(p));
 
-      // CHANGE: Skip first template page (removes page 9) and avoid duplication of pages 9/10
-      // Part B: Template pages — skip first page (index 0) to remove duplicate page 9
-      const tplStartIdx = 1; // skip template page 0
+      // CHANGE: Skip template page 0 (page 9) — pages 9 and 10 were duplicated;
+      // remove page 9 and keep page 10 onwards
+      // Part B: Template pages — skip first page to eliminate the duplicate
+      const tplStartIdx = 1; // skip template page index 0 (the duplicated page 9)
       const tplPages = await mergedPdf.copyPages(tplPdf, Array.from({length:tplCount - tplStartIdx},(_,i)=>i + tplStartIdx));
       tplPages.forEach((p: any) => mergedPdf.addPage(p));
 
@@ -2227,13 +2233,10 @@ export default function FNAPage() {
               const gapTooltip = `GAP @ Planned Retirement Age ${data.plannedRetirementAge}:\n= Total Goal Planning (${fmt(data.totalRequirement)})\n− Projected Assets @ ${data.plannedRetirementAge} (${data.calculatedInterestPercentage}%) for ${yearsToRetirement} yrs (${fmt(totalProjected)})\n− Total Liabilities (${fmt(totalLiabilities)})\n= ${fmt(Gap)}`;
               return (
                 <span>
-                  {/* CHANGE: Reordered summary display */}
                   Total Assets: {fmt(totalPresent)}&nbsp;&nbsp;|&nbsp;&nbsp;
                   Total Liabilities: {fmt(totalLiabilities)}&nbsp;&nbsp;|&nbsp;&nbsp;
-                  Net Worth: <span style={{ color: netWorth >= 0 ? '#15803d' : '#dc2626' }}>{fmt(netWorth)}</span>
-                  <br />
-                  Annual Income: {fmt(assets.s6_present||0)}&nbsp;&nbsp;|&nbsp;&nbsp;
-                  Planning Req.: {fmt(data.totalRequirement)}&nbsp;&nbsp;|&nbsp;&nbsp;
+                  Net Worth: <span style={{ color: netWorth >= 0 ? '#15803d' : '#dc2626' }}>{fmt(netWorth)}</span>&nbsp;&nbsp;|&nbsp;&nbsp;
+                  Total Planning: {fmt(data.totalRequirement)}&nbsp;&nbsp;|&nbsp;&nbsp;
                   <span title={gapTooltip} style={{ cursor: 'help', borderBottom: '1px dotted #6b7280' }}>GAP @ {data.plannedRetirementAge}:</span>
                   {' '}<span style={{ color: Gap <= 0 ? '#15803d' : '#dc2626' }}>{fmt(Gap)}</span>
                 </span>
@@ -2286,19 +2289,15 @@ export default function FNAPage() {
                   <thead><tr style={{ backgroundColor: COLORS.headerBg }}>
                     <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
                     <th className="border border-black px-2 py-1 text-xs font-bold">Child Name</th>
-                    {/* CHANGE: Added Year From Today column after Child Name */}
-                    <th className="border border-black px-2 py-1 text-xs font-bold w-28">Year From Today</th>
                     <th className="border border-black px-2 py-1 text-xs font-bold w-44">Notes</th>
                     <th className="border border-black px-2 py-1 text-xs font-bold w-36">Amount</th>
                   </tr></thead>
                   <tbody>
-                    {[{n:'#1',nf:'child1CollegeName',nn:data.child1CollegeName,yf:'child1CollegeYearFromToday',yv:data.child1CollegeYearFromToday,nts:'child1CollegeNotes',ntv:data.child1CollegeNotes,af:'child1CollegeAmount',av:data.child1CollegeAmount},
-                      {n:'#2',nf:'child2CollegeName',nn:data.child2CollegeName,yf:'child2CollegeYearFromToday',yv:data.child2CollegeYearFromToday,nts:'child2CollegeNotes',ntv:data.child2CollegeNotes,af:'child2CollegeAmount',av:data.child2CollegeAmount}].map(r => (
+                    {[{n:'#1',nf:'child1CollegeName',nn:data.child1CollegeName,nts:'child1CollegeNotes',ntv:data.child1CollegeNotes,af:'child1CollegeAmount',av:data.child1CollegeAmount},
+                      {n:'#2',nf:'child2CollegeName',nn:data.child2CollegeName,nts:'child2CollegeNotes',ntv:data.child2CollegeNotes,af:'child2CollegeAmount',av:data.child2CollegeAmount}].map(r => (
                       <tr key={r.n}>
                         <td className="border border-black px-2 py-1 text-xs text-center font-semibold">{r.n}</td>
                         <td className="border border-black p-0"><input type="text" value={r.nn} placeholder="Child's name" onChange={e => setData(p => ({ ...p, [r.nf]: e.target.value }))} className="w-full px-2 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
-                        {/* CHANGE: Year From Today input */}
-                        <td className="border border-black p-0"><input type="number" min="0" step="1" value={r.yv || ''} placeholder="0" onChange={e => setData(p => ({ ...p, [r.yf]: parseInt(e.target.value) || 0 }))} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
                         <NoteTd value={r.ntv} onChange={v => setData(p => ({ ...p, [r.nts]: v }))} />
                         <td className="border border-black p-0"><CurrencyInput value={r.av} placeholder="$0.00" onChange={val => setData(p => ({ ...p, [r.af]: val }))} className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" /></td>
                       </tr>
@@ -2763,7 +2762,7 @@ export default function FNAPage() {
                       <th className="border border-black px-2 py-1 text-xs font-bold">Notes</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-36">Present Value</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-44 whitespace-nowrap">
-                        Projected Value @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
+                        PROJECTED VALUE @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
                       </th>
                     </tr>
                   </thead>
@@ -3094,7 +3093,7 @@ export default function FNAPage() {
                         }
                       }}
                       className={btnGhost}>
-                      {createPlanVisible ? 'Hide Plans 📦' : 'Show Plans 🗃️'}
+                      {createPlanVisible ? 'Hide Cards 📦' : 'Show Cards 🗃️'}
                     </button>
                     {/* Add Row — only useful when table is visible */}
                     {createPlanVisible && (
