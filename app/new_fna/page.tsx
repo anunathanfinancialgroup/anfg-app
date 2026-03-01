@@ -2934,7 +2934,7 @@ export default function FNAPage() {
                       <th className="border border-black px-2 py-1 text-xs font-bold">Notes</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-36">Present Value</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-44 whitespace-nowrap">
-                        PROJECTED VALUE @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
+                        Projected Value @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
                       </th>
                     </tr>
                   </thead>
@@ -3265,7 +3265,7 @@ export default function FNAPage() {
                         }
                       }}
                       className={btnGhost}>
-                      {createPlanVisible ? 'Hide Cards 📦' : 'Show Cards 🗃️'}
+                      {createPlanVisible ? 'Hide Plans 📦' : 'Show Plans 🗃️'}
                     </button>
                     {/* Add Row — only useful when table is visible */}
                     {createPlanVisible && (
