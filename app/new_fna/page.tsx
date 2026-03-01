@@ -3243,10 +3243,10 @@ export default function FNAPage() {
                       const totalAnnually = createPlanRows.reduce((s, r) => s + (Number(r.plan_premium_annually) || 0), 0);
                       const $fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
                       return (
-                        <span className="inline-flex items-center gap-3 px-3 py-0.5 rounded text-xs font-bold" style={{ backgroundColor: '#FFFF00' }}>
-                          <span>Mo. Premium: <span className="font-extrabold">{$fmt(totalMonthly)}</span></span>
+                        <span className="inline-flex items-center gap-3 px-3 py-0.5 rounded text-xs " style={{ backgroundColor: '#FFFF00' }}>
+                          <span>Monthly Premium: <span className="font-extrabold">{$fmt(totalMonthly)}</span></span>
                           <span className="text-gray-400">|</span>
-                          <span>Ann. Premium: <span className="font-extrabold">{$fmt(totalAnnually)}</span></span>
+                          <span>Annual Premium: <span className="font-extrabold">{$fmt(totalAnnually)}</span></span>
                         </span>
                       );
                     })()}
