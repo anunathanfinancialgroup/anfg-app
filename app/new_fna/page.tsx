@@ -242,6 +242,12 @@ const formatCurrency = (v: number) =>
 const formatCurrencyZero = (v: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(v);
 
+// FIX: Robust boolean coercion — handles boolean, string "true"/"false", null, undefined, 0/1
+const toBool = (v: any): boolean => {
+  if (v === true || v === 'true' || v === 1 || v === '1') return true;
+  return false;
+};
+
 const CurrencyInput: React.FC<{ value: number; onChange: (v: number) => void; placeholder?: string; className?: string; showZero?: boolean }> =
   ({ value, onChange, placeholder = "$0.00", className = "", showZero = false }) => {
     const [disp, setDisp] = useState("");
@@ -860,11 +866,15 @@ export default function FNAPage() {
         ...prev, fnaId,
         spouseName: rec.spouse_name || prev.spouseName,
         analysisDate: rec.analysis_date || prev.analysisDate,
-        dob: rec.dob || '', notes: rec.notes || '',
+        dob: rec.dob || '',
+        // FIX: Do NOT set notes to raw rec.notes here — if it's the __ASSETS__ wrapper it would
+        // show JSON in the textarea until the wrapper parse runs. Set empty for now; overwritten below.
+        notes: '',
         plannedRetirementAge: rec.planned_retirement_age || 65,
         calculatedInterestPercentage: rec.calculated_interest_percentage || 6,
-        haveWill: rec.fna_have_will === true,
-        spouseIncludeFls: rec.fna_spouse_include_fls === true,
+        // FIX: Use toBool to handle string "true"/"false", boolean, null, etc.
+        haveWill: toBool(rec.fna_have_will),
+        spouseIncludeFls: toBool(rec.fna_spouse_include_fls),
         child1CollegeName: c1c?.child_name || '', child1CollegeNotes: c1c?.notes || '', child1CollegeAmount: c1c?.amount || 0,
         child2CollegeName: c2c?.child_name || '', child2CollegeNotes: c2c?.notes || '', child2CollegeAmount: c2c?.amount || 0,
         child1WeddingNotes: c1w?.notes || '', child1WeddingAmount: c1w?.amount || 0,
@@ -897,6 +907,15 @@ export default function FNAPage() {
           if (wrapper._spouseDob !== undefined) {
             setData(prev => ({ ...prev, spouseDob: wrapper._spouseDob || '' }));
           }
+          // FIX: Restore haveWill and spouseIncludeFls from wrapper (reliable fallback)
+          // The wrapper is the source of truth — DB columns may have type issues
+          if (wrapper._haveWill !== undefined || wrapper._spouseIncludeFls !== undefined) {
+            setData(prev => ({
+              ...prev,
+              haveWill: wrapper._haveWill !== undefined ? toBool(wrapper._haveWill) : prev.haveWill,
+              spouseIncludeFls: wrapper._spouseIncludeFls !== undefined ? toBool(wrapper._spouseIncludeFls) : prev.spouseIncludeFls,
+            }));
+          }
           // Restore manually-edited #6/#7 values
           if (wrapper._ytrManual && wrapper._ytr !== undefined) {
             ytrManualRef.current = true;
@@ -912,6 +931,9 @@ export default function FNAPage() {
             setData(prev => ({ ...prev, longTermCare: wrapper._ltc }));
           }
         } catch {}
+      } else {
+        // FIX: Notes is plain text (not __ASSETS__ wrapper) — set it as the user note
+        setData(prev => ({ ...prev, notes: recNotes }));
       }
 
       // Priority 2: fna_ast_retirement current_401k_notes JSON
@@ -1004,6 +1026,8 @@ export default function FNAPage() {
   ]);
 
   // ── CHANGE: Save Client Information card fields only to fna_records ─────────
+  // FIX: This function now preserves the __ASSETS__: wrapper in the notes column
+  //      and stores haveWill/spouseIncludeFls inside the wrapper as reliable backup
   const handleSaveClientInfo = async () => {
     if (!data.clientId) {
       setClientInfoMessage("Please select a client first");
@@ -1013,67 +1037,101 @@ export default function FNAPage() {
     }
     setSavingClientInfo(true);
     try {
-      // FIX: Explicitly convert to boolean to ensure correct DB storage
+      // FIX: Explicit boolean coercion to avoid string "false" issues in DB
       const willValue = data.haveWill === true;
       const flsValue = data.spouseIncludeFls === true;
 
-      const payload: Record<string, any> = {
-        client_id: data.clientId,
-        analysis_date: data.analysisDate,
-        spouse_name: data.spouseName,
-        dob: data.dob || null,
-        planned_retirement_age: data.plannedRetirementAge,
-        calculated_interest_percentage: data.calculatedInterestPercentage,
-        fna_have_will: willValue,
-        fna_spouse_include_fls: flsValue,
-      };
-
+      // FIX: Build the __ASSETS__: wrapper for notes — preserves existing asset data
+      let notesForDb: string;
       let fnaId = data.fnaId;
-      if (!fnaId) {
-        // INSERT — no existing fna_records row for this client yet
-        // FIX: For new records, save spouseDob via __ASSETS__ notes wrapper
-        const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob, _ytr: data.yearsToRetirement, _rYears: data.retirementYears, _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current, _ltc: data.longTermCare, _ltcManual: ltcManualRef.current });
-        payload.notes = `__ASSETS__:${notesPayload}`;
-        const { data: fr, error: fe } = await supabase
-          .from('fna_records')
-          .insert([payload])
-          .select()
-          .single();
-        if (fe) throw fe;
-        fnaId = fr.fna_id;
-        setData(prev => ({ ...prev, fnaId }));
-      } else {
-        // UPDATE — existing row
-        // FIX: Preserve existing __ASSETS__ notes — only update the _spouseDob and _fna_note within the wrapper
+
+      if (fnaId) {
+        // UPDATE path — read existing notes to preserve __ASSETS__: wrapper
         const { data: existingRec } = await supabase
           .from('fna_records')
           .select('notes')
           .eq('fna_id', fnaId)
           .maybeSingle();
+
         const existingNotes: string = existingRec?.notes || '';
+
         if (existingNotes.startsWith('__ASSETS__:')) {
-          // FIX: Preserve existing __ASSETS__ payload, update spouseDob and note within it
+          // FIX: Preserve existing wrapper, just update the fields that changed
           try {
             const wrapper = JSON.parse(existingNotes.slice('__ASSETS__:'.length));
             wrapper._fna_note = data.notes;
             wrapper._spouseDob = data.spouseDob;
-            payload.notes = `__ASSETS__:${JSON.stringify(wrapper)}`;
+            wrapper._haveWill = willValue;
+            wrapper._spouseIncludeFls = flsValue;
+            notesForDb = `__ASSETS__:${JSON.stringify(wrapper)}`;
           } catch {
-            // If parsing fails, rebuild the wrapper
-            const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob, _ytr: data.yearsToRetirement, _rYears: data.retirementYears, _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current, _ltc: data.longTermCare, _ltcManual: ltcManualRef.current });
-            payload.notes = `__ASSETS__:${notesPayload}`;
+            // Parse failed — rebuild wrapper from current state
+            const wrapper = {
+              _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob,
+              _haveWill: willValue, _spouseIncludeFls: flsValue,
+              _ytr: data.yearsToRetirement, _rYears: data.retirementYears,
+              _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current,
+              _ltc: data.longTermCare, _ltcManual: ltcManualRef.current,
+            };
+            notesForDb = `__ASSETS__:${JSON.stringify(wrapper)}`;
           }
         } else {
-          // No __ASSETS__ prefix yet — create the wrapper
-          const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob, _ytr: data.yearsToRetirement, _rYears: data.retirementYears, _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current, _ltc: data.longTermCare, _ltcManual: ltcManualRef.current });
-          payload.notes = `__ASSETS__:${notesPayload}`;
+          // No wrapper yet — create one with current assets
+          const wrapper = {
+            _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob,
+            _haveWill: willValue, _spouseIncludeFls: flsValue,
+            _ytr: data.yearsToRetirement, _rYears: data.retirementYears,
+            _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current,
+            _ltc: data.longTermCare, _ltcManual: ltcManualRef.current,
+          };
+          notesForDb = `__ASSETS__:${JSON.stringify(wrapper)}`;
         }
 
+        // FIX: Update with preserved wrapper — will/FLS saved both in columns AND wrapper
         const { error: ue } = await supabase
           .from('fna_records')
-          .update({ ...payload, updated_at: new Date().toISOString() })
+          .update({
+            analysis_date: data.analysisDate,
+            spouse_name: data.spouseName,
+            dob: data.dob || null,
+            notes: notesForDb,
+            planned_retirement_age: data.plannedRetirementAge,
+            calculated_interest_percentage: data.calculatedInterestPercentage,
+            fna_have_will: willValue,
+            fna_spouse_include_fls: flsValue,
+            updated_at: new Date().toISOString(),
+          })
           .eq('fna_id', fnaId);
         if (ue) throw ue;
+      } else {
+        // INSERT path — new record
+        const wrapper = {
+          _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob,
+          _haveWill: willValue, _spouseIncludeFls: flsValue,
+          _ytr: data.yearsToRetirement, _rYears: data.retirementYears,
+          _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current,
+          _ltc: data.longTermCare, _ltcManual: ltcManualRef.current,
+        };
+        notesForDb = `__ASSETS__:${JSON.stringify(wrapper)}`;
+
+        const { data: fr, error: fe } = await supabase
+          .from('fna_records')
+          .insert([{
+            client_id: data.clientId,
+            analysis_date: data.analysisDate,
+            spouse_name: data.spouseName,
+            dob: data.dob || null,
+            notes: notesForDb,
+            planned_retirement_age: data.plannedRetirementAge,
+            calculated_interest_percentage: data.calculatedInterestPercentage,
+            fna_have_will: willValue,
+            fna_spouse_include_fls: flsValue,
+          }])
+          .select()
+          .single();
+        if (fe) throw fe;
+        fnaId = fr.fna_id;
+        setData(prev => ({ ...prev, fnaId }));
       }
 
       setClientInfoMessage("✅ Client info saved!");
@@ -1099,6 +1157,7 @@ export default function FNAPage() {
           spouse_name: data.spouseName, dob: data.dob || null, notes: data.notes || null,
           planned_retirement_age: data.plannedRetirementAge,
           calculated_interest_percentage: data.calculatedInterestPercentage,
+          // FIX: Explicit boolean coercion
           fna_have_will: data.haveWill === true,
           fna_spouse_include_fls: data.spouseIncludeFls === true,
         }]).select().single();
@@ -1111,6 +1170,7 @@ export default function FNAPage() {
           dob: data.dob || null, notes: data.notes || null,
           planned_retirement_age: data.plannedRetirementAge,
           calculated_interest_percentage: data.calculatedInterestPercentage,
+          // FIX: Explicit boolean coercion
           fna_have_will: data.haveWill === true,
           fna_spouse_include_fls: data.spouseIncludeFls === true,
           updated_at: new Date().toISOString(),
@@ -1153,7 +1213,8 @@ export default function FNAPage() {
 
       // Strategy 2: Save to fna_records.notes as __ASSETS__:{json}
       // Embeds user note + full assets in one field (guaranteed text column, no schema risk)
-      const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob, _ytr: data.yearsToRetirement, _rYears: data.retirementYears, _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current, _ltc: data.longTermCare, _ltcManual: ltcManualRef.current });
+      // FIX: Also store haveWill + spouseIncludeFls in wrapper for reliable persistence
+      const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob, _haveWill: data.haveWill === true, _spouseIncludeFls: data.spouseIncludeFls === true, _ytr: data.yearsToRetirement, _rYears: data.retirementYears, _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current, _ltc: data.longTermCare, _ltcManual: ltcManualRef.current });
       const notesWithAssets = `__ASSETS__:${notesPayload}`;
       const { error: notesErr } = await supabase.from('fna_records')
         .update({ notes: notesWithAssets, updated_at: new Date().toISOString() })
@@ -1565,7 +1626,6 @@ export default function FNAPage() {
       // FIX: Format date values as mm-dd-yyyy for PDF display
       const fmtDate = (d: string | undefined | null): string => {
         if (!d || d === '-') return '-';
-        // Handle yyyy-mm-dd (ISO) format
         const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
         if (iso) return `${iso[2]}-${iso[3]}-${iso[1]}`;
         return S(d);
@@ -1825,13 +1885,12 @@ export default function FNAPage() {
       doc.setFont(FONT,'bold'); doc.setFontSize(15); doc.text('Financial Summary', M, y+22); y+=44;
 
       // ── 6-cell summary strip (3 cols x 2 rows) ─────────────────────────
-      // FIX: Each cell: label followed by $ amount on the SAME line, aligned in two rows
+      // FIX: label followed by $ amount on SAME line, reordered to match reference image
       const SH = 42;
       doc.setFillColor(...LBLUE); doc.rect(M, y, TW, SH, 'F');
       const T3 = TW/3;
-      // FIX: Reordered to match reference image layout:
-      // Row 1: Total Assets | Total Liabilities | Net Worth
-      // Row 2: Annual Income | Planning Req.     | GAP @ 65
+      // FIX: Row 1: Total Assets | Total Liabilities | Net Worth
+      //      Row 2: Annual Income | Planning Req.     | GAP @ 65
       const cells6: [string,string][] = [
         ['Total Assets',        $f(totalPresent)],
         ['Total Liabilities',   $f(totalLiabilities)],
@@ -1843,7 +1902,6 @@ export default function FNAPage() {
       cells6.forEach(([lbl, val], i) => {
         const col = i%3, row = Math.floor(i/3);
         const cx  = M + col*T3 + 7;
-        // FIX: label and amount on same baseline (side by side)
         const cy  = y + 14 + row*16;
         doc.setFont(FONT,'bold');   doc.setFontSize(7.5); doc.setTextColor(...NAVY);
         const lblText = S(lbl)+':';
@@ -2140,8 +2198,8 @@ export default function FNAPage() {
       firstPages.forEach((p: any) => mergedPdf.addPage(p));
 
       // Part B: ALL template pages — completely unmodified
-      // FIX: Skip first template page (index 0) — pages 9 and 10 contained repeated info; remove page 9, keep page 10 onwards
-      const tplStartIndex = 1; // skip template page 0 (was page 9 in merged PDF)
+      // FIX: Skip template page index 0 — pages 9 and 10 contained repeated info; remove page 9, keep page 10 onwards
+      const tplStartIndex = 1;
       const tplPages = await mergedPdf.copyPages(tplPdf, Array.from({length:tplCount - tplStartIndex},(_,i)=>i + tplStartIndex));
       tplPages.forEach((p: any) => mergedPdf.addPage(p));
 
