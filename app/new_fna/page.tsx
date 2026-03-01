@@ -3073,8 +3073,18 @@ export default function FNAPage() {
                         {planRowsLoading ? '⏳ Loading…' : 'Refresh'}
                       </button>
                     )}
-                    {/* Show / Hide — mirrors Show Cards 🗃️ / Hide Cards 📦 */}
-                    <button onClick={() => setCreatePlanVisible(v => !v)}
+                    {/* ── CHANGE: Show/Hide — fetch existing records whenever table is revealed ── */}
+                    {/* Show Cards 🗃️ / Hide Cards 📦 mirrors the main Show Cards/Hide Cards button */}
+                    <button
+                      onClick={() => {
+                        const nextVisible = !createPlanVisible;
+                        setCreatePlanVisible(nextVisible);
+                        // Fetch existing records from DB every time the table is shown
+                        // so the user always sees up-to-date saved data for the selected client
+                        if (nextVisible && data.fnaId) {
+                          loadCreatePlanRows(data.fnaId);
+                        }
+                      }}
                       className={btnGhost}>
                       {createPlanVisible ? 'Hide Cards 📦' : 'Show Cards 🗃️'}
                     </button>
