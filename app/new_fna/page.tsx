@@ -2934,7 +2934,7 @@ export default function FNAPage() {
                       <th className="border border-black px-2 py-1 text-xs font-bold">Notes</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-36">Present Value</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-44 whitespace-nowrap">
-                        Projected Value @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
+                        PROJECTED VALUE @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
                       </th>
                     </tr>
                   </thead>
@@ -3229,13 +3229,28 @@ export default function FNAPage() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
                 {/* Header bar */}
                 <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
-                  <h3 className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: COLORS.headerBg }}>
-                    📋 Create Plan
-                    {planRowsLoading && <span className="ml-2 text-blue-500 font-normal animate-pulse">Loading…</span>}
-                    {!planRowsLoading && createPlanRows.length > 0 &&
-                      <span className="ml-2 text-gray-500 font-normal">({createPlanRows.length} row{createPlanRows.length !== 1 ? 's' : ''})</span>
-                    }
-                  </h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: COLORS.headerBg }}>
+                      📋 Create Plan
+                      {planRowsLoading && <span className="ml-2 text-blue-500 font-normal animate-pulse">Loading…</span>}
+                      {!planRowsLoading && createPlanRows.length > 0 &&
+                        <span className="ml-2 text-gray-500 font-normal">({createPlanRows.length} row{createPlanRows.length !== 1 ? 's' : ''})</span>
+                      }
+                    </h3>
+                    {/* FIX: Show sum of Mo. Premium and Ann. Premium highlighted in yellow */}
+                    {createPlanRows.length > 0 && (() => {
+                      const totalMonthly = createPlanRows.reduce((s, r) => s + (Number(r.plan_premium_monthly) || 0), 0);
+                      const totalAnnually = createPlanRows.reduce((s, r) => s + (Number(r.plan_premium_annually) || 0), 0);
+                      const $fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+                      return (
+                        <span className="inline-flex items-center gap-3 px-3 py-0.5 rounded text-xs font-bold" style={{ backgroundColor: '#FFFF00' }}>
+                          <span>Mo. Premium: <span className="font-extrabold">{$fmt(totalMonthly)}</span></span>
+                          <span className="text-gray-400">|</span>
+                          <span>Ann. Premium: <span className="font-extrabold">{$fmt(totalAnnually)}</span></span>
+                        </span>
+                      );
+                    })()}
+                  </div>
                 {/* ── CHANGE: Show/Hide uses same icons as Show Cards/Hide Cards.
                      Refresh is only rendered when table is visible. ── */}
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -3253,7 +3268,6 @@ export default function FNAPage() {
                       </button>
                     )}
                     {/* ── CHANGE: Show/Hide — fetch existing records whenever table is revealed ── */}
-                    {/* Show Cards 🗃️ / Hide Cards 📦 mirrors the main Show Cards/Hide Cards button */}
                     <button
                       onClick={() => {
                         const nextVisible = !createPlanVisible;
