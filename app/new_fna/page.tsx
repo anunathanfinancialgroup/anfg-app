@@ -543,7 +543,7 @@ export default function FNAPage() {
   const ltcManualRef    = useRef(false);
   const [data, setData] = useState<FNAData>(initialData);
   const [assets, setAssets] = useState<AssetsData>(initialAssets);
-  const [activeTab, setActiveTab] = useState<'goals' | 'assets' | 'liabilities'>('goals');
+  const [activeTab, setActiveTab] = useState<'goals' | 'assets' | 'liabilities' | 'planning'>('goals');
   const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -2098,6 +2098,7 @@ export default function FNAPage() {
             { key: 'goals',       label: '🎯 Financial Goals & Planning' },
             { key: 'assets',      label: '💰 Assets' },
             { key: 'liabilities', label: '💳 Liabilities' },
+            { key: 'planning',    label: '📋 Planning Card' },
           ] as const).map(({ key: tab, label }) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`flex-1 px-3 py-1.5 rounded font-semibold text-xs transition-all ${activeTab === tab ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'}`}>
@@ -2718,6 +2719,196 @@ export default function FNAPage() {
             <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ Disclaimer: For Education Purpose Only. We Do Not Provide Any Legal Or Tax Advice</div>
           </div>
         )}
+
+        {/* ════════════════════════════════════ PLANNING CARD TAB ══════════════ */}
+        {activeTab === 'planning' && (() => {
+          const toN = (v: any) => { const n = parseFloat(String(v ?? "").replace(/[$,\s]/g, "")); return Number.isFinite(n) ? n : 0; };
+          const totalLiabilities = liabilityRows.reduce((s, r) => s + toN(r.balance), 0);
+          const netWorth = totalPresent - totalLiabilities;
+          const Gap = data.totalRequirement - totalProjected - totalLiabilities;
+          const fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const pct = (n: number, total: number) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : '—';
+
+          const scoreItems: { label: string; pass: boolean; note: string }[] = [
+            { label: 'Emergency Fund (≥ 3 mo. expenses)', pass: assets.s5_present >= (data.monthlyIncomeNeeded * 3), note: assets.s5_present >= (data.monthlyIncomeNeeded * 3) ? 'On Track' : 'Build 3–6 months of expenses in liquid savings' },
+            { label: 'Retirement Savings Funded', pass: assets.r1_present > 0 || assets.r4_present > 0 || assets.r5_present > 0 || assets.r6_present > 0, note: (assets.r1_present > 0 || assets.r4_present > 0) ? 'On Track' : 'Start contributing to 401K or IRA' },
+            { label: 'Life Insurance in Place', pass: assets.f1_present > 0 || assets.f2_present > 0, note: (assets.f1_present > 0 || assets.f2_present > 0) ? 'Covered' : 'Review life insurance needs' },
+            { label: 'College Planning Active', pass: (data.child1CollegeAmount > 0 || data.child2CollegeAmount > 0) || assets.c1_present > 0, note: assets.c1_present > 0 ? '529 Plan funded' : 'Consider opening a 529 Plan' },
+            { label: 'Positive Net Worth', pass: netWorth >= 0, note: netWorth >= 0 ? fmt(netWorth) : `Deficit: ${fmt(Math.abs(netWorth))}` },
+            { label: 'GAP Covered (Assets ≥ Goals)', pass: Gap <= 0, note: Gap <= 0 ? 'Assets projected to cover goals' : `Shortfall: ${fmt(Gap)}` },
+          ];
+          const passCount = scoreItems.filter(x => x.pass).length;
+          const scoreColor = passCount >= 5 ? '#15803d' : passCount >= 3 ? '#d97706' : '#dc2626';
+          const scoreLabel = passCount >= 5 ? 'Strong' : passCount >= 3 ? 'Moderate' : 'Needs Attention';
+
+          return (
+            <div className="space-y-3">
+
+              {/* ── Client Planning Summary ── */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+                <h3 className="text-xs font-bold text-gray-800 mb-2 pb-1 border-b">📋 Planning Card — {data.clientName || '—'}</h3>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold mb-1">Client</p>
+                    <p className="text-xs">{data.clientName || '—'}</p>
+                    <p className="text-xs text-gray-500">{data.clientPhone}</p>
+                    <p className="text-xs text-gray-500">{data.clientEmail}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold mb-1">Spouse</p>
+                    <p className="text-xs">{data.spouseName || '—'}</p>
+                    <p className="text-xs text-gray-500">{data.city}{data.city && data.state ? ', ' : ''}{data.state}</p>
+                    <p className="text-xs text-gray-500">Analysis: {data.analysisDate}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { label: 'Retirement Age', value: String(data.plannedRetirementAge) },
+                    { label: 'Yrs to Retire', value: yearsToRetirement > 0 ? `${yearsToRetirement} yrs` : '—' },
+                    { label: 'Interest Rate', value: `${data.calculatedInterestPercentage}%` },
+                    { label: 'Retirement Yrs', value: data.retirementYears > 0 ? `${data.retirementYears} yrs` : '—' },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="bg-gray-50 rounded p-2 text-center border border-gray-100">
+                      <p className="text-xs text-gray-500">{label}</p>
+                      <p className="text-xs font-bold text-gray-800">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Financial Snapshot ── */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+                <h3 className="text-xs font-bold text-gray-800 mb-2 pb-1 border-b">📊 Financial Snapshot</h3>
+                <table className="w-full border-collapse text-xs">
+                  <tbody>
+                    {[
+                      { label: '💰 Total Assets (Present Value)', value: fmt(totalPresent), color: '#15803d' },
+                      { label: `📈 Total Assets (Projected @ Age ${data.plannedRetirementAge} · ${data.calculatedInterestPercentage}%)`, value: fmt(totalProjected), color: '#1d4ed8' },
+                      { label: '💳 Total Liabilities', value: fmt(totalLiabilities), color: '#dc2626' },
+                      { label: '🏦 Net Worth (Present)', value: fmt(netWorth), color: netWorth >= 0 ? '#15803d' : '#dc2626' },
+                      { label: '🎯 Total Goal Planning Required', value: fmt(data.totalRequirement), color: '#374151' },
+                      { label: `⚡ GAP @ Age ${data.plannedRetirementAge}`, value: fmt(Gap), color: Gap <= 0 ? '#15803d' : '#dc2626' },
+                    ].map(({ label, value, color }) => (
+                      <tr key={label} className="border-b border-gray-100 last:border-0">
+                        <td className="py-1.5 pr-2 text-gray-600">{label}</td>
+                        <td className="py-1.5 text-right font-bold" style={{ color }}>{value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ── Planning Score ── */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+                <div className="flex items-center justify-between mb-2 pb-1 border-b">
+                  <h3 className="text-xs font-bold text-gray-800">✅ Planning Checklist</h3>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: scoreColor + '20', color: scoreColor, border: `1px solid ${scoreColor}` }}>
+                    {passCount}/{scoreItems.length} — {scoreLabel}
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {scoreItems.map(({ label, pass, note }) => (
+                    <div key={label} className="flex items-start gap-2 text-xs">
+                      <span className="mt-0.5 flex-shrink-0" style={{ color: pass ? '#15803d' : '#dc2626' }}>{pass ? '✅' : '⚠️'}</span>
+                      <div className="flex-1">
+                        <span className="font-semibold text-gray-700">{label}</span>
+                        <span className="ml-2 text-gray-400">·</span>
+                        <span className="ml-2" style={{ color: pass ? '#15803d' : '#dc2626' }}>{note}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Goal Planning Breakdown ── */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+                <h3 className="text-xs font-bold text-gray-800 mb-2 pb-1 border-b">🎯 Goal Planning Breakdown</h3>
+                <table className="w-full border-collapse text-xs">
+                  <thead>
+                    <tr style={{ backgroundColor: COLORS.headerBg }}>
+                      <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Goal</th>
+                      <th className="border border-gray-300 px-2 py-1 text-right font-semibold">Amount</th>
+                      <th className="border border-gray-300 px-2 py-1 text-right font-semibold">% of Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { label: '🎓 College — Child 1', value: data.child1CollegeAmount },
+                      { label: '🎓 College — Child 2', value: data.child2CollegeAmount },
+                      { label: '💒 Wedding — Child 1', value: data.child1WeddingAmount },
+                      { label: '💒 Wedding — Child 2', value: data.child2WeddingAmount },
+                      { label: '🏖️ Retirement Income', value: data.totalRetirementIncome },
+                      { label: '🏥 Healthcare Expenses', value: data.healthcareExpenses },
+                      { label: '🩺 Long-Term Care', value: data.longTermCare },
+                      { label: '✈️ Travel Budget', value: data.travelBudget },
+                      { label: '🏡 Vacation Home', value: data.vacationHome },
+                      { label: '💝 Charity / Giving', value: data.charity },
+                      { label: '📌 Other Goals', value: data.otherGoals },
+                      { label: '👶 Headstart Fund', value: data.headstartFund },
+                      { label: '🏛️ Family Legacy', value: data.familyLegacy },
+                      { label: '👨‍👩‍👧 Family Support', value: data.familySupport },
+                    ].filter(g => g.value > 0).map(({ label, value }, i) => (
+                      <tr key={label} style={{ backgroundColor: i % 2 === 0 ? '#f9fafb' : 'white' }}>
+                        <td className="border border-gray-200 px-2 py-1 text-gray-700">{label}</td>
+                        <td className="border border-gray-200 px-2 py-1 text-right font-medium">{fmt(value)}</td>
+                        <td className="border border-gray-200 px-2 py-1 text-right text-gray-500">{pct(value, data.totalRequirement)}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ backgroundColor: COLORS.yellowBg }}>
+                      <td className="border border-gray-300 px-2 py-1.5 font-bold">TOTAL REQUIREMENT</td>
+                      <td className="border border-gray-300 px-2 py-1.5 text-right font-bold text-green-800">{fmt(data.totalRequirement)}</td>
+                      <td className="border border-gray-300 px-2 py-1.5 text-right font-bold">100%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ── Liabilities Overview ── */}
+              {liabilityRows.length > 0 && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+                  <h3 className="text-xs font-bold text-gray-800 mb-2 pb-1 border-b">💳 Liabilities Overview</h3>
+                  <table className="w-full border-collapse text-xs">
+                    <thead>
+                      <tr style={{ backgroundColor: COLORS.headerBg }}>
+                        <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Type</th>
+                        <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Description / Lender</th>
+                        <th className="border border-gray-300 px-2 py-1 text-right font-semibold">Balance</th>
+                        <th className="border border-gray-300 px-2 py-1 text-right font-semibold">Rate %</th>
+                        <th className="border border-gray-300 px-2 py-1 text-right font-semibold">Min Pmt</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {liabilityRows.map((r, i) => (
+                        <tr key={r.id} style={{ backgroundColor: i % 2 === 0 ? '#f9fafb' : 'white' }}>
+                          <td className="border border-gray-200 px-2 py-1 text-gray-700">{r.liability_type || '—'}</td>
+                          <td className="border border-gray-200 px-2 py-1 text-gray-600">{[r.description, r.lender].filter(Boolean).join(' / ') || '—'}</td>
+                          <td className="border border-gray-200 px-2 py-1 text-right font-medium text-red-700">{r.balance ? fmt(toN(r.balance)) : '—'}</td>
+                          <td className="border border-gray-200 px-2 py-1 text-right">{r.interest_rate != null ? `${r.interest_rate}%` : '—'}</td>
+                          <td className="border border-gray-200 px-2 py-1 text-right">{r.min_payment ? fmt(toN(r.min_payment)) : '—'}</td>
+                        </tr>
+                      ))}
+                      <tr style={{ backgroundColor: COLORS.yellowBg }}>
+                        <td colSpan={2} className="border border-gray-300 px-2 py-1.5 font-bold">TOTAL LIABILITIES</td>
+                        <td className="border border-gray-300 px-2 py-1.5 text-right font-bold text-red-700">{fmt(totalLiabilities)}</td>
+                        <td colSpan={2} className="border border-gray-300 px-2 py-1.5" />
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* ── Notes ── */}
+              {data.notes && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+                  <h3 className="text-xs font-bold text-gray-800 mb-1.5 pb-1 border-b">📝 Advisor Notes</h3>
+                  <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{data.notes}</p>
+                </div>
+              )}
+
+              <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ Disclaimer: For Education Purpose Only. We Do Not Provide Any Legal Or Tax Advice</div>
+            </div>
+          );
+        })()}
 
       </main>
     </div>
