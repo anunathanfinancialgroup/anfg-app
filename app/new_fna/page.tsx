@@ -26,10 +26,48 @@ const LIABILITY_TYPES = [
   "Student Loan",
   "Personal Loan",
   "Mortgage Loan",
+  "1st Primary Residence",
+  "2nd Residence",
   "Insurance",
   "Family Support",
   "Other",
 ];
+
+// ── Create Plan types ─────────────────────────────────────────────────────────
+const PLAN_TYPES = ["", "TERM", "PERM", "ANNUITY", "529 PLANS"];
+
+// ── CreatePlanRow ─────────────────────────────────────────────────────────────
+type CreatePlanRow = {
+  id: string;
+  fna_id: string;
+  plan_beneficiary: string;
+  plan_goal: string;
+  plan_created: string;       // 'Y' | 'N'
+  plan_amount: number | null;
+  plan_distr_start_age: number | null;
+  plan_distr_end_age: number | null;
+  plan_distr_amount: number | null;
+  plan_note: string;
+  plan_provider: string;
+  plan_term_year: number | null;
+  plan_type: string;
+  plan_face_amount: number | null;
+  plan_premium_monthly: number | null;
+  plan_premium_annually: number | null;
+};
+function tmpPlanId() {
+  return `tmp_plan_${Math.random().toString(16).slice(2)}_${Date.now()}`;
+}
+function emptyPlanRow(fnaId: string): CreatePlanRow {
+  return {
+    id: tmpPlanId(), fna_id: fnaId,
+    plan_beneficiary: '', plan_goal: '', plan_created: 'N',
+    plan_amount: null, plan_distr_start_age: null, plan_distr_end_age: null,
+    plan_distr_amount: null, plan_note: '', plan_provider: '',
+    plan_term_year: null, plan_type: '', plan_face_amount: null,
+    plan_premium_monthly: null, plan_premium_annually: null,
+  };
+}
 
 function coerceFieldValue(type: FieldType, raw: any) {
   if (raw === "" || raw === undefined) return null;
@@ -73,6 +111,8 @@ interface FNAData {
   familyLegacy: number; legacyNotes: string;
   familySupport: number; supportNotes: string;
   totalRequirement: number;
+  haveWill: boolean;
+  spouseIncludeFls: boolean;
 }
 
 // Full asset state — all sections from the Excel sheet
@@ -143,6 +183,7 @@ const initialData: FNAData = {
   charity: 0, charityNotes: "", otherGoals: 0, otherGoalsNotes: "",
   headstartFund: 0, headstartNotes: "", familyLegacy: 0, legacyNotes: "",
   familySupport: 0, supportNotes: "", totalRequirement: 0,
+  haveWill: false, spouseIncludeFls: false,
 };
 
 const initialAssets: AssetsData = {
@@ -543,7 +584,7 @@ export default function FNAPage() {
   const ltcManualRef    = useRef(false);
   const [data, setData] = useState<FNAData>(initialData);
   const [assets, setAssets] = useState<AssetsData>(initialAssets);
-  const [activeTab, setActiveTab] = useState<'goals' | 'assets' | 'liabilities' | 'planning'>('goals');
+  const [activeTab, setActiveTab] = useState<'goals' | 'assets' | 'liabilities' | 'createPlan'>('goals');
   const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -553,6 +594,8 @@ export default function FNAPage() {
   const [liabilityRows, setLiabilityRows] = useState<LiabRow[]>([]);
   const [liabNotice, setLiabNotice] = useState<string | null>(null);
   const [cardVisibility, setCardVisibility] = useState<CardVisibility>(allCardsClosed);
+  const [createPlanRows, setCreatePlanRows] = useState<CreatePlanRow[]>([]);
+  const [createPlanNotice, setCreatePlanNotice] = useState<string | null>(null);
 
   // ── Compound interest helpers ──────────────────────────────────────────────
   const yearsToRetirement = useMemo(() => {
@@ -724,6 +767,7 @@ export default function FNAPage() {
     // Immediately clear all previous client data before loading new client
     setAssets(initialAssets);
     setLiabilityRows([]);
+    setCreatePlanRows([]);
     setCardsExpanded(false);
     setCardVisibility(allCardsClosed);
     setData({
@@ -747,7 +791,7 @@ export default function FNAPage() {
     try {
       const { data: rec, error: re } = await supabase
         .from('fna_records')
-        .select('fna_id, analysis_date, spouse_name, dob, notes, planned_retirement_age, calculated_interest_percentage, updated_at')
+        .select('fna_id, analysis_date, spouse_name, dob, notes, planned_retirement_age, calculated_interest_percentage, updated_at, fna_have_will, fna_spouse_include_fls')
         .eq('client_id', clientId).order('created_at', { ascending: false }).limit(1).maybeSingle();
       if (re) throw re;
       if (!rec) {
@@ -787,6 +831,8 @@ export default function FNAPage() {
         dob: rec.dob || '', notes: rec.notes || '',
         plannedRetirementAge: rec.planned_retirement_age || 65,
         calculatedInterestPercentage: rec.calculated_interest_percentage || 6,
+        haveWill: rec.fna_have_will ?? false,
+        spouseIncludeFls: rec.fna_spouse_include_fls ?? false,
         child1CollegeName: c1c?.child_name || '', child1CollegeNotes: c1c?.notes || '', child1CollegeAmount: c1c?.amount || 0,
         child2CollegeName: c2c?.child_name || '', child2CollegeNotes: c2c?.notes || '', child2CollegeAmount: c2c?.amount || 0,
         child1WeddingNotes: c1w?.notes || '', child1WeddingAmount: c1w?.amount || 0,
@@ -866,6 +912,11 @@ export default function FNAPage() {
         .from("fna_liabilities").select("*").eq("fna_id", fnaId).order("liability_type", { ascending: true });
       setLiabilityRows((liabData ?? []).map((x: any) => ({ ...x, fna_id: fnaId })) as LiabRow[]);
 
+      // Load create plan rows for this fna_id
+      const { data: planData } = await supabase
+        .from("fna_create_plan").select("*").eq("fna_id", fnaId).order("plan_goal", { ascending: true });
+      setCreatePlanRows((planData ?? []).map((x: any) => ({ ...x, fna_id: fnaId })) as CreatePlanRow[]);
+
       showMessage('FNA data loaded!', 'success');
     } catch (err: any) {
       showMessage(`Error loading data: ${err.message}`, 'error');
@@ -932,6 +983,8 @@ export default function FNAPage() {
           spouse_name: data.spouseName, dob: data.dob || null, notes: data.notes || null,
           planned_retirement_age: data.plannedRetirementAge,
           calculated_interest_percentage: data.calculatedInterestPercentage,
+          fna_have_will: data.haveWill,
+          fna_spouse_include_fls: data.spouseIncludeFls,
         }]).select().single();
         if (fe) throw fe;
         fnaId = fr.fna_id;
@@ -942,6 +995,8 @@ export default function FNAPage() {
           dob: data.dob || null, notes: data.notes || null,
           planned_retirement_age: data.plannedRetirementAge,
           calculated_interest_percentage: data.calculatedInterestPercentage,
+          fna_have_will: data.haveWill,
+          fna_spouse_include_fls: data.spouseIncludeFls,
           updated_at: new Date().toISOString(),
         }).eq('fna_id', fnaId);
         if (ue) throw ue;
@@ -1013,6 +1068,63 @@ export default function FNAPage() {
     setMessage(msg); setMessageType(type);
     setTimeout(() => setMessage(""), 5000);
   };
+
+  // ── Create Plan CRUD ──────────────────────────────────────────────────────
+  async function upsertCreatePlanRow(row: CreatePlanRow): Promise<void> {
+    if (!data.fnaId) throw new Error("Save the FNA record first (Goals tab), then add plan rows.");
+    const isTmp = String(row.id).startsWith("tmp_plan_");
+    const toNum = (v: any): number | null => {
+      if (v === null || v === undefined || v === "") return null;
+      const n = typeof v === "number" ? v : parseFloat(String(v).replace(/[$,\s]/g, ""));
+      return Number.isFinite(n) ? n : null;
+    };
+    const toText = (v: any): string | null => {
+      const s = String(v ?? "").trim(); return s === "" ? null : s;
+    };
+    const toInt = (v: any): number | null => {
+      if (v === null || v === undefined || v === "") return null;
+      const n = parseInt(String(v), 10); return Number.isFinite(n) ? n : null;
+    };
+    const payload: Record<string, any> = {
+      fna_id: data.fnaId,
+      plan_beneficiary: String(row.plan_beneficiary ?? "").trim() || "",
+      plan_goal: toText(row.plan_goal),
+      plan_created: row.plan_created === 'Y' ? 'Y' : 'N',
+      plan_amount: toNum(row.plan_amount),
+      plan_distr_start_age: toInt(row.plan_distr_start_age),
+      plan_distr_end_age: toInt(row.plan_distr_end_age),
+      plan_distr_amount: toNum(row.plan_distr_amount),
+      plan_note: toText(row.plan_note),
+      plan_provider: toText(row.plan_provider),
+      plan_term_year: toInt(row.plan_term_year),
+      plan_type: toText(row.plan_type),
+      plan_face_amount: toNum(row.plan_face_amount),
+      plan_premium_monthly: toNum(row.plan_premium_monthly),
+      plan_premium_annually: toNum(row.plan_premium_annually),
+    };
+    if (!isTmp) payload.id = row.id;
+    if (isTmp) {
+      const { data: saved, error } = await supabase.from("fna_create_plan").insert(payload).select("*").limit(1);
+      if (error) throw new Error(error.message);
+      const s = (saved ?? [])[0];
+      if (s) setCreatePlanRows(prev => prev.map(r => r.id === row.id ? { ...s, fna_id: data.fnaId! } : r));
+    } else {
+      const { data: saved, error } = await supabase.from("fna_create_plan").update(payload).eq("id", row.id).select("*").limit(1);
+      if (error) throw new Error(error.message);
+      const s = (saved ?? [])[0];
+      if (s) setCreatePlanRows(prev => prev.map(r => r.id === row.id ? { ...s, fna_id: data.fnaId! } : r));
+    }
+    setCreatePlanNotice("✅ Plan row saved."); setTimeout(() => setCreatePlanNotice(null), 2000);
+  }
+
+  async function deleteCreatePlanRow(rowId: string): Promise<void> {
+    const isTmp = rowId.startsWith("tmp_plan_");
+    if (isTmp) { setCreatePlanRows(prev => prev.filter(r => r.id !== rowId)); return; }
+    const { error } = await supabase.from("fna_create_plan").delete().eq("id", rowId);
+    if (error) throw error;
+    setCreatePlanRows(prev => prev.filter(r => r.id !== rowId));
+    setCreatePlanNotice("Deleted."); setTimeout(() => setCreatePlanNotice(null), 2000);
+  }
 
   const handleLogout = () => {
     document.cookie = "canfs_auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
@@ -2009,8 +2121,8 @@ export default function FNAPage() {
             </div>
           </div>
 
-          {/* Row 3: Planned Retirement Age | Interest% | Analysis Date */}
-          <div className="grid grid-cols-3 gap-2 mb-2">
+          {/* Row 3: Planned Retirement Age | Interest% | Analysis Date | Will | Spouse FLS */}
+          <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr' }}>
             <div>
               <label className="block text-xs font-semibold mb-1 text-gray-600">Planned Retirement Age</label>
               <select value={data.plannedRetirementAge}
@@ -2032,6 +2144,28 @@ export default function FNAPage() {
               <input type="date" value={data.analysisDate}
                 onChange={e => setData(p => ({ ...p, analysisDate: e.target.value }))}
                 className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none" />
+            </div>
+            <div className="flex flex-col justify-between">
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Do you have a Will?</label>
+              <label className="flex items-center gap-2 cursor-pointer mt-0.5 h-[28px]">
+                <input type="checkbox" checked={data.haveWill}
+                  onChange={e => setData(p => ({ ...p, haveWill: e.target.checked }))}
+                  className="w-4 h-4 accent-blue-600" />
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${data.haveWill ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+                  {data.haveWill ? '✅ Yes' : '❌ No'}
+                </span>
+              </label>
+            </div>
+            <div className="flex flex-col justify-between">
+              <label className="block text-xs font-semibold mb-1 text-gray-600">Include Spouse in FLS?</label>
+              <label className="flex items-center gap-2 cursor-pointer mt-0.5 h-[28px]">
+                <input type="checkbox" checked={data.spouseIncludeFls}
+                  onChange={e => setData(p => ({ ...p, spouseIncludeFls: e.target.checked }))}
+                  className="w-4 h-4 accent-blue-600" />
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${data.spouseIncludeFls ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
+                  {data.spouseIncludeFls ? '✅ Yes' : '—  No'}
+                </span>
+              </label>
             </div>
           </div>
 
@@ -2098,7 +2232,7 @@ export default function FNAPage() {
             { key: 'goals',       label: '🎯 Financial Goals & Planning' },
             { key: 'assets',      label: '💰 Assets' },
             { key: 'liabilities', label: '💳 Liabilities' },
-            { key: 'planning',    label: '📋 Planning Card' },
+            { key: 'createPlan',  label: '📋 Create Plan' },
           ] as const).map(({ key: tab, label }) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`flex-1 px-3 py-1.5 rounded font-semibold text-xs transition-all ${activeTab === tab ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'}`}>
@@ -2720,196 +2854,335 @@ export default function FNAPage() {
           </div>
         )}
 
-        {/* ════════════════════════════════════ PLANNING CARD TAB ══════════════ */}
-        {activeTab === 'planning' && (() => {
-          const toN = (v: any) => { const n = parseFloat(String(v ?? "").replace(/[$,\s]/g, "")); return Number.isFinite(n) ? n : 0; };
-          const totalLiabilities = liabilityRows.reduce((s, r) => s + toN(r.balance), 0);
-          const netWorth = totalPresent - totalLiabilities;
-          const Gap = data.totalRequirement - totalProjected - totalLiabilities;
-          const fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          const pct = (n: number, total: number) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : '—';
+        {/* ════════════════════════════════════ CREATE PLAN TAB ══════════════ */}
+        {activeTab === 'createPlan' && (() => {
+          // ── Build dynamic plan_goal options from loaded data ────────────────
+          const planGoalOptions: string[] = [""];
+          if (data.child1CollegeName || data.child1CollegeAmount > 0)
+            planGoalOptions.push(`Kids College - ${data.child1CollegeName || 'Child 1'}`);
+          if (data.child2CollegeName || data.child2CollegeAmount > 0)
+            planGoalOptions.push(`Kids College - ${data.child2CollegeName || 'Child 2'}`);
+          if (data.child1WeddingAmount > 0)
+            planGoalOptions.push(`Kids Wedding - ${data.child1CollegeName || 'Child 1'}`);
+          if (data.child2WeddingAmount > 0)
+            planGoalOptions.push(`Kids Wedding - ${data.child2CollegeName || 'Child 2'}`);
+          if (data.monthlyIncomeNeeded > 0)
+            planGoalOptions.push('Retirement Income');
+          planGoalOptions.push('Healthcare Planning');
+          if (data.longTermCare > 0)
+            planGoalOptions.push('LongCare Planning');
+          if (data.travelBudget > 0)
+            planGoalOptions.push('Travel Budget Planning');
+          if (data.vacationHome > 0)
+            planGoalOptions.push('Vacation Home Investment Planning');
+          if (data.otherGoals > 0)
+            planGoalOptions.push('Other Life Goals Investment Planning');
+          if (data.familyLegacy > 0)
+            planGoalOptions.push('Legacy Planning');
+          if (data.familySupport > 0)
+            planGoalOptions.push('Family Support Planning');
 
-          const scoreItems: { label: string; pass: boolean; note: string }[] = [
-            { label: 'Emergency Fund (≥ 3 mo. expenses)', pass: assets.s5_present >= (data.monthlyIncomeNeeded * 3), note: assets.s5_present >= (data.monthlyIncomeNeeded * 3) ? 'On Track' : 'Build 3–6 months of expenses in liquid savings' },
-            { label: 'Retirement Savings Funded', pass: assets.r1_present > 0 || assets.r4_present > 0 || assets.r5_present > 0 || assets.r6_present > 0, note: (assets.r1_present > 0 || assets.r4_present > 0) ? 'On Track' : 'Start contributing to 401K or IRA' },
-            { label: 'Life Insurance in Place', pass: assets.f1_present > 0 || assets.f2_present > 0, note: (assets.f1_present > 0 || assets.f2_present > 0) ? 'Covered' : 'Review life insurance needs' },
-            { label: 'College Planning Active', pass: (data.child1CollegeAmount > 0 || data.child2CollegeAmount > 0) || assets.c1_present > 0, note: assets.c1_present > 0 ? '529 Plan funded' : 'Consider opening a 529 Plan' },
-            { label: 'Positive Net Worth', pass: netWorth >= 0, note: netWorth >= 0 ? fmt(netWorth) : `Deficit: ${fmt(Math.abs(netWorth))}` },
-            { label: 'GAP Covered (Assets ≥ Goals)', pass: Gap <= 0, note: Gap <= 0 ? 'Assets projected to cover goals' : `Shortfall: ${fmt(Gap)}` },
-          ];
-          const passCount = scoreItems.filter(x => x.pass).length;
-          const scoreColor = passCount >= 5 ? '#15803d' : passCount >= 3 ? '#d97706' : '#dc2626';
-          const scoreLabel = passCount >= 5 ? 'Strong' : passCount >= 3 ? 'Moderate' : 'Needs Attention';
+          // ── Snapshot calculations ──────────────────────────────────────────
+          const fmtC = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+          const totalLiab = liabilityRows.reduce((s, r) => {
+            const n = parseFloat(String(r.balance ?? "").replace(/[$,\s]/g, "")); return s + (Number.isFinite(n) ? n : 0);
+          }, 0);
+          const netWorth = totalPresent - totalLiab;
+          const Gap      = data.totalRequirement - totalProjected - totalLiab;
+
+          // ── Helper: update a single field of a plan row ────────────────────
+          const updRow = (id: string, field: keyof CreatePlanRow, val: any) =>
+            setCreatePlanRows(prev => prev.map(r => r.id === id ? { ...r, [field]: val } : r));
+
+          const saveRow = async (row: CreatePlanRow) => {
+            try { await upsertCreatePlanRow(row); }
+            catch (e: any) { alert(`Save failed: ${e.message}`); }
+          };
+
+          const deleteRow = async (id: string) => {
+            if (!confirm("Delete this plan row?")) return;
+            try { await deleteCreatePlanRow(id); }
+            catch (e: any) { alert(`Delete failed: ${e.message}`); }
+          };
+
+          const addRow = () => {
+            if (!data.fnaId) { alert("Save the FNA record first (Goals tab), then add plan rows."); return; }
+            setCreatePlanRows(prev => [...prev, emptyPlanRow(data.fnaId!)]);
+          };
+
+          const inputCls = "w-full border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white";
+          const numCls   = inputCls + " text-right";
 
           return (
             <div className="space-y-3">
 
-              {/* ── Client Planning Summary ── */}
+              {/* ── 📊 Financial Snapshot ────────────────────────────────── */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-                <h3 className="text-xs font-bold text-gray-800 mb-2 pb-1 border-b">📋 Planning Card — {data.clientName || '—'}</h3>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <p className="text-xs text-gray-500 font-semibold mb-1">Client</p>
-                    <p className="text-xs">{data.clientName || '—'}</p>
-                    <p className="text-xs text-gray-500">{data.clientPhone}</p>
-                    <p className="text-xs text-gray-500">{data.clientEmail}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 font-semibold mb-1">Spouse</p>
-                    <p className="text-xs">{data.spouseName || '—'}</p>
-                    <p className="text-xs text-gray-500">{data.city}{data.city && data.state ? ', ' : ''}{data.state}</p>
-                    <p className="text-xs text-gray-500">Analysis: {data.analysisDate}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 gap-2">
+                <h3 className="text-xs font-bold px-2 py-0.5 rounded mb-2" style={{ backgroundColor: COLORS.headerBg }}>
+                  📊 Financial Snapshot
+                </h3>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                   {[
-                    { label: 'Retirement Age', value: String(data.plannedRetirementAge) },
-                    { label: 'Yrs to Retire', value: yearsToRetirement > 0 ? `${yearsToRetirement} yrs` : '—' },
-                    { label: 'Interest Rate', value: `${data.calculatedInterestPercentage}%` },
-                    { label: 'Retirement Yrs', value: data.retirementYears > 0 ? `${data.retirementYears} yrs` : '—' },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="bg-gray-50 rounded p-2 text-center border border-gray-100">
-                      <p className="text-xs text-gray-500">{label}</p>
-                      <p className="text-xs font-bold text-gray-800">{value}</p>
+                    { label: 'Total Assets',          value: fmtC(totalPresent),          color: 'text-green-700'   },
+                    { label: 'Total Liabilities',      value: fmtC(totalLiab),             color: 'text-red-700'     },
+                    { label: 'Net Worth',              value: fmtC(netWorth),              color: netWorth >= 0 ? 'text-green-700' : 'text-red-700' },
+                    { label: 'Total Planning Req.',    value: fmtC(data.totalRequirement), color: 'text-blue-700'    },
+                    { label: `Projected @ ${data.plannedRetirementAge}`, value: fmtC(totalProjected), color: 'text-indigo-700' },
+                    { label: `GAP @ ${data.plannedRetirementAge}`,       value: fmtC(Gap),             color: Gap <= 0 ? 'text-green-700' : 'text-red-700' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="bg-gray-50 rounded p-2 border border-gray-100 text-center">
+                      <div className="text-gray-500 text-xs mb-0.5 leading-tight">{label}</div>
+                      <div className={`font-bold text-xs ${color}`}>{value}</div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* ── Financial Snapshot ── */}
+              {/* ── ✅ Planning Checklist ─────────────────────────────────── */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-                <h3 className="text-xs font-bold text-gray-800 mb-2 pb-1 border-b">📊 Financial Snapshot</h3>
-                <table className="w-full border-collapse text-xs">
-                  <tbody>
-                    {[
-                      { label: '💰 Total Assets (Present Value)', value: fmt(totalPresent), color: '#15803d' },
-                      { label: `📈 Total Assets (Projected @ Age ${data.plannedRetirementAge} · ${data.calculatedInterestPercentage}%)`, value: fmt(totalProjected), color: '#1d4ed8' },
-                      { label: '💳 Total Liabilities', value: fmt(totalLiabilities), color: '#dc2626' },
-                      { label: '🏦 Net Worth (Present)', value: fmt(netWorth), color: netWorth >= 0 ? '#15803d' : '#dc2626' },
-                      { label: '🎯 Total Goal Planning Required', value: fmt(data.totalRequirement), color: '#374151' },
-                      { label: `⚡ GAP @ Age ${data.plannedRetirementAge}`, value: fmt(Gap), color: Gap <= 0 ? '#15803d' : '#dc2626' },
-                    ].map(({ label, value, color }) => (
-                      <tr key={label} className="border-b border-gray-100 last:border-0">
-                        <td className="py-1.5 pr-2 text-gray-600">{label}</td>
-                        <td className="py-1.5 text-right font-bold" style={{ color }}>{value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <h3 className="text-xs font-bold px-2 py-0.5 rounded mb-2" style={{ backgroundColor: COLORS.headerBg }}>
+                  ✅ Planning Checklist
+                </h3>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs">
+                  {([
+                    { label: 'Do you have a Will?',             chk: data.haveWill },
+                    { label: 'Include Spouse in FLS?',          chk: data.spouseIncludeFls },
+                    { label: 'Retirement Planning',             chk: data.totalRetirementIncome > 0 },
+                    { label: 'Kids College Planning',           chk: (data.child1CollegeAmount + data.child2CollegeAmount) > 0 },
+                    { label: 'Kids Wedding Planning',           chk: (data.child1WeddingAmount + data.child2WeddingAmount) > 0 },
+                    { label: 'Healthcare Planning',             chk: data.healthcareExpenses > 0 },
+                    { label: 'Long-Term Care Planning',         chk: data.longTermCare > 0 },
+                    { label: 'Life Insurance (Work)',            chk: assets.f1_present > 0 },
+                    { label: 'Life Insurance (Outside)',         chk: assets.f2_present > 0 },
+                    { label: 'Travel Budget Planning',          chk: data.travelBudget > 0 },
+                    { label: 'Vacation Home Planning',          chk: data.vacationHome > 0 },
+                    { label: 'Legacy Planning',                 chk: data.familyLegacy > 0 },
+                    { label: 'Family Support Planning',         chk: data.familySupport > 0 },
+                    { label: '529 / College Savings Account',   chk: assets.c1_present > 0 },
+                    { label: 'Estate Plan / Trust',             chk: assets.c2_c1 || assets.c2_c2 },
+                    { label: 'HSA Account',                     chk: assets.f7_present > 0 },
+                  ] as { label: string; chk: boolean }[]).map(({ label, chk }) => (
+                    <div key={label} className="flex items-center gap-1.5 py-0.5 border-b border-gray-100">
+                      <span className={`w-4 h-4 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-bold ${chk ? 'bg-green-100 text-green-700' : 'bg-red-50 text-red-400'}`}>
+                        {chk ? '✓' : '✕'}
+                      </span>
+                      <span className={chk ? 'text-gray-700' : 'text-gray-400'}>{label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* ── Planning Score ── */}
+              {/* ── 📋 Create Plan Table ──────────────────────────────────── */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-                <div className="flex items-center justify-between mb-2 pb-1 border-b">
-                  <h3 className="text-xs font-bold text-gray-800">✅ Planning Checklist</h3>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: scoreColor + '20', color: scoreColor, border: `1px solid ${scoreColor}` }}>
-                    {passCount}/{scoreItems.length} — {scoreLabel}
-                  </span>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: COLORS.headerBg }}>
+                    📋 Create Plan
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {createPlanNotice && <span className="text-xs text-green-600 font-semibold">{createPlanNotice}</span>}
+                    {!data.fnaId && (
+                      <span className="text-xs text-amber-600 font-medium">⚠️ Save FNA first (Goals tab).</span>
+                    )}
+                    <button onClick={addRow}
+                      className="px-2.5 py-1 text-xs font-semibold rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                      + Add Row
+                    </button>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  {scoreItems.map(({ label, pass, note }) => (
-                    <div key={label} className="flex items-start gap-2 text-xs">
-                      <span className="mt-0.5 flex-shrink-0" style={{ color: pass ? '#15803d' : '#dc2626' }}>{pass ? '✅' : '⚠️'}</span>
-                      <div className="flex-1">
-                        <span className="font-semibold text-gray-700">{label}</span>
-                        <span className="ml-2 text-gray-400">·</span>
-                        <span className="ml-2" style={{ color: pass ? '#15803d' : '#dc2626' }}>{note}</span>
+
+                {createPlanRows.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic px-2 py-4 text-center">
+                    No plan rows yet — click <strong>+ Add Row</strong> to create a plan entry.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {createPlanRows.map((row, idx) => (
+                      <div key={row.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                        {/* Row header */}
+                        <div className="flex items-center justify-between px-3 py-1.5"
+                          style={{ backgroundColor: idx % 2 === 0 ? COLORS.headerBg : '#D9EAF7' }}>
+                          <span className="text-xs font-bold text-gray-700">Plan #{idx + 1}</span>
+                          <div className="flex gap-1.5">
+                            <button onClick={() => saveRow(row)}
+                              className="px-2.5 py-0.5 text-xs font-semibold rounded bg-green-600 text-white hover:bg-green-700 transition-colors">
+                              💾 Save
+                            </button>
+                            <button onClick={() => deleteRow(row.id)}
+                              className="px-2.5 py-0.5 text-xs font-semibold rounded bg-red-500 text-white hover:bg-red-600 transition-colors">
+                              🗑 Delete
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Fields — 3-column grid */}
+                        <div className="p-3 grid grid-cols-3 gap-x-4 gap-y-2 bg-white">
+
+                          {/* Plan Created For */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Plan Created For *</label>
+                            <input type="text" value={row.plan_beneficiary} placeholder="Beneficiary / Client name"
+                              onChange={e => updRow(row.id, 'plan_beneficiary', e.target.value)}
+                              className={inputCls} />
+                          </div>
+
+                          {/* Goal Plan */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Goal Plan</label>
+                            <select value={row.plan_goal || ''}
+                              onChange={e => updRow(row.id, 'plan_goal', e.target.value)}
+                              className={inputCls}>
+                              {planGoalOptions.map(o => (
+                                <option key={o} value={o}>{o || '-- Select Goal --'}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Plan Created */}
+                          <div className="flex flex-col justify-between">
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Plan Created</label>
+                            <label className="flex items-center gap-2 cursor-pointer mt-1">
+                              <input type="checkbox"
+                                checked={row.plan_created === 'Y'}
+                                onChange={e => updRow(row.id, 'plan_created', e.target.checked ? 'Y' : 'N')}
+                                className="w-4 h-4 accent-green-600" />
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded ${row.plan_created === 'Y' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
+                                {row.plan_created === 'Y' ? '✅ Yes' : '❌ No'}
+                              </span>
+                            </label>
+                          </div>
+
+                          {/* Plan Type */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Plan Type</label>
+                            <select value={row.plan_type || ''}
+                              onChange={e => updRow(row.id, 'plan_type', e.target.value)}
+                              className={inputCls}>
+                              {PLAN_TYPES.map(o => <option key={o} value={o}>{o || '-- Select --'}</option>)}
+                            </select>
+                          </div>
+
+                          {/* Plan Amount */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Plan Amount ($)</label>
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">$</span>
+                              <input type="number" min="0" step="1"
+                                value={row.plan_amount ?? ''}
+                                placeholder="0"
+                                onChange={e => updRow(row.id, 'plan_amount', e.target.value === '' ? null : Math.round(parseFloat(e.target.value)))}
+                                className={numCls + " pl-5"} />
+                            </div>
+                          </div>
+
+                          {/* Plan Provider */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Plan Provider</label>
+                            <input type="text" value={row.plan_provider || ''} placeholder="Provider / Company"
+                              onChange={e => updRow(row.id, 'plan_provider', e.target.value)}
+                              className={inputCls} />
+                          </div>
+
+                          {/* Face Amount */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Face Amount ($)</label>
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">$</span>
+                              <input type="number" min="0" step="0.01"
+                                value={row.plan_face_amount ?? ''}
+                                placeholder="0.00"
+                                onChange={e => updRow(row.id, 'plan_face_amount', e.target.value === '' ? null : parseFloat(e.target.value))}
+                                className={numCls + " pl-5"} />
+                            </div>
+                          </div>
+
+                          {/* Term Years */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Term Years</label>
+                            <input type="number" min="0" step="1"
+                              value={row.plan_term_year ?? ''}
+                              placeholder="0"
+                              onChange={e => updRow(row.id, 'plan_term_year', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                              className={numCls} />
+                          </div>
+
+                          {/* Monthly Premium */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Monthly Premium ($)</label>
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">$</span>
+                              <input type="number" min="0" step="0.01"
+                                value={row.plan_premium_monthly ?? ''}
+                                placeholder="0.00"
+                                onChange={e => updRow(row.id, 'plan_premium_monthly', e.target.value === '' ? null : parseFloat(e.target.value))}
+                                className={numCls + " pl-5"} />
+                            </div>
+                          </div>
+
+                          {/* Annually Premium */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Annually Premium ($)</label>
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">$</span>
+                              <input type="number" min="0" step="0.01"
+                                value={row.plan_premium_annually ?? ''}
+                                placeholder="0.00"
+                                onChange={e => updRow(row.id, 'plan_premium_annually', e.target.value === '' ? null : parseFloat(e.target.value))}
+                                className={numCls + " pl-5"} />
+                            </div>
+                          </div>
+
+                          {/* Distribution Start Age */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Distribution Start Age</label>
+                            <input type="number" min="0" max="120" step="1"
+                              value={row.plan_distr_start_age ?? ''}
+                              placeholder="—"
+                              onChange={e => updRow(row.id, 'plan_distr_start_age', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                              className={numCls} />
+                          </div>
+
+                          {/* Distribution End Age */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Distribution End Age</label>
+                            <input type="number" min="0" max="120" step="1"
+                              value={row.plan_distr_end_age ?? ''}
+                              placeholder="—"
+                              onChange={e => updRow(row.id, 'plan_distr_end_age', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                              className={numCls} />
+                          </div>
+
+                          {/* Distribution Amount */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Distribution Amount ($)</label>
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">$</span>
+                              <input type="number" min="0" step="0.01"
+                                value={row.plan_distr_amount ?? ''}
+                                placeholder="0.00"
+                                onChange={e => updRow(row.id, 'plan_distr_amount', e.target.value === '' ? null : parseFloat(e.target.value))}
+                                className={numCls + " pl-5"} />
+                            </div>
+                          </div>
+
+                          {/* Note — full width */}
+                          <div className="col-span-3">
+                            <label className="block text-xs font-semibold text-gray-600 mb-0.5">Note</label>
+                            <textarea rows={2} value={row.plan_note || ''} placeholder="Add notes..."
+                              onChange={e => updRow(row.id, 'plan_note', e.target.value)}
+                              className={inputCls + " resize-y"} style={{ minHeight: 44 }} />
+                          </div>
+
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* ── Goal Planning Breakdown ── */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-                <h3 className="text-xs font-bold text-gray-800 mb-2 pb-1 border-b">🎯 Goal Planning Breakdown</h3>
-                <table className="w-full border-collapse text-xs">
-                  <thead>
-                    <tr style={{ backgroundColor: COLORS.headerBg }}>
-                      <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Goal</th>
-                      <th className="border border-gray-300 px-2 py-1 text-right font-semibold">Amount</th>
-                      <th className="border border-gray-300 px-2 py-1 text-right font-semibold">% of Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { label: '🎓 College — Child 1', value: data.child1CollegeAmount },
-                      { label: '🎓 College — Child 2', value: data.child2CollegeAmount },
-                      { label: '💒 Wedding — Child 1', value: data.child1WeddingAmount },
-                      { label: '💒 Wedding — Child 2', value: data.child2WeddingAmount },
-                      { label: '🏖️ Retirement Income', value: data.totalRetirementIncome },
-                      { label: '🏥 Healthcare Expenses', value: data.healthcareExpenses },
-                      { label: '🩺 Long-Term Care', value: data.longTermCare },
-                      { label: '✈️ Travel Budget', value: data.travelBudget },
-                      { label: '🏡 Vacation Home', value: data.vacationHome },
-                      { label: '💝 Charity / Giving', value: data.charity },
-                      { label: '📌 Other Goals', value: data.otherGoals },
-                      { label: '👶 Headstart Fund', value: data.headstartFund },
-                      { label: '🏛️ Family Legacy', value: data.familyLegacy },
-                      { label: '👨‍👩‍👧 Family Support', value: data.familySupport },
-                    ].filter(g => g.value > 0).map(({ label, value }, i) => (
-                      <tr key={label} style={{ backgroundColor: i % 2 === 0 ? '#f9fafb' : 'white' }}>
-                        <td className="border border-gray-200 px-2 py-1 text-gray-700">{label}</td>
-                        <td className="border border-gray-200 px-2 py-1 text-right font-medium">{fmt(value)}</td>
-                        <td className="border border-gray-200 px-2 py-1 text-right text-gray-500">{pct(value, data.totalRequirement)}</td>
-                      </tr>
                     ))}
-                    <tr style={{ backgroundColor: COLORS.yellowBg }}>
-                      <td className="border border-gray-300 px-2 py-1.5 font-bold">TOTAL REQUIREMENT</td>
-                      <td className="border border-gray-300 px-2 py-1.5 text-right font-bold text-green-800">{fmt(data.totalRequirement)}</td>
-                      <td className="border border-gray-300 px-2 py-1.5 text-right font-bold">100%</td>
-                    </tr>
-                  </tbody>
-                </table>
+                  </div>
+                )}
               </div>
-
-              {/* ── Liabilities Overview ── */}
-              {liabilityRows.length > 0 && (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-                  <h3 className="text-xs font-bold text-gray-800 mb-2 pb-1 border-b">💳 Liabilities Overview</h3>
-                  <table className="w-full border-collapse text-xs">
-                    <thead>
-                      <tr style={{ backgroundColor: COLORS.headerBg }}>
-                        <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Type</th>
-                        <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Description / Lender</th>
-                        <th className="border border-gray-300 px-2 py-1 text-right font-semibold">Balance</th>
-                        <th className="border border-gray-300 px-2 py-1 text-right font-semibold">Rate %</th>
-                        <th className="border border-gray-300 px-2 py-1 text-right font-semibold">Min Pmt</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {liabilityRows.map((r, i) => (
-                        <tr key={r.id} style={{ backgroundColor: i % 2 === 0 ? '#f9fafb' : 'white' }}>
-                          <td className="border border-gray-200 px-2 py-1 text-gray-700">{r.liability_type || '—'}</td>
-                          <td className="border border-gray-200 px-2 py-1 text-gray-600">{[r.description, r.lender].filter(Boolean).join(' / ') || '—'}</td>
-                          <td className="border border-gray-200 px-2 py-1 text-right font-medium text-red-700">{r.balance ? fmt(toN(r.balance)) : '—'}</td>
-                          <td className="border border-gray-200 px-2 py-1 text-right">{r.interest_rate != null ? `${r.interest_rate}%` : '—'}</td>
-                          <td className="border border-gray-200 px-2 py-1 text-right">{r.min_payment ? fmt(toN(r.min_payment)) : '—'}</td>
-                        </tr>
-                      ))}
-                      <tr style={{ backgroundColor: COLORS.yellowBg }}>
-                        <td colSpan={2} className="border border-gray-300 px-2 py-1.5 font-bold">TOTAL LIABILITIES</td>
-                        <td className="border border-gray-300 px-2 py-1.5 text-right font-bold text-red-700">{fmt(totalLiabilities)}</td>
-                        <td colSpan={2} className="border border-gray-300 px-2 py-1.5" />
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* ── Notes ── */}
-              {data.notes && (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-                  <h3 className="text-xs font-bold text-gray-800 mb-1.5 pb-1 border-b">📝 Advisor Notes</h3>
-                  <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{data.notes}</p>
-                </div>
-              )}
 
               <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ Disclaimer: For Education Purpose Only. We Do Not Provide Any Legal Or Tax Advice</div>
             </div>
           );
         })()}
-
       </main>
     </div>
   );
