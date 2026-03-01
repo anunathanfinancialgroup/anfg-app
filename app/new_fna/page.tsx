@@ -599,6 +599,10 @@ export default function FNAPage() {
   // ── CHANGE: table hidden by default; toggled by Show/Hide button ──────────
   const [createPlanVisible, setCreatePlanVisible] = useState(false);
   const [planRowsLoading, setPlanRowsLoading] = useState(false);
+  // ── CHANGE: State for Client Information card-level save button ────────────
+  const [savingClientInfo, setSavingClientInfo] = useState(false);
+  const [clientInfoMessage, setClientInfoMessage] = useState("");
+  const [clientInfoMessageType, setClientInfoMessageType] = useState<'success' | 'error'>('success');
 
   // ── Compound interest helpers ──────────────────────────────────────────────
   const yearsToRetirement = useMemo(() => {
@@ -998,6 +1002,59 @@ export default function FNAPage() {
     data.travelBudget, data.vacationHome, data.charity, data.otherGoals,
     data.headstartFund, data.familyLegacy, data.familySupport,
   ]);
+
+  // ── CHANGE: Save Client Information card fields only to fna_records ─────────
+  const handleSaveClientInfo = async () => {
+    if (!data.clientId) {
+      setClientInfoMessage("Please select a client first");
+      setClientInfoMessageType('error');
+      setTimeout(() => setClientInfoMessage(""), 4000);
+      return;
+    }
+    setSavingClientInfo(true);
+    try {
+      const payload = {
+        client_id: data.clientId,
+        analysis_date: data.analysisDate,
+        spouse_name: data.spouseName,
+        dob: data.dob || null,
+        notes: data.notes || null,
+        planned_retirement_age: data.plannedRetirementAge,
+        calculated_interest_percentage: data.calculatedInterestPercentage,
+        fna_have_will: data.haveWill,
+        fna_spouse_include_fls: data.spouseIncludeFls,
+      };
+
+      let fnaId = data.fnaId;
+      if (!fnaId) {
+        // INSERT — no existing fna_records row for this client yet
+        const { data: fr, error: fe } = await supabase
+          .from('fna_records')
+          .insert([payload])
+          .select()
+          .single();
+        if (fe) throw fe;
+        fnaId = fr.fna_id;
+        setData(prev => ({ ...prev, fnaId }));
+      } else {
+        // UPDATE — existing row
+        const { error: ue } = await supabase
+          .from('fna_records')
+          .update({ ...payload, updated_at: new Date().toISOString() })
+          .eq('fna_id', fnaId);
+        if (ue) throw ue;
+      }
+
+      setClientInfoMessage("✅ Client info saved!");
+      setClientInfoMessageType('success');
+    } catch (err: any) {
+      setClientInfoMessage(`❌ Save failed: ${err.message}`);
+      setClientInfoMessageType('error');
+    } finally {
+      setSavingClientInfo(false);
+      setTimeout(() => setClientInfoMessage(""), 4000);
+    }
+  };
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -1562,7 +1619,6 @@ export default function FNAPage() {
       };
 
       // ── Table header row (LBLUE background) ───────────────────────────────
-      // CHANGE: Right-align ANY column header containing $-related keywords (not just last column)
       const thead = (cells: string[], y: number, colW: number[]): number => {
         doc.setFillColor(...LBLUE);
         doc.rect(M, y, TW, TBL_H, 'F');
@@ -1570,8 +1626,8 @@ export default function FNAPage() {
         const baseline = y + TBL_H*0.7;
         cells.forEach((c, i) => {
           doc.setFont(FONT,'bold'); doc.setFontSize(7.5); doc.setTextColor(...NAVY);
-          // CHANGE: Right-align any column whose header contains amount/value/balance/payment/projected/pmt
-          const isAmt = /value|amount|balance|payment|project|pmt/i.test(c);
+          // Last column: right-aligned if it looks like a number/amount column
+          const isAmt = i===cells.length-1 && /value|amount|balance|payment|project/i.test(c);
           if (isAmt) doc.text(S(c), x+colW[i]-5, baseline, { align:'right' });
           else       doc.text(S(c), x+5, baseline);
           x += colW[i];
@@ -1733,14 +1789,12 @@ export default function FNAPage() {
       const SH = 42;
       doc.setFillColor(...LBLUE); doc.rect(M, y, TW, SH, 'F');
       const T3 = TW/3;
-      // CHANGE: Reordered — Row 1: Total Assets | Total Liabilities | Net Worth
-      //                      Row 2: Annual Income | Planning Req.  | GAP @ retirement
       const cells6: [string,string][] = [
         ['Total Assets',        $f(totalPresent)],
-        ['Total Liabilities',   $f(totalLiabilities)],
-        ['Net Worth',           $f(netWorth)],
         ['Annual Income',       $f(assets.s6_present||0)],
         ['Planning Req.',       $f(data.totalRequirement)],
+        ['Total Liabilities',   $f(totalLiabilities)],
+        ['Net Worth',           $f(netWorth)],
         [`GAP @ ${data.plannedRetirementAge}`, $f(Gap)],
       ];
       cells6.forEach(([lbl, val], i) => {
@@ -1750,9 +1804,8 @@ export default function FNAPage() {
         const cy2 = cy1 + 10;           // value baseline
         doc.setFont(FONT,'bold');   doc.setFontSize(7.5); doc.setTextColor(...NAVY);
         doc.text(S(lbl)+':', cx, cy1);
-        // CHANGE: Right-align the $ values within each cell for clean columns
         doc.setFont(FONT,'normal'); doc.setFontSize(8);   doc.setTextColor(50,50,50);
-        doc.text(S(val), cx + T3 - 14, cy2, { align:'right' });
+        doc.text(S(val), cx, cy2);
       });
       doc.setTextColor(...BLACK); y += SH + 12;
 
@@ -2041,11 +2094,8 @@ export default function FNAPage() {
       const firstPages = await mergedPdf.copyPages(clientPdf, Array.from({length:splitAt},(_,i)=>i));
       firstPages.forEach((p: any) => mergedPdf.addPage(p));
 
-      // CHANGE: Skip template page 0 (page 9) — pages 9 and 10 were duplicated;
-      // remove page 9 and keep page 10 onwards
-      // Part B: Template pages — skip first page to eliminate the duplicate
-      const tplStartIdx = 1; // skip template page index 0 (the duplicated page 9)
-      const tplPages = await mergedPdf.copyPages(tplPdf, Array.from({length:tplCount - tplStartIdx},(_,i)=>i + tplStartIdx));
+      // Part B: ALL template pages — completely unmodified
+      const tplPages = await mergedPdf.copyPages(tplPdf, Array.from({length:tplCount},(_,i)=>i));
       tplPages.forEach((p: any) => mergedPdf.addPage(p));
 
       // Part C: overflow FNA pages beyond page 8 (if Goals/Recs spill to extra pages)
@@ -2104,7 +2154,24 @@ export default function FNAPage() {
 
         {/* Client Information */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
-          <h3 className="text-xs font-bold text-gray-800 mb-2 pb-1 border-b">📋 Client Information</h3>
+          {/* CHANGE: Client Information card header with Save button */}
+          <div className="flex items-center justify-between mb-2 pb-1 border-b">
+            <h3 className="text-xs font-bold text-gray-800">📋 Client Information</h3>
+            <div className="flex items-center gap-2">
+              {clientInfoMessage && (
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${clientInfoMessageType === 'success' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-red-100 text-red-800 border border-red-300'}`}>
+                  {clientInfoMessage}
+                </span>
+              )}
+              <button
+                onClick={handleSaveClientInfo}
+                disabled={savingClientInfo || loading || !data.clientId}
+                className={btnSave}
+              >
+                {savingClientInfo ? '💾 Saving…' : '💾 Save Client Info'}
+              </button>
+            </div>
+          </div>
 
           {/* Row 1: Client Name* | Phone | Email | Client DOB */}
           <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: '2fr 1fr 1.4fr 1fr' }}>
