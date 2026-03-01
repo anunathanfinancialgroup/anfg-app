@@ -21,6 +21,8 @@ type LiabRow = { id: string; fna_id: string } & Record<string, any>;
 
 const LIABILITY_TYPES = [
   "",
+  '1st Primary Residence Mortgage ',
+  '2nd Residence Mortgage',
   "Credit Card",
   "Auto Loan",
   "Student Loan",
@@ -2731,12 +2733,6 @@ export default function FNAPage() {
 // Client Information – New Fields
 // fna_have_will: Yes | No
 // fna_spouse_include_fls: Yes | No
-
-// Liability Types Extension
-export const EXTENDED_LIABILITY_TYPES = [
-  '1st Primary Residence',
-  '2nd Residence',
-];
 
 // Planning Card (Inserted after Liability Card)
 export const PlanningCard = ({ planningData }: any) => {
