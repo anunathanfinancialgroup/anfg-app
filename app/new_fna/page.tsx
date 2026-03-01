@@ -3246,7 +3246,7 @@ export default function FNAPage() {
                         <span className="inline-flex items-center gap-3 px-3 py-0.5 rounded text-xs " style={{ backgroundColor: '#FFFF00' }}>
                           <span>Monthly Premium:  {$fmt(totalMonthly)}</span> 
                           <span className="text-gray-400">|</span>
-                          <span>Annual Premium:  fmt(totalAnnually)}</span> 
+                          <span>Annual Premium:  {fmt(totalAnnually)}</span> 
                         </span>
                       );
                     })()}
