@@ -3244,9 +3244,9 @@ export default function FNAPage() {
                       const $fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
                       return (
                         <span className="inline-flex items-center gap-3 px-3 py-0.5 rounded text-xs " style={{ backgroundColor: '#FFFF00' }}>
-                          <span>Monthly Premium: <span className="font-semibold">{$fmt(totalMonthly)}</span></span>
+                          <span>Monthly Premium:  {$fmt(totalMonthly)}</span> 
                           <span className="text-gray-400">|</span>
-                          <span>Annual Premium: <span className="font-semibold">{$fmt(totalAnnually)}</span></span>
+                          <span>Annual Premium:  fmt(totalAnnually)}</span> 
                         </span>
                       );
                     })()}
