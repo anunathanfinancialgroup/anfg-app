@@ -863,8 +863,8 @@ export default function FNAPage() {
         dob: rec.dob || '', notes: rec.notes || '',
         plannedRetirementAge: rec.planned_retirement_age || 65,
         calculatedInterestPercentage: rec.calculated_interest_percentage || 6,
-        haveWill: rec.fna_have_will ?? false,
-        spouseIncludeFls: rec.fna_spouse_include_fls ?? false,
+        haveWill: rec.fna_have_will === true,
+        spouseIncludeFls: rec.fna_spouse_include_fls === true,
         child1CollegeName: c1c?.child_name || '', child1CollegeNotes: c1c?.notes || '', child1CollegeAmount: c1c?.amount || 0,
         child2CollegeName: c2c?.child_name || '', child2CollegeNotes: c2c?.notes || '', child2CollegeAmount: c2c?.amount || 0,
         child1WeddingNotes: c1w?.notes || '', child1WeddingAmount: c1w?.amount || 0,
@@ -1013,21 +1013,27 @@ export default function FNAPage() {
     }
     setSavingClientInfo(true);
     try {
-      const payload = {
+      // FIX: Explicitly convert to boolean to ensure correct DB storage
+      const willValue = data.haveWill === true;
+      const flsValue = data.spouseIncludeFls === true;
+
+      const payload: Record<string, any> = {
         client_id: data.clientId,
         analysis_date: data.analysisDate,
         spouse_name: data.spouseName,
         dob: data.dob || null,
-        notes: data.notes || null,
         planned_retirement_age: data.plannedRetirementAge,
         calculated_interest_percentage: data.calculatedInterestPercentage,
-        fna_have_will: data.haveWill,
-        fna_spouse_include_fls: data.spouseIncludeFls,
+        fna_have_will: willValue,
+        fna_spouse_include_fls: flsValue,
       };
 
       let fnaId = data.fnaId;
       if (!fnaId) {
         // INSERT — no existing fna_records row for this client yet
+        // FIX: For new records, save spouseDob via __ASSETS__ notes wrapper
+        const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob, _ytr: data.yearsToRetirement, _rYears: data.retirementYears, _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current, _ltc: data.longTermCare, _ltcManual: ltcManualRef.current });
+        payload.notes = `__ASSETS__:${notesPayload}`;
         const { data: fr, error: fe } = await supabase
           .from('fna_records')
           .insert([payload])
@@ -1038,6 +1044,31 @@ export default function FNAPage() {
         setData(prev => ({ ...prev, fnaId }));
       } else {
         // UPDATE — existing row
+        // FIX: Preserve existing __ASSETS__ notes — only update the _spouseDob and _fna_note within the wrapper
+        const { data: existingRec } = await supabase
+          .from('fna_records')
+          .select('notes')
+          .eq('fna_id', fnaId)
+          .maybeSingle();
+        const existingNotes: string = existingRec?.notes || '';
+        if (existingNotes.startsWith('__ASSETS__:')) {
+          // FIX: Preserve existing __ASSETS__ payload, update spouseDob and note within it
+          try {
+            const wrapper = JSON.parse(existingNotes.slice('__ASSETS__:'.length));
+            wrapper._fna_note = data.notes;
+            wrapper._spouseDob = data.spouseDob;
+            payload.notes = `__ASSETS__:${JSON.stringify(wrapper)}`;
+          } catch {
+            // If parsing fails, rebuild the wrapper
+            const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob, _ytr: data.yearsToRetirement, _rYears: data.retirementYears, _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current, _ltc: data.longTermCare, _ltcManual: ltcManualRef.current });
+            payload.notes = `__ASSETS__:${notesPayload}`;
+          }
+        } else {
+          // No __ASSETS__ prefix yet — create the wrapper
+          const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob, _ytr: data.yearsToRetirement, _rYears: data.retirementYears, _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current, _ltc: data.longTermCare, _ltcManual: ltcManualRef.current });
+          payload.notes = `__ASSETS__:${notesPayload}`;
+        }
+
         const { error: ue } = await supabase
           .from('fna_records')
           .update({ ...payload, updated_at: new Date().toISOString() })
@@ -1068,8 +1099,8 @@ export default function FNAPage() {
           spouse_name: data.spouseName, dob: data.dob || null, notes: data.notes || null,
           planned_retirement_age: data.plannedRetirementAge,
           calculated_interest_percentage: data.calculatedInterestPercentage,
-          fna_have_will: data.haveWill,
-          fna_spouse_include_fls: data.spouseIncludeFls,
+          fna_have_will: data.haveWill === true,
+          fna_spouse_include_fls: data.spouseIncludeFls === true,
         }]).select().single();
         if (fe) throw fe;
         fnaId = fr.fna_id;
@@ -1080,8 +1111,8 @@ export default function FNAPage() {
           dob: data.dob || null, notes: data.notes || null,
           planned_retirement_age: data.plannedRetirementAge,
           calculated_interest_percentage: data.calculatedInterestPercentage,
-          fna_have_will: data.haveWill,
-          fna_spouse_include_fls: data.spouseIncludeFls,
+          fna_have_will: data.haveWill === true,
+          fna_spouse_include_fls: data.spouseIncludeFls === true,
           updated_at: new Date().toISOString(),
         }).eq('fna_id', fnaId);
         if (ue) throw ue;
@@ -1531,6 +1562,15 @@ export default function FNAPage() {
         .replace(/\u25BC/g, '<<')      // ▼
         .replace(/[^\x00-\xFF]/g, ''); // strip any other non-latin1
 
+      // FIX: Format date values as mm-dd-yyyy for PDF display
+      const fmtDate = (d: string | undefined | null): string => {
+        if (!d || d === '-') return '-';
+        // Handle yyyy-mm-dd (ISO) format
+        const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+        if (iso) return `${iso[2]}-${iso[3]}-${iso[1]}`;
+        return S(d);
+      };
+
       // ── Compute totals ─────────────────────────────────────────────────────
       const totalLiabilities = liabilityRows.reduce((s, r) => {
         const n = parseFloat(String(r.balance ?? '').replace(/[$,\s]/g, ''));
@@ -1698,7 +1738,7 @@ export default function FNAPage() {
       doc.setTextColor(...BLACK);
 
       doc.setFont(FONT,'bold');  doc.setFontSize(8.5); doc.text('Analysis Date:', M, 224);
-      doc.setFont(FONT,'normal'); doc.text(S(data.analysisDate||mmddyyyy), M+76, 224);
+      doc.setFont(FONT,'normal'); doc.text(fmtDate(data.analysisDate)||mmddyyyy, M+76, 224);
 
       // Disclaimer text blocks
       doc.setFont(FONT,'bold');  doc.setFontSize(8.5); doc.text('In the USA:', M, 248);
@@ -1746,11 +1786,11 @@ export default function FNAPage() {
       y = banner('Client Information', y);
       const cliRows: [string,string,string,string][] = [
         ['Client Name',   data.clientName||'-',              'Country',    'USA'],
-        ['Date of Birth', S(data.dob||data.clientDob||'-'), 'State',      data.state||'-'],
+        ['Date of Birth', fmtDate(data.dob||data.clientDob)||'-', 'State',      data.state||'-'],
         ['Cell Phone',    data.clientPhone||'-',             'Gender',     '-'],
         ['Email',         data.clientEmail||'-',             'Height',     'N/A'],
         ['City / State',  `${data.city||''}, ${data.state||''}`.replace(/^,\s*/,'').trim()||'-', 'Weight', '-'],
-        ['Analysis Date', S(data.analysisDate||mmddyyyy),   'Ret. Age',   String(data.plannedRetirementAge)],
+        ['Analysis Date', fmtDate(data.analysisDate)||mmddyyyy,   'Ret. Age',   String(data.plannedRetirementAge)],
       ];
       cliRows.forEach(([l1,v1,l2,v2]) => {
         if (y > PH-64) { doc.addPage(); y = topBar()+30; pgFoot(); }
@@ -1766,7 +1806,7 @@ export default function FNAPage() {
       y = banner('Spouse Information', y);
       const spRows: [string,string,string,string][] = [
         ['Spouse Name',  data.spouseName||'-',      'Gender', '-'],
-        ['Date of Birth',S(data.spouseDob||'-'),    'Height', 'N/A'],
+        ['Date of Birth',fmtDate(data.spouseDob)||'-',    'Height', 'N/A'],
         ['Cell Phone',   '-',                       'Weight', '-'],
         ['Email',        '-',                       '',       ''],
       ];
@@ -1785,27 +1825,32 @@ export default function FNAPage() {
       doc.setFont(FONT,'bold'); doc.setFontSize(15); doc.text('Financial Summary', M, y+22); y+=44;
 
       // ── 6-cell summary strip (3 cols x 2 rows) ─────────────────────────
-      // Each cell: label on its own line (bold), value below (normal)
+      // FIX: Each cell: label followed by $ amount on the SAME line, aligned in two rows
       const SH = 42;
       doc.setFillColor(...LBLUE); doc.rect(M, y, TW, SH, 'F');
       const T3 = TW/3;
+      // FIX: Reordered to match reference image layout:
+      // Row 1: Total Assets | Total Liabilities | Net Worth
+      // Row 2: Annual Income | Planning Req.     | GAP @ 65
       const cells6: [string,string][] = [
         ['Total Assets',        $f(totalPresent)],
-        ['Annual Income',       $f(assets.s6_present||0)],
-        ['Planning Req.',       $f(data.totalRequirement)],
         ['Total Liabilities',   $f(totalLiabilities)],
         ['Net Worth',           $f(netWorth)],
+        ['Annual Income',       $f(assets.s6_present||0)],
+        ['Planning Req.',       $f(data.totalRequirement)],
         [`GAP @ ${data.plannedRetirementAge}`, $f(Gap)],
       ];
       cells6.forEach(([lbl, val], i) => {
         const col = i%3, row = Math.floor(i/3);
         const cx  = M + col*T3 + 7;
-        const cy1 = y + 10 + row*18;   // label baseline
-        const cy2 = cy1 + 10;           // value baseline
+        // FIX: label and amount on same baseline (side by side)
+        const cy  = y + 14 + row*16;
         doc.setFont(FONT,'bold');   doc.setFontSize(7.5); doc.setTextColor(...NAVY);
-        doc.text(S(lbl)+':', cx, cy1);
+        const lblText = S(lbl)+':';
+        doc.text(lblText, cx, cy);
+        const lblW = doc.getTextWidth(lblText);
         doc.setFont(FONT,'normal'); doc.setFontSize(8);   doc.setTextColor(50,50,50);
-        doc.text(S(val), cx, cy2);
+        doc.text(S(val), cx + lblW + 4, cy);
       });
       doc.setTextColor(...BLACK); y += SH + 12;
 
@@ -2095,7 +2140,9 @@ export default function FNAPage() {
       firstPages.forEach((p: any) => mergedPdf.addPage(p));
 
       // Part B: ALL template pages — completely unmodified
-      const tplPages = await mergedPdf.copyPages(tplPdf, Array.from({length:tplCount},(_,i)=>i));
+      // FIX: Skip first template page (index 0) — pages 9 and 10 contained repeated info; remove page 9, keep page 10 onwards
+      const tplStartIndex = 1; // skip template page 0 (was page 9 in merged PDF)
+      const tplPages = await mergedPdf.copyPages(tplPdf, Array.from({length:tplCount - tplStartIndex},(_,i)=>i + tplStartIndex));
       tplPages.forEach((p: any) => mergedPdf.addPage(p));
 
       // Part C: overflow FNA pages beyond page 8 (if Goals/Recs spill to extra pages)
@@ -2264,8 +2311,8 @@ export default function FNAPage() {
                 <input type="checkbox" checked={data.spouseIncludeFls}
                   onChange={e => setData(p => ({ ...p, spouseIncludeFls: e.target.checked }))}
                   className="w-4 h-4 accent-blue-600" />
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${data.spouseIncludeFls ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
-                  {data.spouseIncludeFls ? '✅ Yes' : '—  No'}
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${data.spouseIncludeFls ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+                  {data.spouseIncludeFls ? '✅ Yes' : '❌ No'}
                 </span>
               </label>
             </div>
