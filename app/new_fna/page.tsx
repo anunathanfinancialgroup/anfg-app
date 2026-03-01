@@ -596,7 +596,8 @@ export default function FNAPage() {
   const [cardVisibility, setCardVisibility] = useState<CardVisibility>(allCardsClosed);
   const [createPlanRows, setCreatePlanRows] = useState<CreatePlanRow[]>([]);
   const [createPlanNotice, setCreatePlanNotice] = useState<string | null>(null);
-  const [createPlanVisible, setCreatePlanVisible] = useState(true);
+  // ── CHANGE: table hidden by default; toggled by Show/Hide button ──────────
+  const [createPlanVisible, setCreatePlanVisible] = useState(false);
   const [planRowsLoading, setPlanRowsLoading] = useState(false);
 
   // ── Compound interest helpers ──────────────────────────────────────────────
@@ -3056,29 +3057,33 @@ export default function FNAPage() {
                       <span className="ml-2 text-gray-500 font-normal">({createPlanRows.length} row{createPlanRows.length !== 1 ? 's' : ''})</span>
                     }
                   </h3>
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                {/* ── CHANGE: Show/Hide uses same icons as Show Cards/Hide Cards.
+                     Refresh is only rendered when table is visible. ── */}
+                <div className="flex items-center gap-1.5 flex-wrap">
                     {createPlanNotice && (
                       <span className="text-xs text-green-600 font-semibold">{createPlanNotice}</span>
                     )}
                     {!data.fnaId && (
                       <span className="text-xs text-amber-600 font-medium">⚠️ Save FNA first (Goals tab).</span>
                     )}
-                    {/* Refresh */}
-                    <button onClick={refreshRows} disabled={planRowsLoading}
-                      title="Reload rows from database"
-                      className="px-2.5 py-1 text-xs font-semibold rounded bg-gray-500 text-white hover:bg-gray-600 disabled:opacity-50 transition-colors flex items-center gap-1">
-                      🔄 Refresh
-                    </button>
-                    {/* Show / Hide */}
+                    {/* Refresh — only shown when table is visible */}
+                    {createPlanVisible && (
+                      <button onClick={refreshRows} disabled={planRowsLoading}
+                        className={btnGhost + " disabled:opacity-40 disabled:cursor-not-allowed"}>
+                        {planRowsLoading ? '⏳ Loading…' : 'Refresh'}
+                      </button>
+                    )}
+                    {/* Show / Hide — mirrors Show Cards 🗃️ / Hide Cards 📦 */}
                     <button onClick={() => setCreatePlanVisible(v => !v)}
-                      className="px-2.5 py-1 text-xs font-semibold rounded bg-slate-500 text-white hover:bg-slate-600 transition-colors flex items-center gap-1">
-                      {createPlanVisible ? '🙈 Hide' : '👁 Show'}
+                      className={btnGhost}>
+                      {createPlanVisible ? 'Hide Cards 📦' : 'Show Cards 🗃️'}
                     </button>
-                    {/* Add Row */}
-                    <button onClick={addRow}
-                      className="px-2.5 py-1 text-xs font-semibold rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-1">
-                      ＋ Add Row
-                    </button>
+                    {/* Add Row — only useful when table is visible */}
+                    {createPlanVisible && (
+                      <button onClick={addRow} className={btnGhost}>
+                        + Add Row
+                      </button>
+                    )}
                   </div>
                 </div>
 
