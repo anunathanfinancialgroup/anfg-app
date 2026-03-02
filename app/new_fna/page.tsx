@@ -1561,23 +1561,53 @@ export default function FNAPage() {
     if (!assets.f1_present && !assets.f2_present && !assets.f3_present)
       out.push({ kind:'warn', text:`LIFE INSURANCE GAP: No coverage recorded. Income replacement of 10-12x annual income protects your family. With ${ytr} years to retirement, consider Term insurance now and a Permanent policy for estate transfer.` });
 
-    // FIX: Life Insurance Outside Work + LTC Outside — if both unchecked, recommend term/perm
-    const hasLifeInsOutside = assets.f2_him || assets.f2_her;
-    const hasLTCOutside = assets.f6_him || assets.f6_her;
-    if (!hasLifeInsOutside && !hasLTCOutside) {
-      const annInc = assets.s6_present || 0;
-      const idealCoverage = annInc > 0 ? ` A recommended coverage amount of ${$(annInc * 10)} to ${$(annInc * 12)} (10-12x your annual income) would provide a strong safety net.` : '';
-      out.push({ kind:'warn', text:`NO PERSONAL LIFE INSURANCE OR LONG-TERM CARE COVERAGE: You currently have no life insurance outside of work and no long-term care coverage.${idealCoverage} Employer-provided group life insurance typically ends when you leave a job or retire, leaving your family unprotected. A Term Life policy provides affordable high-coverage protection during your working years (e.g., 20 or 30-year term), while a Permanent (Whole/IUL) policy builds cash value and provides lifelong coverage that can supplement retirement income. For long-term care, the average cost of a nursing home exceeds $100,000/year — an LTC rider on a life policy or a standalone LTC policy prevents this from depleting your retirement savings. Your financial advisor can compare Term vs. Permanent options and LTC riders from carriers like North American, Nationwide, or Athene to find the best fit for your budget and goals.` });
-    } else if (!hasLifeInsOutside) {
-      out.push({ kind:'warn', text:`NO PERSONAL LIFE INSURANCE OUTSIDE WORK: You rely solely on employer-provided coverage, which typically ends when you change jobs or retire. A personally-owned policy ensures uninterrupted protection. Term Life insurance offers the highest coverage per dollar during working years — ideal for income replacement and mortgage protection. A Permanent policy (Whole Life or Indexed Universal Life) provides lifelong coverage plus cash value accumulation that can be accessed tax-free for retirement income. With ${ytr} years to retirement, locking in a policy now means lower premiums and longer compounding of cash value. Your advisor can model both Term and Permanent options to determine the optimal coverage structure.` });
-    } else if (!hasLTCOutside) {
-      out.push({ kind:'warn', text:`NO LONG-TERM CARE COVERAGE: Long-term care is one of the largest uninsured risks in retirement — the average nursing home stay costs over $100,000/year, and Medicare does not cover custodial care. Without LTC coverage, these costs would come directly from your retirement savings and could deplete your assets rapidly. Consider a hybrid life insurance policy with an LTC rider, which provides a death benefit if LTC is never needed, or a standalone LTC policy for dedicated coverage. Your financial advisor can evaluate hybrid LTC options that protect both your retirement income and your family legacy.` });
+    // FIX: Person-specific insurance recommendations — Him=client, Her=spouse
+    const clientFirst = data.clientName?.split(' ')[0] || 'Client';
+    const spouseFirst = data.spouseName?.split(' ')[0] || 'Spouse';
+    const hasSpouse = !!data.spouseName;
+
+    // ── Life Insurance Outside Work (f2) — per-person checks ─────────────
+    const f2Him = assets.f2_him;   // client has life ins outside work
+    const f2Her = assets.f2_her;   // spouse has life ins outside work
+    const annInc = assets.s6_present || 0;
+    const idealCov = annInc > 0 ? `${$(annInc * 10)} to ${$(annInc * 12)} (10-12x annual income)` : '10-12x annual income';
+
+    if (!f2Him && hasSpouse && !f2Her) {
+      out.push({ kind:'warn', text:`NO PERSONAL LIFE INSURANCE — BOTH ${clientFirst.toUpperCase()} AND ${spouseFirst.toUpperCase()}: Neither ${clientFirst} nor ${spouseFirst} have life insurance outside of work. Employer group coverage ends when you leave or retire, leaving both of you and your family completely unprotected. Recommended coverage: ${idealCov}. A Term Life policy provides affordable high coverage during working years, while a Permanent policy (IUL/Whole Life) builds cash value for retirement income and provides lifelong protection. Your advisor can quote individual policies for each of you from carriers like North American, Nationwide, or Athene.` });
+    } else if (!f2Him && hasSpouse && f2Her) {
+      out.push({ kind:'warn', text:`NO PERSONAL LIFE INSURANCE — ${clientFirst.toUpperCase()}: ${clientFirst} does not have life insurance outside of work, while ${spouseFirst} does have coverage. If ${clientFirst} is the primary earner, this creates a significant income replacement risk for the family. Employer coverage ends at job separation or retirement. A personally-owned Term Life (20-30 year term for affordability) or Permanent policy (IUL for cash value + lifelong coverage) for ${clientFirst} would close this gap. Your advisor can recommend the right coverage amount and policy type for ${clientFirst}'s situation.` });
+    } else if (f2Him && hasSpouse && !f2Her) {
+      out.push({ kind:'warn', text:`NO PERSONAL LIFE INSURANCE — ${spouseFirst.toUpperCase()}: ${spouseFirst} does not have life insurance outside of work, while ${clientFirst} does have coverage. Even if ${spouseFirst} is not the primary earner, the loss of a spouse creates financial strain through lost income, increased childcare costs, and reduced household support. A Term or Permanent policy for ${spouseFirst} ensures both partners are protected. Your advisor can evaluate the right coverage level for ${spouseFirst} based on household income and goals.` });
+    } else if (!f2Him && !hasSpouse) {
+      out.push({ kind:'warn', text:`NO PERSONAL LIFE INSURANCE — ${clientFirst.toUpperCase()}: You do not have life insurance outside of your employer. Employer group coverage typically ends when you change jobs or retire. Recommended coverage is ${idealCov}. A Term Life policy locks in low premiums now, while a Permanent policy (IUL) provides lifelong protection plus tax-free cash value for retirement. Your advisor can model both options for ${clientFirst}.` });
     }
 
-    // FIX: Cash Value Life Insurance — if unchecked, recommend benefits of cash value policies
-    const hasCashValueLI = assets.f3_him || assets.f3_her;
-    if (!hasCashValueLI) {
-      out.push({ kind:'info', text:`CASH VALUE LIFE INSURANCE OPPORTUNITY: You do not currently have a cash value life insurance policy (Whole Life, Universal Life, or Indexed Universal Life). Unlike Term insurance, cash value policies build a tax-deferred savings component that you can borrow against tax-free during retirement. An Indexed Universal Life (IUL) policy, in particular, offers market-linked growth with downside protection (0% floor), a tax-free death benefit for your beneficiaries, and the ability to take tax-free policy loans as supplemental retirement income. This creates a "triple tax advantage" — tax-deferred growth, tax-free access, and a tax-free death benefit. With ${ytr} years until retirement, starting a cash value policy now maximizes the compounding period. Your financial advisor can illustrate how an IUL from carriers like North American or Nationwide could fit into your overall retirement income strategy alongside your existing 401(K) and IRA accounts.` });
+    // ── Long-Term Care Outside Work (f6) — per-person checks ─────────────
+    const f6Him = assets.f6_him;   // client has LTC outside work
+    const f6Her = assets.f6_her;   // spouse has LTC outside work
+
+    if (!f6Him && hasSpouse && !f6Her) {
+      out.push({ kind:'warn', text:`NO LONG-TERM CARE COVERAGE — BOTH ${clientFirst.toUpperCase()} AND ${spouseFirst.toUpperCase()}: Neither ${clientFirst} nor ${spouseFirst} have long-term care insurance. The average nursing home costs over $100,000/year and Medicare does not cover custodial care. Without coverage, these costs would deplete your combined retirement savings rapidly. A hybrid life insurance + LTC rider policy for each of you provides a death benefit if LTC is never needed, while covering care costs if it is. Your advisor can design LTC coverage for both ${clientFirst} and ${spouseFirst} that protects your retirement income and family legacy.` });
+    } else if (!f6Him && hasSpouse && f6Her) {
+      out.push({ kind:'warn', text:`NO LONG-TERM CARE COVERAGE — ${clientFirst.toUpperCase()}: ${clientFirst} does not have long-term care coverage, while ${spouseFirst} is covered. Statistically, 70% of people over 65 will need some form of long-term care. Without coverage for ${clientFirst}, a single long-term care event could consume retirement assets meant for both of you. A hybrid life + LTC policy or standalone LTC plan for ${clientFirst} would close this gap. Your advisor can recommend options that complement ${spouseFirst}'s existing coverage.` });
+    } else if (f6Him && hasSpouse && !f6Her) {
+      out.push({ kind:'warn', text:`NO LONG-TERM CARE COVERAGE — ${spouseFirst.toUpperCase()}: ${spouseFirst} does not have long-term care coverage, while ${clientFirst} is covered. Women statistically face longer care needs and higher LTC utilization. Without coverage for ${spouseFirst}, a care event could exhaust family resources. A hybrid life + LTC rider or standalone LTC policy for ${spouseFirst} would ensure both partners are protected. Your advisor can evaluate the best LTC option for ${spouseFirst}.` });
+    } else if (!f6Him && !hasSpouse) {
+      out.push({ kind:'warn', text:`NO LONG-TERM CARE COVERAGE — ${clientFirst.toUpperCase()}: You have no long-term care insurance. Nursing home care averages over $100,000/year and Medicare does not cover custodial care. Without LTC coverage, these costs come directly from your retirement savings. A hybrid life + LTC policy provides a death benefit if care is never needed, or covers expenses if it is. Your advisor can model LTC options that protect ${clientFirst}'s retirement income.` });
+    }
+
+    // ── Cash Value Life Insurance (f3) — per-person checks ───────────────
+    const f3Him = assets.f3_him;   // client has cash value LI
+    const f3Her = assets.f3_her;   // spouse has cash value LI
+
+    if (!f3Him && hasSpouse && !f3Her) {
+      out.push({ kind:'info', text:`CASH VALUE LIFE INSURANCE OPPORTUNITY — BOTH ${clientFirst.toUpperCase()} AND ${spouseFirst.toUpperCase()}: Neither ${clientFirst} nor ${spouseFirst} have a cash value life insurance policy. Unlike Term insurance, an Indexed Universal Life (IUL) policy builds tax-deferred cash value with market-linked growth (0% floor protection), provides tax-free policy loans for retirement income, and delivers a tax-free death benefit — a "triple tax advantage." With ${ytr} years to retirement, starting IUL policies for both of you now maximizes compounding. Your advisor can illustrate how IUL from carriers like North American or Nationwide complements your existing 401(K)/IRA strategy with no contribution limits or Required Minimum Distributions.` });
+    } else if (!f3Him && hasSpouse && f3Her) {
+      out.push({ kind:'info', text:`CASH VALUE LIFE INSURANCE OPPORTUNITY — ${clientFirst.toUpperCase()}: ${spouseFirst} has a cash value policy, but ${clientFirst} does not. An Indexed Universal Life (IUL) policy for ${clientFirst} would provide tax-deferred growth, tax-free retirement income through policy loans, and a tax-free death benefit. With ${ytr} years to retirement, this "triple tax advantage" vehicle can significantly supplement ${clientFirst}'s retirement income beyond 401(K)/IRA accounts. Your advisor can model an IUL illustration specific to ${clientFirst}'s age and goals.` });
+    } else if (f3Him && hasSpouse && !f3Her) {
+      out.push({ kind:'info', text:`CASH VALUE LIFE INSURANCE OPPORTUNITY — ${spouseFirst.toUpperCase()}: ${clientFirst} has a cash value policy, but ${spouseFirst} does not. Adding an IUL policy for ${spouseFirst} creates a second stream of tax-free retirement income and provides additional family protection. The cash value grows tax-deferred with downside protection, and policy loans are tax-free. Your advisor can design an IUL for ${spouseFirst} that complements ${clientFirst}'s existing coverage and strengthens the household retirement plan.` });
+    } else if (!f3Him && !hasSpouse) {
+      out.push({ kind:'info', text:`CASH VALUE LIFE INSURANCE OPPORTUNITY — ${clientFirst.toUpperCase()}: You do not have a cash value life insurance policy (Whole Life, IUL, or Universal Life). An Indexed Universal Life (IUL) offers market-linked growth with a 0% floor, tax-free policy loans as supplemental retirement income, and a tax-free death benefit — creating a "triple tax advantage." With ${ytr} years until retirement, starting now maximizes compounding. Your advisor can illustrate how an IUL fits alongside your 401(K)/IRA accounts with no contribution limits or RMDs.` });
     }
 
     const mInc = (assets.s6_present||0) / 12;
@@ -1661,21 +1691,22 @@ export default function FNAPage() {
         annualSavings: assets.s7_present || 0,
       },
       insurance: {
+        // FIX: Person-specific insurance flags — Him = client, Her = spouse
+        // The AI must use these names when generating person-specific recommendations
+        clientName_Him: data.clientName?.split(' ')[0] || 'Client',
+        spouseName_Her: data.spouseName?.split(' ')[0] || null,
+        hasSpouse: !!data.spouseName,
         lifeInsWork: assets.f1_present || 0,
         lifeInsOutside: assets.f2_present || 0,
-        // FIX: Explicit checkbox flags for insurance outside work & cash value
-        hasLifeInsOutsideWork_Him: assets.f2_him,
-        hasLifeInsOutsideWork_Her: assets.f2_her,
-        hasLifeInsOutsideWork: assets.f2_him || assets.f2_her,
+        lifeInsOutsideWork_Him: assets.f2_him,
+        lifeInsOutsideWork_Her: assets.f2_her,
         cashValueLI: assets.f3_present || 0,
-        hasCashValueLifeInsurance_Him: assets.f3_him,
-        hasCashValueLifeInsurance_Her: assets.f3_her,
-        hasCashValueLifeInsurance: assets.f3_him || assets.f3_her,
+        cashValueLifeIns_Him: assets.f3_him,
+        cashValueLifeIns_Her: assets.f3_her,
         totalLifeInsurance: totalLifeIns,
         hasSTD_LTD: assets.f5_him || assets.f5_her,
-        hasLTCOutsideOfWork_Him: assets.f6_him,
-        hasLTCOutsideOfWork_Her: assets.f6_her,
-        hasLTCOutsideOfWork: assets.f6_him || assets.f6_her,
+        ltcOutsideOfWork_Him: assets.f6_him,
+        ltcOutsideOfWork_Her: assets.f6_her,
         hasHSA: (assets.f7_present || 0) > 0,
         hsa: assets.f7_present || 0,
         hasMortgageProtection: assets.f8_him || assets.f8_her,
@@ -1727,11 +1758,23 @@ INSTRUCTIONS:
 - Focus on ACTIONABLE steps that highlight why they should schedule a meeting with their financial advisor
 - Recommendations should cover: gap/surplus strategy, debt management, retirement readiness, life insurance adequacy, emergency fund, tax optimization, estate planning, college planning, healthcare planning — but ONLY if relevant based on the data
 
-CRITICAL INSURANCE CHECKS — always evaluate these:
-- If hasLifeInsOutsideWork is false: The client has NO personal life insurance outside their employer. Employer group coverage ends when they leave/retire. Strongly recommend personally-owned Term Life (affordable high coverage during working years) and/or Permanent Life (IUL/Whole Life for lifelong coverage + cash value). Explain the risk of relying solely on employer coverage.
-- If hasLTCOutsideOfWork is false: The client has NO long-term care coverage. Average nursing home costs exceed $100,000/year and Medicare does not cover custodial care. Recommend a hybrid life+LTC policy or standalone LTC coverage to protect retirement savings.
-- If BOTH hasLifeInsOutsideWork and hasLTCOutsideOfWork are false: This is a critical combined gap. Emphasize that both income protection and long-term care risks are unaddressed.
-- If hasCashValueLifeInsurance is false: The client has no cash value life insurance (Whole Life, Universal Life, IUL). Explain the triple tax advantage of IUL (tax-deferred growth, tax-free policy loans for retirement income, tax-free death benefit). Compare how IUL complements 401K/IRA with no contribution limits and no Required Minimum Distributions.
+CRITICAL INSURANCE CHECKS — ALWAYS generate person-specific recommendations using the names provided:
+IMPORTANT: In the insurance section, "Him" = clientName_Him (the primary client) and "Her" = spouseName_Her (the spouse). Use their ACTUAL FIRST NAMES in all recommendations. If hasSpouse is false, only evaluate _Him fields.
+
+LIFE INSURANCE OUTSIDE WORK (lifeInsOutsideWork_Him / lifeInsOutsideWork_Her):
+- If BOTH are false: Generate a "warn" recommendation naming BOTH people, explaining neither has personal life insurance. Employer group coverage ends at separation/retirement. Recommend Term Life (affordable) and/or Permanent/IUL (cash value + lifelong coverage) for BOTH.
+- If only _Him is false: Generate a "warn" naming the client (clientName_Him), explaining they have no personal life insurance while their spouse does. Stress income replacement risk if they are the primary earner.
+- If only _Her is false: Generate a "warn" naming the spouse (spouseName_Her), explaining they lack coverage while the client has it. Note the financial impact of losing a spouse's contributions.
+
+LONG-TERM CARE OUTSIDE WORK (ltcOutsideOfWork_Him / ltcOutsideOfWork_Her):
+- If BOTH are false: "warn" naming BOTH — neither has LTC coverage. Average nursing home cost >$100K/year, Medicare does not cover custodial care. Recommend hybrid life+LTC policies for both.
+- If only _Him is false: "warn" naming client — they lack LTC while spouse is covered.
+- If only _Her is false: "warn" naming spouse — they lack LTC while client is covered. Note women statistically face longer care needs.
+
+CASH VALUE LIFE INSURANCE (cashValueLifeIns_Him / cashValueLifeIns_Her):
+- If BOTH are false: "info" naming BOTH — explain the triple tax advantage of IUL (tax-deferred growth, tax-free loans, tax-free death benefit). Recommend IUL for both to supplement 401K/IRA.
+- If only _Him is false: "info" naming client — spouse has it but client does not.
+- If only _Her is false: "info" naming spouse — client has it but spouse does not. Adding a second IUL creates dual income streams.
 
 - For each recommendation, determine if it is a "warn" (critical gap/risk), "good" (positive/strength), or "info" (opportunity/educational)
 - Each recommendation text should be 2-3 sentences. First sentence: identify the specific finding with numbers. Second sentence: explain the impact. Third sentence: suggest what the advisor can help with.
