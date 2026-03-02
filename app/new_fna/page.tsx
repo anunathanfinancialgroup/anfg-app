@@ -3199,8 +3199,8 @@ export default function FNAPage() {
           const sortArrow = (col: keyof CreatePlanRow) =>
             cpSortCol === col ? (cpSortDir === 'asc' ? ' ▲' : ' ▼') : '';
 
-          // FIX: Sorted rows — apply sort when rendering
-          const sortedPlanRows = React.useMemo(() => {
+          // FIX: Sorted rows — plain computation (not useMemo — this runs inside an IIFE, not a component)
+          const sortedPlanRows = (() => {
             if (!cpSortCol) return createPlanRows;
             return [...createPlanRows].sort((a, b) => {
               const aVal = a[cpSortCol] ?? '';
@@ -3215,7 +3215,7 @@ export default function FNAPage() {
               }
               return cpSortDir === 'asc' ? cmp : -cmp;
             });
-          }, [createPlanRows, cpSortCol, cpSortDir]);
+          })();
 
           // FIX: Sortable header cell — wraps content with click-to-sort
           const SortTh = ({ col, children, className, style }: {
