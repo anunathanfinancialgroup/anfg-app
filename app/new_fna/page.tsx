@@ -2934,7 +2934,7 @@ export default function FNAPage() {
                       <th className="border border-black px-2 py-1 text-xs font-bold">Notes</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-36">Present Value</th>
                       <th className="border border-black px-2 py-1 text-xs font-bold w-44 whitespace-nowrap">
-                        PROJECTED VALUE @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
+                        Projected Value @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
                       </th>
                     </tr>
                   </thead>
@@ -3108,8 +3108,18 @@ export default function FNAPage() {
           const Gap       = data.totalRequirement - totalProjected - totalLiab;
 
           // ── Row helpers ────────────────────────────────────────────────────
+          // FIX: updRow auto-calculates Ann. Premium = Mo. Premium * 12
           const updRow = (id: string, field: keyof CreatePlanRow, val: any) =>
-            setCreatePlanRows(prev => prev.map(r => r.id === id ? { ...r, [field]: val } : r));
+            setCreatePlanRows(prev => prev.map(r => {
+              if (r.id !== id) return r;
+              const updated = { ...r, [field]: val };
+              // FIX: Auto-calculate annual premium when monthly premium changes
+              if (field === 'plan_premium_monthly') {
+                const monthly = Number(val) || 0;
+                updated.plan_premium_annually = monthly > 0 ? Math.round(monthly * 12 * 100) / 100 : null;
+              }
+              return updated;
+            }));
 
           const saveRow = async (row: CreatePlanRow) => {
             try { await upsertCreatePlanRow(row); }
@@ -3240,13 +3250,14 @@ export default function FNAPage() {
                     {/* FIX: Show sum of Mo. Premium and Ann. Premium highlighted in yellow */}
                     {createPlanRows.length > 0 && (() => {
                       const totalMonthly = createPlanRows.reduce((s, r) => s + (Number(r.plan_premium_monthly) || 0), 0);
-                      const totalAnnually = createPlanRows.reduce((s, r) => s + (Number(r.plan_premium_annually) || 0), 0);
+                      // FIX: Ann. Premium is auto-calculated as Mo. Premium × 12
+                      const totalAnnually = Math.round(totalMonthly * 12 * 100) / 100;
                       const $fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
                       return (
-                        <span className="inline-flex items-center gap-3 px-3 py-0.5 rounded text-xs " style={{ backgroundColor: '#FFFF00' }}>
-                          <span>Monthly Premium:  {$fmt(totalMonthly)}</span> 
+                        <span className="inline-flex items-center gap-3 px-3 py-0.5 rounded text-xs font-bold" style={{ backgroundColor: '#FFFF00' }}>
+                          <span>Mo. Premium: <span className="font-extrabold">{$fmt(totalMonthly)}</span></span>
                           <span className="text-gray-400">|</span>
-                          <span>Annual Premium:  {$fmt(totalAnnually)}</span> 
+                          <span>Ann. Premium: <span className="font-extrabold">{$fmt(totalAnnually)}</span></span>
                         </span>
                       );
                     })()}
@@ -3321,6 +3332,9 @@ export default function FNAPage() {
                           .cp-col-1 { left: 34px; box-shadow: 2px 0 4px -2px rgba(0,0,0,0.15); }
                           .cp-col-2 { left: 164px; box-shadow: 3px 0 6px -2px rgba(0,0,0,0.18); }
                           .cp-table thead .cp-col-sticky { z-index: 4; }
+                          /* FIX: Frozen Actions column on the right */
+                          .cp-col-actions { position: sticky; right: 0; z-index: 2; background: inherit; box-shadow: -3px 0 6px -2px rgba(0,0,0,0.18); }
+                          .cp-table thead .cp-col-actions { z-index: 4; }
                           /* Alternate row colors */
                           .cp-row-even { background-color: #ffffff; }
                           .cp-row-odd  { background-color: #F0F7FF; }
@@ -3335,10 +3349,7 @@ export default function FNAPage() {
                               <th className={`cp-col-sticky cp-col-2 ${thSticky}`}
                                   style={{ backgroundColor: COLORS.headerBg, minWidth: 180 }}>Goal Plan</th>
                               <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 78 }}>Plan Created</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Plan Amount</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70 }}>Distr. Start Age</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70 }}>Distr. End Age</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Distr. Amount</th>
+                              {/* FIX: Note, Provider, Term, Type, Face, Mo/Ann Premium come first */}
                               <th className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 150 }}>Note</th>
                               <th className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 120 }}>Plan Provider</th>
                               <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 60 }}>Term Yrs</th>
@@ -3346,7 +3357,13 @@ export default function FNAPage() {
                               <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Face Amount</th>
                               <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Mo. Premium</th>
                               <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Ann. Premium</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 80 }}>Actions</th>
+                              {/* FIX: Plan Amount, Distr columns moved here (after Ann. Premium) */}
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Plan Amount</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70 }}>Distr. Start Age</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70 }}>Distr. End Age</th>
+                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Distr. Amount</th>
+                              {/* FIX: Actions column frozen to the right */}
+                              <th className="cp-col-actions border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 80 }}>Actions</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -3396,33 +3413,7 @@ export default function FNAPage() {
                                     </label>
                                   </td>
 
-                                  {/* Plan Amount */}
-                                  <td className="border border-black p-0">
-                                    <AmountCell rowId={row.id} field="plan_amount" value={row.plan_amount} />
-                                  </td>
-
-                                  {/* Distribution Start Age */}
-                                  <td className="border border-black p-0">
-                                    <input type="number" min="0" max="120" step="1"
-                                      value={row.plan_distr_start_age ?? ''}
-                                      placeholder="—"
-                                      onChange={e => updRow(row.id, 'plan_distr_start_age', e.target.value === '' ? null : parseInt(e.target.value, 10))}
-                                      className={iNum} />
-                                  </td>
-
-                                  {/* Distribution End Age */}
-                                  <td className="border border-black p-0">
-                                    <input type="number" min="0" max="120" step="1"
-                                      value={row.plan_distr_end_age ?? ''}
-                                      placeholder="—"
-                                      onChange={e => updRow(row.id, 'plan_distr_end_age', e.target.value === '' ? null : parseInt(e.target.value, 10))}
-                                      className={iNum} />
-                                  </td>
-
-                                  {/* Distribution Amount */}
-                                  <td className="border border-black p-0">
-                                    <AmountCell rowId={row.id} field="plan_distr_amount" value={row.plan_distr_amount} />
-                                  </td>
+                                  {/* FIX: Note, Provider, Term, Type, Face, Mo/Ann Premium come first */}
 
                                   {/* Note — textarea */}
                                   <td className="border border-black p-0" style={{ verticalAlign: 'top' }}>
@@ -3473,13 +3464,51 @@ export default function FNAPage() {
                                     <AmountCell rowId={row.id} field="plan_premium_monthly" value={row.plan_premium_monthly} />
                                   </td>
 
-                                  {/* Annually Premium */}
+                                  {/* FIX: Ann. Premium — auto-calculated (Mo. Premium × 12), read-only */}
                                   <td className="border border-black p-0">
-                                    <AmountCell rowId={row.id} field="plan_premium_annually" value={row.plan_premium_annually} />
+                                    <input
+                                      type="text"
+                                      readOnly
+                                      value={fmtAmt((Number(row.plan_premium_monthly) || 0) * 12)}
+                                      className="w-full px-1.5 py-1 text-xs border-0 bg-gray-50 text-right cursor-default"
+                                      style={{ minWidth: 80 }}
+                                      title="Auto-calculated: Mo. Premium × 12"
+                                    />
                                   </td>
 
-                                  {/* Actions — Save + Delete */}
-                                  <td className="border border-black px-1.5 py-1 text-center align-middle whitespace-nowrap">
+                                  {/* FIX: Plan Amount, Distr columns moved here (after Ann. Premium) */}
+
+                                  {/* Plan Amount */}
+                                  <td className="border border-black p-0">
+                                    <AmountCell rowId={row.id} field="plan_amount" value={row.plan_amount} />
+                                  </td>
+
+                                  {/* Distribution Start Age */}
+                                  <td className="border border-black p-0">
+                                    <input type="number" min="0" max="120" step="1"
+                                      value={row.plan_distr_start_age ?? ''}
+                                      placeholder="—"
+                                      onChange={e => updRow(row.id, 'plan_distr_start_age', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                                      className={iNum} />
+                                  </td>
+
+                                  {/* Distribution End Age */}
+                                  <td className="border border-black p-0">
+                                    <input type="number" min="0" max="120" step="1"
+                                      value={row.plan_distr_end_age ?? ''}
+                                      placeholder="—"
+                                      onChange={e => updRow(row.id, 'plan_distr_end_age', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                                      className={iNum} />
+                                  </td>
+
+                                  {/* Distribution Amount */}
+                                  <td className="border border-black p-0">
+                                    <AmountCell rowId={row.id} field="plan_distr_amount" value={row.plan_distr_amount} />
+                                  </td>
+
+                                  {/* FIX: Actions — frozen to the right */}
+                                  <td className="cp-col-actions border border-black px-1.5 py-1 text-center align-middle whitespace-nowrap"
+                                      style={{ background: rowBg }}>
                                     <div className="flex items-center justify-center gap-1">
                                       <button
                                         onClick={() => saveRow(row)}
