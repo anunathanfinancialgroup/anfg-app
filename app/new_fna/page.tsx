@@ -36,6 +36,18 @@ const LIABILITY_TYPES = [
 // ── Create Plan types ─────────────────────────────────────────────────────────
 const PLAN_TYPES = ["", "TERM", "PERM", "ANNUITY", "529 PLANS"];
 
+// FIX: Plan Provider dropdown values
+const PLAN_PROVIDERS = [
+  "",
+  "AMERITAS",
+  "NATIONWIDE ANNUITIES",
+  "NATIONWIDE LIFE",
+  "ATHENE ANNUITIES",
+  "FIDELITY & GUARANTEE LIFE",
+  "NORTH AMERICAN LIFE",
+  "NORTH AMERICAN ANNUITIES",
+];
+
 // ── CreatePlanRow ─────────────────────────────────────────────────────────────
 type CreatePlanRow = {
   id: string;
@@ -604,6 +616,9 @@ export default function FNAPage() {
   const [createPlanNotice, setCreatePlanNotice] = useState<string | null>(null);
   // ── CHANGE: table hidden by default; toggled by Show/Hide button ──────────
   const [createPlanVisible, setCreatePlanVisible] = useState(false);
+  // FIX: Sort state for Create Plan table — column key + direction
+  const [cpSortCol, setCpSortCol] = useState<keyof CreatePlanRow | ''>('');
+  const [cpSortDir, setCpSortDir] = useState<'asc' | 'desc'>('asc');
   const [planRowsLoading, setPlanRowsLoading] = useState(false);
   // ── CHANGE: State for Client Information card-level save button ────────────
   const [savingClientInfo, setSavingClientInfo] = useState(false);
@@ -3170,6 +3185,52 @@ export default function FNAPage() {
           const iBase = "w-full px-1.5 py-1 text-xs border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-transparent";
           const iNum  = iBase + " text-right";
 
+          // FIX: Sort toggle — click header to sort asc/desc, click again to reverse
+          const toggleSort = (col: keyof CreatePlanRow) => {
+            if (cpSortCol === col) {
+              setCpSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+            } else {
+              setCpSortCol(col);
+              setCpSortDir('asc');
+            }
+          };
+
+          // FIX: Sort indicator arrow
+          const sortArrow = (col: keyof CreatePlanRow) =>
+            cpSortCol === col ? (cpSortDir === 'asc' ? ' ▲' : ' ▼') : '';
+
+          // FIX: Sorted rows — apply sort when rendering
+          const sortedPlanRows = React.useMemo(() => {
+            if (!cpSortCol) return createPlanRows;
+            return [...createPlanRows].sort((a, b) => {
+              const aVal = a[cpSortCol] ?? '';
+              const bVal = b[cpSortCol] ?? '';
+              let cmp = 0;
+              if (typeof aVal === 'number' && typeof bVal === 'number') {
+                cmp = aVal - bVal;
+              } else if (typeof aVal === 'boolean' && typeof bVal === 'boolean') {
+                cmp = (aVal === bVal) ? 0 : aVal ? -1 : 1;
+              } else {
+                cmp = String(aVal).localeCompare(String(bVal), undefined, { numeric: true, sensitivity: 'base' });
+              }
+              return cpSortDir === 'asc' ? cmp : -cmp;
+            });
+          }, [createPlanRows, cpSortCol, cpSortDir]);
+
+          // FIX: Sortable header cell — wraps content with click-to-sort
+          const SortTh = ({ col, children, className, style }: {
+            col: keyof CreatePlanRow; children: React.ReactNode;
+            className?: string; style?: React.CSSProperties;
+          }) => (
+            <th className={className} style={style}
+                onClick={() => toggleSort(col)}
+                title={`Click to sort by ${String(col)}`}>
+              <span className="cursor-pointer select-none">
+                {children}{sortArrow(col)}
+              </span>
+            </th>
+          );
+
           // Sticky column left offsets (px)
           // Col 0: # 32px  Col 1: Plan Created For 130px  Col 2: Goal Plan 190px
           const stickyBase = "border border-black bg-white";
@@ -3324,8 +3385,9 @@ export default function FNAPage() {
                           .cp-table { border-left: 2px solid #000; border-top: 2px solid #000; }
                           .cp-table th:last-child, .cp-table td:last-child { border-right: 2px solid #000; }
                           .cp-table tbody tr:last-child td { border-bottom: 2px solid #000; }
-                          /* Resizable headers */
-                          .cp-table th { resize: horizontal; overflow: auto; }
+                          /* FIX: Resizable columns — all th except frozen/actions are resizable */
+                          .cp-table th { resize: horizontal; overflow: hidden; cursor: pointer; }
+                          .cp-table th.cp-col-actions { resize: none; }
                           /* Frozen col shadows */
                           .cp-col-sticky { position: sticky; z-index: 2; background: inherit; }
                           .cp-col-0 { left: 0px; }
@@ -3339,35 +3401,35 @@ export default function FNAPage() {
                           .cp-row-even { background-color: #ffffff; }
                           .cp-row-odd  { background-color: #F0F7FF; }
                         `}</style>
-                        <table className="cp-table" style={{ minWidth: 1600 }}>
+                        <table className="cp-table" style={{ minWidth: 1700 }}>
                           <thead>
                             <tr style={{ backgroundColor: COLORS.headerBg }}>
                               <th className={`cp-col-sticky cp-col-0 ${thSticky} text-center w-8`}
-                                  style={{ backgroundColor: COLORS.headerBg, minWidth: 34 }}>#</th>
-                              <th className={`cp-col-sticky cp-col-1 ${thSticky}`}
-                                  style={{ backgroundColor: COLORS.headerBg, minWidth: 130 }}>Plan Created For</th>
-                              <th className={`cp-col-sticky cp-col-2 ${thSticky}`}
-                                  style={{ backgroundColor: COLORS.headerBg, minWidth: 180 }}>Goal Plan</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 78 }}>Plan Created</th>
-                              {/* FIX: Note, Provider, Term, Type, Face, Mo/Ann Premium come first */}
-                              <th className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 150 }}>Note</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 120 }}>Plan Provider</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 60 }}>Term Yrs</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 96 }}>Plan Type</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Face Amount</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Mo. Premium</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Ann. Premium</th>
-                              {/* FIX: Plan Amount, Distr columns moved here (after Ann. Premium) */}
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Plan Amount</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70 }}>Distr. Start Age</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70 }}>Distr. End Age</th>
-                              <th className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Distr. Amount</th>
-                              {/* FIX: Actions column frozen to the right */}
-                              <th className="cp-col-actions border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 80 }}>Actions</th>
+                                  style={{ backgroundColor: COLORS.headerBg, minWidth: 34, resize: 'none' }}>#</th>
+                              {/* FIX: All headers are sortable via SortTh */}
+                              <SortTh col="plan_beneficiary" className={`cp-col-sticky cp-col-1 ${thSticky}`}
+                                  style={{ backgroundColor: COLORS.headerBg, minWidth: 130 }}>Plan Created For</SortTh>
+                              <SortTh col="plan_goal" className={`cp-col-sticky cp-col-2 ${thSticky}`}
+                                  style={{ backgroundColor: COLORS.headerBg, minWidth: 180 }}>Goal Plan</SortTh>
+                              <SortTh col="plan_created" className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 78 }}>Plan Created</SortTh>
+                              <SortTh col="plan_note" className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 150 }}>Note</SortTh>
+                              {/* FIX: Plan Provider column wider to fit dropdown names */}
+                              <SortTh col="plan_provider" className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 200 }}>Plan Provider</SortTh>
+                              <SortTh col="plan_term_year" className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 60 }}>Term Yrs</SortTh>
+                              <SortTh col="plan_type" className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 96 }}>Plan Type</SortTh>
+                              <SortTh col="plan_face_amount" className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Face Amount</SortTh>
+                              <SortTh col="plan_premium_monthly" className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Mo. Premium</SortTh>
+                              <SortTh col="plan_premium_annually" className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Ann. Premium</SortTh>
+                              <SortTh col="plan_amount" className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Plan Amount</SortTh>
+                              <SortTh col="plan_distr_start_age" className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70 }}>Distr. Start Age</SortTh>
+                              <SortTh col="plan_distr_end_age" className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70 }}>Distr. End Age</SortTh>
+                              <SortTh col="plan_distr_amount" className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Distr. Amount</SortTh>
+                              <th className="cp-col-actions border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 80, resize: 'none' }}>Actions</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {createPlanRows.map((row, idx) => {
+                            {/* FIX: Render sorted rows */}
+                            {sortedPlanRows.map((row, idx) => {
                               const rowCls = idx % 2 === 0 ? 'cp-row-even' : 'cp-row-odd';
                               const rowBg  = idx % 2 === 0 ? '#ffffff' : '#F0F7FF';
                               return (
@@ -3426,12 +3488,15 @@ export default function FNAPage() {
                                       style={{ minHeight: 44, display: 'block' }} />
                                   </td>
 
-                                  {/* Plan Provider */}
+                                  {/* FIX: Plan Provider — dropdown with predefined providers */}
                                   <td className="border border-black p-0">
-                                    <input type="text" value={row.plan_provider || ''}
-                                      placeholder="Provider"
+                                    <select value={row.plan_provider || ''}
                                       onChange={e => updRow(row.id, 'plan_provider', e.target.value)}
-                                      className={iBase} />
+                                      className={iBase + " bg-transparent"}>
+                                      {PLAN_PROVIDERS.map(o => (
+                                        <option key={o} value={o}>{o || '-- Select Provider --'}</option>
+                                      ))}
+                                    </select>
                                   </td>
 
                                   {/* Term Years */}
