@@ -1561,6 +1561,25 @@ export default function FNAPage() {
     if (!assets.f1_present && !assets.f2_present && !assets.f3_present)
       out.push({ kind:'warn', text:`LIFE INSURANCE GAP: No coverage recorded. Income replacement of 10-12x annual income protects your family. With ${ytr} years to retirement, consider Term insurance now and a Permanent policy for estate transfer.` });
 
+    // FIX: Life Insurance Outside Work + LTC Outside — if both unchecked, recommend term/perm
+    const hasLifeInsOutside = assets.f2_him || assets.f2_her;
+    const hasLTCOutside = assets.f6_him || assets.f6_her;
+    if (!hasLifeInsOutside && !hasLTCOutside) {
+      const annInc = assets.s6_present || 0;
+      const idealCoverage = annInc > 0 ? ` A recommended coverage amount of ${$(annInc * 10)} to ${$(annInc * 12)} (10-12x your annual income) would provide a strong safety net.` : '';
+      out.push({ kind:'warn', text:`NO PERSONAL LIFE INSURANCE OR LONG-TERM CARE COVERAGE: You currently have no life insurance outside of work and no long-term care coverage.${idealCoverage} Employer-provided group life insurance typically ends when you leave a job or retire, leaving your family unprotected. A Term Life policy provides affordable high-coverage protection during your working years (e.g., 20 or 30-year term), while a Permanent (Whole/IUL) policy builds cash value and provides lifelong coverage that can supplement retirement income. For long-term care, the average cost of a nursing home exceeds $100,000/year — an LTC rider on a life policy or a standalone LTC policy prevents this from depleting your retirement savings. Your financial advisor can compare Term vs. Permanent options and LTC riders from carriers like North American, Nationwide, or Athene to find the best fit for your budget and goals.` });
+    } else if (!hasLifeInsOutside) {
+      out.push({ kind:'warn', text:`NO PERSONAL LIFE INSURANCE OUTSIDE WORK: You rely solely on employer-provided coverage, which typically ends when you change jobs or retire. A personally-owned policy ensures uninterrupted protection. Term Life insurance offers the highest coverage per dollar during working years — ideal for income replacement and mortgage protection. A Permanent policy (Whole Life or Indexed Universal Life) provides lifelong coverage plus cash value accumulation that can be accessed tax-free for retirement income. With ${ytr} years to retirement, locking in a policy now means lower premiums and longer compounding of cash value. Your advisor can model both Term and Permanent options to determine the optimal coverage structure.` });
+    } else if (!hasLTCOutside) {
+      out.push({ kind:'warn', text:`NO LONG-TERM CARE COVERAGE: Long-term care is one of the largest uninsured risks in retirement — the average nursing home stay costs over $100,000/year, and Medicare does not cover custodial care. Without LTC coverage, these costs would come directly from your retirement savings and could deplete your assets rapidly. Consider a hybrid life insurance policy with an LTC rider, which provides a death benefit if LTC is never needed, or a standalone LTC policy for dedicated coverage. Your financial advisor can evaluate hybrid LTC options that protect both your retirement income and your family legacy.` });
+    }
+
+    // FIX: Cash Value Life Insurance — if unchecked, recommend benefits of cash value policies
+    const hasCashValueLI = assets.f3_him || assets.f3_her;
+    if (!hasCashValueLI) {
+      out.push({ kind:'info', text:`CASH VALUE LIFE INSURANCE OPPORTUNITY: You do not currently have a cash value life insurance policy (Whole Life, Universal Life, or Indexed Universal Life). Unlike Term insurance, cash value policies build a tax-deferred savings component that you can borrow against tax-free during retirement. An Indexed Universal Life (IUL) policy, in particular, offers market-linked growth with downside protection (0% floor), a tax-free death benefit for your beneficiaries, and the ability to take tax-free policy loans as supplemental retirement income. This creates a "triple tax advantage" — tax-deferred growth, tax-free access, and a tax-free death benefit. With ${ytr} years until retirement, starting a cash value policy now maximizes the compounding period. Your financial advisor can illustrate how an IUL from carriers like North American or Nationwide could fit into your overall retirement income strategy alongside your existing 401(K) and IRA accounts.` });
+    }
+
     const mInc = (assets.s6_present||0) / 12;
     if (mInc > 0 && (assets.s5_present||0) < mInc*3)
       out.push({ kind:'warn', text:`EMERGENCY FUND LOW: Cash savings appear below the 3-6 month income threshold (target: ${$(mInc*6)}). Build this in a high-yield savings account before directing funds to higher-risk investments.` });
@@ -1644,10 +1663,19 @@ export default function FNAPage() {
       insurance: {
         lifeInsWork: assets.f1_present || 0,
         lifeInsOutside: assets.f2_present || 0,
+        // FIX: Explicit checkbox flags for insurance outside work & cash value
+        hasLifeInsOutsideWork_Him: assets.f2_him,
+        hasLifeInsOutsideWork_Her: assets.f2_her,
+        hasLifeInsOutsideWork: assets.f2_him || assets.f2_her,
         cashValueLI: assets.f3_present || 0,
+        hasCashValueLifeInsurance_Him: assets.f3_him,
+        hasCashValueLifeInsurance_Her: assets.f3_her,
+        hasCashValueLifeInsurance: assets.f3_him || assets.f3_her,
         totalLifeInsurance: totalLifeIns,
         hasSTD_LTD: assets.f5_him || assets.f5_her,
-        hasLTCOutside: assets.f6_him || assets.f6_her,
+        hasLTCOutsideOfWork_Him: assets.f6_him,
+        hasLTCOutsideOfWork_Her: assets.f6_her,
+        hasLTCOutsideOfWork: assets.f6_him || assets.f6_her,
         hasHSA: (assets.f7_present || 0) > 0,
         hsa: assets.f7_present || 0,
         hasMortgageProtection: assets.f8_him || assets.f8_her,
@@ -1698,6 +1726,13 @@ INSTRUCTIONS:
 - Each recommendation must reference the client's specific dollar amounts, percentages, and situation
 - Focus on ACTIONABLE steps that highlight why they should schedule a meeting with their financial advisor
 - Recommendations should cover: gap/surplus strategy, debt management, retirement readiness, life insurance adequacy, emergency fund, tax optimization, estate planning, college planning, healthcare planning — but ONLY if relevant based on the data
+
+CRITICAL INSURANCE CHECKS — always evaluate these:
+- If hasLifeInsOutsideWork is false: The client has NO personal life insurance outside their employer. Employer group coverage ends when they leave/retire. Strongly recommend personally-owned Term Life (affordable high coverage during working years) and/or Permanent Life (IUL/Whole Life for lifelong coverage + cash value). Explain the risk of relying solely on employer coverage.
+- If hasLTCOutsideOfWork is false: The client has NO long-term care coverage. Average nursing home costs exceed $100,000/year and Medicare does not cover custodial care. Recommend a hybrid life+LTC policy or standalone LTC coverage to protect retirement savings.
+- If BOTH hasLifeInsOutsideWork and hasLTCOutsideOfWork are false: This is a critical combined gap. Emphasize that both income protection and long-term care risks are unaddressed.
+- If hasCashValueLifeInsurance is false: The client has no cash value life insurance (Whole Life, Universal Life, IUL). Explain the triple tax advantage of IUL (tax-deferred growth, tax-free policy loans for retirement income, tax-free death benefit). Compare how IUL complements 401K/IRA with no contribution limits and no Required Minimum Distributions.
+
 - For each recommendation, determine if it is a "warn" (critical gap/risk), "good" (positive/strength), or "info" (opportunity/educational)
 - Each recommendation text should be 2-3 sentences. First sentence: identify the specific finding with numbers. Second sentence: explain the impact. Third sentence: suggest what the advisor can help with.
 - Make recommendations feel personal and data-driven, not generic
