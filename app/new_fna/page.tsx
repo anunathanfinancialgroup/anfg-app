@@ -1,3 +1,4 @@
+
 "use client"; //    GAP: <span style={{ color: Gap >= 0 ? '#15803d' : '#dc2626' }}>{fmt(Gap)}</span>
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -1596,9 +1597,38 @@ export default function FNAPage() {
       out.push({ kind:'warn', text:`NO LONG-TERM CARE COVERAGE — ${clientFirst.toUpperCase()}: You have no long-term care insurance. Nursing home care averages over $100,000/year and Medicare does not cover custodial care. Without LTC coverage, these costs come directly from your retirement savings. A hybrid life + LTC policy provides a death benefit if care is never needed, or covers expenses if it is. Your advisor can model LTC options that protect ${clientFirst}'s retirement income.` });
     }
 
+    // ── START ADDED: Short Term | Long Term Disability at Work (f5) — per-person checks ──
+    // Task: If STD/LTD at Work is unchecked, suggest importance of term or permanent life insurance
+    const f5Him = assets.f5_him;   // client has STD/LTD at work
+    const f5Her = assets.f5_her;   // spouse has STD/LTD at work
+
+    if (!f5Him && hasSpouse && !f5Her) {
+      out.push({ kind:'warn', text:`NO SHORT/LONG-TERM DISABILITY COVERAGE — BOTH ${clientFirst.toUpperCase()} AND ${spouseFirst.toUpperCase()}: Neither ${clientFirst} nor ${spouseFirst} have disability coverage through work. Disability is more common than death during working years — 1 in 4 workers will experience a disability before retirement. Without income protection, a disability event would force you to liquidate retirement assets. A Term Life policy with a disability waiver rider or a Permanent (IUL) policy with living benefits can bridge this gap alongside standalone disability insurance. Your advisor can design a comprehensive protection plan covering both ${clientFirst} and ${spouseFirst}.` });
+    } else if (!f5Him && hasSpouse && f5Her) {
+      out.push({ kind:'warn', text:`NO DISABILITY COVERAGE — ${clientFirst.toUpperCase()}: ${clientFirst} does not have short or long-term disability coverage at work, while ${spouseFirst} is covered. As a primary income contributor, a disability event for ${clientFirst} would directly impact household finances and retirement savings. A Term Life policy with a disability waiver rider, or a Permanent (IUL) policy with living benefit riders, can provide income protection alongside standalone disability coverage. Your advisor can recommend the right Term or Permanent policy structure for ${clientFirst}.` });
+    } else if (f5Him && hasSpouse && !f5Her) {
+      out.push({ kind:'warn', text:`NO DISABILITY COVERAGE — ${spouseFirst.toUpperCase()}: ${spouseFirst} does not have disability coverage at work, while ${clientFirst} is covered. Even partial income loss from a disability affecting ${spouseFirst} can significantly strain household finances. A Term or Permanent Life policy with disability or living benefit riders for ${spouseFirst} would close this protection gap. Your advisor can evaluate Term vs. Permanent coverage options suited to ${spouseFirst}'s age and income level.` });
+    } else if (!f5Him && !hasSpouse) {
+      out.push({ kind:'warn', text:`NO DISABILITY COVERAGE — ${clientFirst.toUpperCase()}: You do not have short or long-term disability coverage through work. Statistics show 1 in 4 workers will face a disability before retirement, making disability more likely than death during working years. Without income replacement, you would be forced to liquidate retirement savings during a disability. A Term Life policy with a disability waiver rider or a Permanent (IUL) policy with living benefits protects your income and preserves your retirement plan. Your advisor can model Term and Permanent coverage options for ${clientFirst}.` });
+    }
+    // ── END ADDED: STD/LTD per-person checks ──────────────────────────────────
+
     // ── Cash Value Life Insurance (f3) — per-person checks ───────────────
     const f3Him = assets.f3_him;   // client has cash value LI
     const f3Her = assets.f3_her;   // spouse has cash value LI
+
+    // ── START ADDED: Cash Value Life Insurance IS present — suggest recommendations ──
+    // Task: If Cash Value Life Insurance is checked, suggest appropriate financial recommendations
+    if (f3Him || f3Her) {
+      const whoHas = (f3Him && hasSpouse && f3Her)
+        ? `both ${clientFirst} and ${spouseFirst}`
+        : f3Him ? clientFirst : spouseFirst;
+      const whoHasUpper = (f3Him && hasSpouse && f3Her)
+        ? `BOTH ${clientFirst.toUpperCase()} AND ${spouseFirst.toUpperCase()}`
+        : f3Him ? clientFirst.toUpperCase() : spouseFirst.toUpperCase();
+      out.push({ kind:'good', text:`CASH VALUE LIFE INSURANCE STRENGTH — ${whoHasUpper}: ${whoHas} ${(f3Him && hasSpouse && f3Her) ? 'both have' : 'has'} a cash value life insurance policy, providing tax-deferred growth, tax-free policy loans for retirement income, and a tax-free death benefit. Ensure the policy is properly funded annually to avoid lapse — underfunded cash value policies lose their tax advantages. With ${ytr} years to retirement, consistent premium payments now maximize the cash value available as a tax-free income stream at retirement. Your advisor can review the policy illustration, confirm funding levels relative to the MEC limit, and identify opportunities to optimize the "triple tax advantage" for long-term wealth building.` });
+    }
+    // ── END ADDED: Cash Value Life Insurance IS present ───────────────────────
 
     if (!f3Him && hasSpouse && !f3Her) {
       out.push({ kind:'info', text:`CASH VALUE LIFE INSURANCE OPPORTUNITY — BOTH ${clientFirst.toUpperCase()} AND ${spouseFirst.toUpperCase()}: Neither ${clientFirst} nor ${spouseFirst} have a cash value life insurance policy. Unlike Term insurance, an Indexed Universal Life (IUL) policy builds tax-deferred cash value with market-linked growth (0% floor protection), provides tax-free policy loans for retirement income, and delivers a tax-free death benefit — a "triple tax advantage." With ${ytr} years to retirement, starting IUL policies for both of you now maximizes compounding. Your advisor can illustrate how IUL from carriers like North American or Nationwide complements your existing 401(K)/IRA strategy with no contribution limits or Required Minimum Distributions.` });
@@ -1705,6 +1735,9 @@ export default function FNAPage() {
         cashValueLifeIns_Her: assets.f3_her,
         totalLifeInsurance: totalLifeIns,
         hasSTD_LTD: assets.f5_him || assets.f5_her,
+        // ADDED: Per-person STD/LTD flags for person-specific recommendations
+        hasSTD_LTD_Him: assets.f5_him,
+        hasSTD_LTD_Her: assets.f5_her,
         ltcOutsideOfWork_Him: assets.f6_him,
         ltcOutsideOfWork_Her: assets.f6_her,
         hasHSA: (assets.f7_present || 0) > 0,
@@ -1775,6 +1808,14 @@ CASH VALUE LIFE INSURANCE (cashValueLifeIns_Him / cashValueLifeIns_Her):
 - If BOTH are false: "info" naming BOTH — explain the triple tax advantage of IUL (tax-deferred growth, tax-free loans, tax-free death benefit). Recommend IUL for both to supplement 401K/IRA.
 - If only _Him is false: "info" naming client — spouse has it but client does not.
 - If only _Her is false: "info" naming spouse — client has it but spouse does not. Adding a second IUL creates dual income streams.
+- ADDED: If _Him is true OR _Her is true (Cash Value LI IS present): Generate a "good" recommendation. Name the person(s) who have it. Congratulate them on the triple tax advantage and urge them to: (1) ensure the policy is properly funded annually to avoid lapse, (2) review contribution levels relative to the MEC limit to maximize tax-free cash value, (3) note that consistent funding over the remaining ${yearsToRetirement} years will create significant tax-free retirement income. Recommend the advisor review the policy illustration.
+
+SHORT TERM | LONG TERM DISABILITY AT WORK (hasSTD_LTD_Him / hasSTD_LTD_Her):
+- ADDED: This is a NEW required check. Always evaluate these fields.
+- If BOTH are false (or if hasSpouse is false and _Him is false): Generate a "warn" recommendation naming the affected person(s). Explain that 1 in 4 workers will experience a disability before retirement, making disability more likely than death during working years. Without income protection, a disability event would require liquidating retirement assets. Recommend a Term Life policy with a disability waiver rider AND/OR a Permanent Life (IUL) policy with living benefits as income protection. Stress the importance of meeting the advisor to design a Term or Permanent coverage structure.
+- If only _Him is false: "warn" naming client — they lack disability coverage while spouse is covered. Highlight income replacement risk for the household.
+- If only _Her is false: "warn" naming spouse — they lack disability coverage while client is covered. Note the household financial impact.
+- If both are true: No recommendation needed for this category.
 
 - For each recommendation, determine if it is a "warn" (critical gap/risk), "good" (positive/strength), or "info" (opportunity/educational)
 - Each recommendation text should be 2-3 sentences. First sentence: identify the specific finding with numbers. Second sentence: explain the impact. Third sentence: suggest what the advisor can help with.
