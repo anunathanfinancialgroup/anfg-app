@@ -36,16 +36,22 @@ const LIABILITY_TYPES = [
 // ── Create Plan types ─────────────────────────────────────────────────────────
 const PLAN_TYPES = ["", "TERM", "PERM", "ANNUITY", "529 PLANS"];
 
-// FIX: Plan Provider dropdown values
+// FIX: Plan Provider dropdown values — sorted ascending
 const PLAN_PROVIDERS = [
   "",
+  "ALLIANZ ANNUITIES",
+  "ALLIANZ LIFE",
   "AMERITAS",
+  "ATHENE ANNUITIES",
+  "COREBRIDGE ANNUITIES",
+  "COREBRIDGE LIFE",
+  "ETHOS",
+  "FIDELITY & GUARANTEE LIFE",
   "NATIONWIDE ANNUITIES",
   "NATIONWIDE LIFE",
-  "ATHENE ANNUITIES",
-  "FIDELITY & GUARANTEE LIFE",
-  "NORTH AMERICAN LIFE",
+  "NETLAW",
   "NORTH AMERICAN ANNUITIES",
+  "NORTH AMERICAN LIFE",
 ];
 
 // ── CreatePlanRow ─────────────────────────────────────────────────────────────
@@ -3196,40 +3202,30 @@ export default function FNAPage() {
           };
 
           // FIX: Sort indicator arrow
-          const sortArrow = (col: keyof CreatePlanRow) =>
+          const sortArrow = (col: string) =>
             cpSortCol === col ? (cpSortDir === 'asc' ? ' ▲' : ' ▼') : '';
 
-          // FIX: Sorted rows — plain computation (not useMemo — this runs inside an IIFE, not a component)
-          const sortedPlanRows = (() => {
-            if (!cpSortCol) return createPlanRows;
-            return [...createPlanRows].sort((a, b) => {
-              const aVal = a[cpSortCol] ?? '';
-              const bVal = b[cpSortCol] ?? '';
-              let cmp = 0;
-              if (typeof aVal === 'number' && typeof bVal === 'number') {
-                cmp = aVal - bVal;
-              } else if (typeof aVal === 'boolean' && typeof bVal === 'boolean') {
-                cmp = (aVal === bVal) ? 0 : aVal ? -1 : 1;
-              } else {
-                cmp = String(aVal).localeCompare(String(bVal), undefined, { numeric: true, sensitivity: 'base' });
-              }
-              return cpSortDir === 'asc' ? cmp : -cmp;
-            });
-          })();
+          // FIX: Sorted rows — plain computation (no hooks)
+          const sortedPlanRows = !cpSortCol ? createPlanRows : [...createPlanRows].sort((a, b) => {
+            const key = cpSortCol as keyof CreatePlanRow;
+            const aVal = a[key] ?? '';
+            const bVal = b[key] ?? '';
+            let cmp = 0;
+            if (typeof aVal === 'number' && typeof bVal === 'number') {
+              cmp = aVal - bVal;
+            } else if (typeof aVal === 'boolean' && typeof bVal === 'boolean') {
+              cmp = (aVal === bVal) ? 0 : aVal ? -1 : 1;
+            } else {
+              cmp = String(aVal).localeCompare(String(bVal), undefined, { numeric: true, sensitivity: 'base' });
+            }
+            return cpSortDir === 'asc' ? cmp : -cmp;
+          });
 
-          // FIX: Sortable header cell — wraps content with click-to-sort
-          const SortTh = ({ col, children, className, style }: {
-            col: keyof CreatePlanRow; children: React.ReactNode;
-            className?: string; style?: React.CSSProperties;
-          }) => (
-            <th className={className} style={style}
-                onClick={() => toggleSort(col)}
-                title={`Click to sort by ${String(col)}`}>
-              <span className="cursor-pointer select-none">
-                {children}{sortArrow(col)}
-              </span>
-            </th>
-          );
+          // FIX: Helper to build sortable th props (plain object — no component)
+          const sortThProps = (col: keyof CreatePlanRow) => ({
+            onClick: () => toggleSort(col),
+            title: 'Click to sort',
+          });
 
           // Sticky column left offsets (px)
           // Col 0: # 32px  Col 1: Plan Created For 130px  Col 2: Goal Plan 190px
@@ -3406,24 +3402,23 @@ export default function FNAPage() {
                             <tr style={{ backgroundColor: COLORS.headerBg }}>
                               <th className={`cp-col-sticky cp-col-0 ${thSticky} text-center w-8`}
                                   style={{ backgroundColor: COLORS.headerBg, minWidth: 34, resize: 'none' }}>#</th>
-                              {/* FIX: All headers are sortable via SortTh */}
-                              <SortTh col="plan_beneficiary" className={`cp-col-sticky cp-col-1 ${thSticky}`}
-                                  style={{ backgroundColor: COLORS.headerBg, minWidth: 130 }}>Plan Created For</SortTh>
-                              <SortTh col="plan_goal" className={`cp-col-sticky cp-col-2 ${thSticky}`}
-                                  style={{ backgroundColor: COLORS.headerBg, minWidth: 180 }}>Goal Plan</SortTh>
-                              <SortTh col="plan_created" className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 78 }}>Plan Created</SortTh>
-                              <SortTh col="plan_note" className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 150 }}>Note</SortTh>
-                              {/* FIX: Plan Provider column wider to fit dropdown names */}
-                              <SortTh col="plan_provider" className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 200 }}>Plan Provider</SortTh>
-                              <SortTh col="plan_term_year" className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 60 }}>Term Yrs</SortTh>
-                              <SortTh col="plan_type" className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 96 }}>Plan Type</SortTh>
-                              <SortTh col="plan_face_amount" className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Face Amount</SortTh>
-                              <SortTh col="plan_premium_monthly" className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Mo. Premium</SortTh>
-                              <SortTh col="plan_premium_annually" className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Ann. Premium</SortTh>
-                              <SortTh col="plan_amount" className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Plan Amount</SortTh>
-                              <SortTh col="plan_distr_start_age" className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70 }}>Distr. Start Age</SortTh>
-                              <SortTh col="plan_distr_end_age" className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70 }}>Distr. End Age</SortTh>
-                              <SortTh col="plan_distr_amount" className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110 }}>Distr. Amount</SortTh>
+                              {/* FIX: All headers are sortable — using plain th with onClick */}
+                              <th {...sortThProps('plan_beneficiary')} className={`cp-col-sticky cp-col-1 ${thSticky}`}
+                                  style={{ backgroundColor: COLORS.headerBg, minWidth: 130, cursor: 'pointer' }}>Plan Created For{sortArrow('plan_beneficiary')}</th>
+                              <th {...sortThProps('plan_goal')} className={`cp-col-sticky cp-col-2 ${thSticky}`}
+                                  style={{ backgroundColor: COLORS.headerBg, minWidth: 180, cursor: 'pointer' }}>Goal Plan{sortArrow('plan_goal')}</th>
+                              <th {...sortThProps('plan_created')} className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 78, cursor: 'pointer' }}>Plan Created{sortArrow('plan_created')}</th>
+                              <th {...sortThProps('plan_note')} className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 150, cursor: 'pointer' }}>Note{sortArrow('plan_note')}</th>
+                              <th {...sortThProps('plan_provider')} className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 200, cursor: 'pointer' }}>Plan Provider{sortArrow('plan_provider')}</th>
+                              <th {...sortThProps('plan_term_year')} className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 60, cursor: 'pointer' }}>Term Yrs{sortArrow('plan_term_year')}</th>
+                              <th {...sortThProps('plan_type')} className="border border-black px-2 py-1 text-xs font-bold whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 96, cursor: 'pointer' }}>Plan Type{sortArrow('plan_type')}</th>
+                              <th {...sortThProps('plan_face_amount')} className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110, cursor: 'pointer' }}>Face Amount{sortArrow('plan_face_amount')}</th>
+                              <th {...sortThProps('plan_premium_monthly')} className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110, cursor: 'pointer' }}>Mo. Premium{sortArrow('plan_premium_monthly')}</th>
+                              <th {...sortThProps('plan_premium_annually')} className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110, cursor: 'pointer' }}>Ann. Premium{sortArrow('plan_premium_annually')}</th>
+                              <th {...sortThProps('plan_amount')} className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110, cursor: 'pointer' }}>Plan Amount{sortArrow('plan_amount')}</th>
+                              <th {...sortThProps('plan_distr_start_age')} className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70, cursor: 'pointer' }}>Distr. Start Age{sortArrow('plan_distr_start_age')}</th>
+                              <th {...sortThProps('plan_distr_end_age')} className="border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 70, cursor: 'pointer' }}>Distr. End Age{sortArrow('plan_distr_end_age')}</th>
+                              <th {...sortThProps('plan_distr_amount')} className="border border-black px-2 py-1 text-xs font-bold text-right whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 110, cursor: 'pointer' }}>Distr. Amount{sortArrow('plan_distr_amount')}</th>
                               <th className="cp-col-actions border border-black px-2 py-1 text-xs font-bold text-center whitespace-nowrap" style={{ backgroundColor: COLORS.headerBg, minWidth: 80, resize: 'none' }}>Actions</th>
                             </tr>
                           </thead>
