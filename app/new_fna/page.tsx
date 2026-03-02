@@ -1580,6 +1580,161 @@ export default function FNAPage() {
     return out;
   };
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // FIX: AI-Powered Financial Recommendations via Anthropic API
+  // Sends a complete financial profile to Claude and receives personalized,
+  // actionable recommendations that encourage the client to meet with their agent.
+  // Falls back to static buildSuggestions if the API call fails.
+  // ══════════════════════════════════════════════════════════════════════════
+  const buildAIRecommendations = async (
+    totAssets: number, totLiab: number, totReq: number,
+    totProj: number, gapVal: number, ytr: number, intRate: number
+  ): Promise<{ text: string; kind: 'warn' | 'good' | 'info' }[]> => {
+    const $ = (n: number) => n.toLocaleString('en-US', { style:'currency', currency:'USD', minimumFractionDigits:0 });
+    const nw = totAssets - totLiab;
+    const annualIncome = assets.s6_present || 0;
+    const totalLifeIns = (assets.f1_present||0) + (assets.f2_present||0);
+    const cashInBank = assets.s5_present || 0;
+    const retAccts = (assets.r1_present||0) + (assets.r4_present||0) + (assets.r5_present||0) + (assets.r6_present||0);
+    const totalRE = (assets.e1_present||0) + (assets.e2_present||0) + (assets.e3_present||0) + (assets.e4_present||0);
+
+    // Build comprehensive client financial profile for AI analysis
+    const profile = {
+      client: {
+        name: data.clientName,
+        age: data.currentAge,
+        retirementAge: data.plannedRetirementAge,
+        yearsToRetirement: ytr,
+        retirementYears: data.retirementYears,
+        spouse: data.spouseName || null,
+        includeSpouseInFLS: data.spouseIncludeFls,
+        haveWill: data.haveWill,
+        city: data.city, state: data.state,
+      },
+      summary: {
+        totalAssets: totAssets,
+        totalLiabilities: totLiab,
+        netWorth: nw,
+        totalPlanningRequirement: totReq,
+        projectedAssets: totProj,
+        gap: gapVal,
+        projectionRate: intRate,
+      },
+      retirement: {
+        total401k: assets.r1_present || 0,
+        companyMatch: assets.r2_present || 0,
+        previous401k: assets.r4_present || 0,
+        traditionalIRA: assets.r5_present || 0,
+        rothIRA: assets.r6_present || 0,
+        totalRetirementAccounts: retAccts,
+        monthlyIncomeNeeded: data.monthlyIncomeNeeded,
+        monthlyRetirementIncome: data.monthlyRetirementIncome,
+        totalRetirementIncome: data.totalRetirementIncome,
+      },
+      realEstate: { totalValue: totalRE },
+      investments: {
+        stocks: assets.s1_present || 0,
+        business: assets.s2_present || 0,
+        altInvestments: assets.s3_present || 0,
+        cds: assets.s4_present || 0,
+        cashInBank: cashInBank,
+        annualIncome: annualIncome,
+        annualSavings: assets.s7_present || 0,
+      },
+      insurance: {
+        lifeInsWork: assets.f1_present || 0,
+        lifeInsOutside: assets.f2_present || 0,
+        cashValueLI: assets.f3_present || 0,
+        totalLifeInsurance: totalLifeIns,
+        hasSTD_LTD: assets.f5_him || assets.f5_her,
+        hasLTCOutside: assets.f6_him || assets.f6_her,
+        hasHSA: (assets.f7_present || 0) > 0,
+        hsa: assets.f7_present || 0,
+        hasMortgageProtection: assets.f8_him || assets.f8_her,
+      },
+      college: {
+        has529: (assets.c1_present || 0) > 0,
+        plan529Value: assets.c1_present || 0,
+        child1CollegeGoal: data.child1CollegeAmount || 0,
+        child2CollegeGoal: data.child2CollegeAmount || 0,
+      },
+      estate: {
+        hasWillTrust: assets.c2_c1 || assets.c2_c2,
+      },
+      goals: {
+        healthcare: data.healthcareExpenses || 0,
+        longTermCare: data.longTermCare || 0,
+        travel: data.travelBudget || 0,
+        vacationHome: data.vacationHome || 0,
+        charity: data.charity || 0,
+        otherGoals: data.otherGoals || 0,
+        headstartFund: data.headstartFund || 0,
+        familyLegacy: data.familyLegacy || 0,
+        familySupport: data.familySupport || 0,
+      },
+      liabilities: liabilityRows.map(r => ({
+        type: r.liability_type || 'Unknown',
+        balance: Number(r.balance) || 0,
+        payment: Number(r.current_payment) || 0,
+      })),
+    };
+
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4000,
+          messages: [{
+            role: "user",
+            content: `You are a financial analysis assistant for a Financial Needs Analysis (FNA) report. Analyze this client's complete financial profile and generate personalized, practical recommendations.
+
+CLIENT FINANCIAL PROFILE:
+${JSON.stringify(profile, null, 2)}
+
+INSTRUCTIONS:
+- Generate 6-10 specific, personalized recommendations based on the actual numbers in their profile
+- Each recommendation must reference the client's specific dollar amounts, percentages, and situation
+- Focus on ACTIONABLE steps that highlight why they should schedule a meeting with their financial advisor
+- Recommendations should cover: gap/surplus strategy, debt management, retirement readiness, life insurance adequacy, emergency fund, tax optimization, estate planning, college planning, healthcare planning — but ONLY if relevant based on the data
+- For each recommendation, determine if it is a "warn" (critical gap/risk), "good" (positive/strength), or "info" (opportunity/educational)
+- Each recommendation text should be 2-3 sentences. First sentence: identify the specific finding with numbers. Second sentence: explain the impact. Third sentence: suggest what the advisor can help with.
+- Make recommendations feel personal and data-driven, not generic
+- Do NOT include any markdown formatting
+- The tone should build confidence and urgency to meet with the advisor — professional but warm
+
+Respond ONLY with a JSON array, no other text. Each element: {"kind": "warn"|"good"|"info", "text": "recommendation text"}
+
+Example format:
+[{"kind":"warn","text":"FUNDING GAP: A shortfall of $150,000 exists..."},{"kind":"good","text":"STRONG SAVINGS RATE: Your annual savings of $24,000..."}]`
+          }],
+        }),
+      });
+
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      const result = await response.json();
+      const aiText = result.content?.map((b: any) => b.type === 'text' ? b.text : '').join('') || '';
+      // Parse JSON from AI response — strip any markdown fences
+      const clean = aiText.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Validate and sanitize each recommendation
+        return parsed
+          .filter((r: any) => r && typeof r.text === 'string' && r.text.length > 10)
+          .map((r: any) => ({
+            text: String(r.text),
+            kind: (['warn','good','info'].includes(r.kind) ? r.kind : 'info') as 'warn'|'good'|'info',
+          }));
+      }
+      throw new Error('Invalid AI response format');
+    } catch (err) {
+      console.warn('AI recommendations failed, using static fallback:', err);
+      // Fallback to static recommendations
+      return buildSuggestions(totAssets, totLiab, totReq, totProj, gapVal, ytr, intRate);
+    }
+  };
+
   const handleGenerateReport = async () => {
     if (!data.clientId || !data.clientName) { alert('Please select a client first.'); return; }
     setReportGenerating(true);
@@ -2151,29 +2306,64 @@ export default function FNAPage() {
       doc.setTextColor(...BLACK); y+=TBL_H+16;
 
       // ══════════════════════════════════════════════════════════════════════
-      // FINANCIAL RECOMMENDATIONS PAGE
+      // FINANCIAL RECOMMENDATIONS PAGE — AI-Powered
       // ══════════════════════════════════════════════════════════════════════
       doc.addPage(); y=topBar('Financial Recommendations'); pgFoot();
       doc.setFont(FONT,'bold'); doc.setFontSize(15); doc.text('Financial Recommendations', M, y+22); y+=44;
 
+      // FIX: Personalized intro paragraph
       doc.setFont(FONT,'normal'); doc.setFontSize(8.5);
-      const introTxt = `Based on the financial profile of ${S(data.clientName)}, the following recommendations are provided as educational guidance. Please consult a qualified financial advisor before making financial decisions.`;
+      const introTxt = `The following personalized recommendations have been prepared for ${S(data.clientName)} based on a comprehensive analysis of your current financial position, projected growth, and stated goals. These insights are designed to highlight both areas of strength and opportunities for improvement. Each recommendation is an educational starting point — your financial advisor can provide tailored solutions specific to your unique circumstances.`;
       const introL = doc.splitTextToSize(introTxt, TW);
-      doc.text(introL, M, y); y+=introL.length*11.5+14;
+      doc.text(introL, M, y); y+=introL.length*11.5+10;
 
-      const suggs=buildSuggestions(totalPresent,totalLiabilities,data.totalRequirement,totalProjected,Gap,data.yearsToRetirement,data.calculatedInterestPercentage);
-      suggs.forEach(s=>{
+      // FIX: Quick snapshot summary bar
+      doc.setFillColor(...LBLUE); doc.rect(M, y, TW, 32, 'F');
+      doc.setFont(FONT,'bold'); doc.setFontSize(7.5); doc.setTextColor(...NAVY);
+      const snapItems = [
+        `Net Worth: ${$f(totalPresent - totalLiabilities)}`,
+        `Total Assets: ${$f(totalPresent)}`,
+        `Planning Req.: ${$f(data.totalRequirement)}`,
+        `GAP: ${$f(Gap)}`,
+      ];
+      const snapW = TW / snapItems.length;
+      snapItems.forEach((txt, i) => {
+        doc.text(S(txt), M + i*snapW + snapW/2, y+13, { align:'center' });
+      });
+      doc.text(`Projection Rate: ${data.calculatedInterestPercentage}%  |  Years to Retirement: ${data.yearsToRetirement}  |  Retirement Age: ${data.plannedRetirementAge}`, M + TW/2, y+25, { align:'center' });
+      doc.setTextColor(...BLACK); y+=42;
+
+      // FIX: Call AI-powered recommendations (async), fallback to static
+      const suggs = await buildAIRecommendations(totalPresent,totalLiabilities,data.totalRequirement,totalProjected,Gap,data.yearsToRetirement,data.calculatedInterestPercentage);
+      suggs.forEach((s,si)=>{
         if(y>PH-72){doc.addPage();y=topBar('Recommendations (cont.)')+28;pgFoot();}
         const bdrClr:[number,number,number]=s.kind==='warn'?[200,80,30]:s.kind==='good'?[30,140,60]:[60,100,200];
         const bgClr: [number,number,number]=s.kind==='warn'?[255,244,228]:s.kind==='good'?[232,252,232]:[230,240,255];
-        const sL=doc.splitTextToSize(S(s.text), TW-16);
+        const sL=doc.splitTextToSize(S(s.text), TW-20);
         const boxH=sL.length*11+16;
         doc.setFillColor(...bgClr); doc.rect(M,y,TW,boxH,'F');
         doc.setFillColor(...bdrClr); doc.rect(M,y,5,boxH,'F');
+        // FIX: Number badge on left border
+        doc.setFont(FONT,'bold'); doc.setFontSize(7); doc.setTextColor(255,255,255);
+        doc.setFillColor(...bdrClr); doc.rect(M,y+4,14,14,'F');
+        doc.text(String(si+1), M+7, y+13.5, { align:'center' });
         doc.setFont(FONT,'normal'); doc.setFontSize(8.5); doc.setTextColor(...BLACK);
-        doc.text(sL, M+12, y+11.5);
+        doc.text(sL, M+16, y+11.5);
         y+=boxH+8;
       });
+
+      // FIX: Call-to-action footer block
+      if(y>PH-80){doc.addPage();y=topBar('Recommendations (cont.)')+28;pgFoot();}
+      y+=6;
+      doc.setFillColor(20,50,80); doc.rect(M, y, TW, 52, 'F');
+      doc.setFont(FONT,'bold'); doc.setFontSize(10); doc.setTextColor(255,255,255);
+      doc.text('Ready to Take the Next Step?', M + TW/2, y+16, { align:'center' });
+      doc.setFont(FONT,'normal'); doc.setFontSize(8);
+      const ctaLine1 = 'These recommendations are personalized to your financial profile. Your dedicated financial advisor';
+      const ctaLine2 = 'can help you prioritize these action items and build a customized plan to achieve your goals.';
+      doc.text(ctaLine1, M + TW/2, y+30, { align:'center' });
+      doc.text(ctaLine2, M + TW/2, y+41, { align:'center' });
+      doc.setTextColor(...BLACK); y+=64;
 
       // ══════════════════════════════════════════════════════════════════════
       // ══════════════════════════════════════════════════════════════════════
