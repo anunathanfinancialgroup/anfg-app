@@ -3315,10 +3315,10 @@ export default function FNAPage() {
                       const totalAnnually = Math.round(totalMonthly * 12 * 100) / 100;
                       const $fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
                       return (
-                        <span className="inline-flex items-center gap-3 px-3 py-0.5 rounded text-xs font-bold" style={{ backgroundColor: '#FFFF00' }}>
-                          <span>Mo. Premium: <span className="font-extrabold">{$fmt(totalMonthly)}</span></span>
+                        <span className="inline-flex items-center gap-3 px-3 py-0.5 rounded text-xs font-normal" style={{ backgroundColor: '#FFFF00' }}>
+                          <span>Monthly Premium: {$fmt(totalMonthly)}</span>
                           <span className="text-gray-400">|</span>
-                          <span>Ann. Premium: <span className="font-extrabold">{$fmt(totalAnnually)}</span></span>
+                          <span>Annual Premium: {$fmt(totalAnnually)}</span>
                         </span>
                       );
                     })()}
