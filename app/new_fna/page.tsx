@@ -1559,13 +1559,30 @@ export default function FNAPage() {
     else if (!assets.r6_present)
       out.push({ kind:'info', text:`ROTH IRA OPPORTUNITY: No Roth IRA recorded. Tax-free growth is powerful if you expect higher income at retirement. 2024 limit: $7,000/year ($8,000 if age 50+).` });
 
-    if (!assets.f1_present && !assets.f2_present && !assets.f3_present)
-      out.push({ kind:'warn', text:`LIFE INSURANCE GAP: No coverage recorded. Income replacement of 10-12x annual income protects your family. With ${ytr} years to retirement, consider Term insurance now and a Permanent policy for estate transfer.` });
-
     // FIX: Person-specific insurance recommendations — Him=client, Her=spouse
     const clientFirst = data.clientName?.split(' ')[0] || 'Client';
     const spouseFirst = data.spouseName?.split(' ')[0] || 'Spouse';
     const hasSpouse = !!data.spouseName;
+
+    // ── MODIFIED: Life Insurance GAP check — use checkbox flags (not amounts) for f2/f3/f6 ──
+    // Constraint: Do NOT validate amounts in Life Insurance Outside Work (f2),
+    //             Long Term Care Outside Of Work (f6), or Cash Value Life Insurance (f3).
+    // Rule: If ALL THREE of f2 (Life Ins Outside Work) + f6 (LTC Outside Work) +
+    //       f3 (Cash Value LI) are checked → skip the GAP warning entirely.
+    //       Otherwise show GAP warning only when no coverage is detected via checkboxes.
+    const hasLifeInsOutside = assets.f2_him || assets.f2_her;   // Life Ins Outside Work checked
+    const hasCashValueLI    = assets.f3_him || assets.f3_her;   // Cash Value LI checked
+    const hasLTCOutside     = assets.f6_him || assets.f6_her;   // LTC Outside Work checked
+    const hasLifeInsAtWork  = !!assets.f1_present;              // f1 still amount-based (no checkbox path)
+
+    // Show LIFE INSURANCE GAP only when none of the coverage checkboxes are ticked
+    // AND there is no work life insurance by amount.
+    // When all three (f2 + f6 + f3) are checkmarked, suppress gap regardless of amounts.
+    const allCoverageCheckmarked = hasLifeInsOutside && hasLTCOutside && hasCashValueLI;
+    if (!allCoverageCheckmarked && !hasLifeInsAtWork && !hasLifeInsOutside && !hasCashValueLI) {
+      out.push({ kind:'warn', text:`LIFE INSURANCE GAP: No coverage recorded. Income replacement of 10-12x annual income protects your family. With ${ytr} years to retirement, consider Term insurance now and a Permanent policy for estate transfer.` });
+    }
+    // ── END MODIFIED: Life Insurance GAP ──────────────────────────────────────
 
     // ── Life Insurance Outside Work (f2) — per-person checks ─────────────
     const f2Him = assets.f2_him;   // client has life ins outside work
@@ -1743,6 +1760,9 @@ export default function FNAPage() {
         hasHSA: (assets.f7_present || 0) > 0,
         hsa: assets.f7_present || 0,
         hasMortgageProtection: assets.f8_him || assets.f8_her,
+        // ADDED: True when Life Ins Outside Work + LTC Outside Work + Cash Value LI are ALL checked.
+        // When true, the AI must NOT generate a LIFE INSURANCE GAP warning (amounts are irrelevant).
+        allCoverageCheckmarked: (assets.f2_him || assets.f2_her) && (assets.f6_him || assets.f6_her) && (assets.f3_him || assets.f3_her),
       },
       college: {
         has529: (assets.c1_present || 0) > 0,
@@ -1794,21 +1814,28 @@ INSTRUCTIONS:
 CRITICAL INSURANCE CHECKS — ALWAYS generate person-specific recommendations using the names provided:
 IMPORTANT: In the insurance section, "Him" = clientName_Him (the primary client) and "Her" = spouseName_Her (the spouse). Use their ACTUAL FIRST NAMES in all recommendations. If hasSpouse is false, only evaluate _Him fields.
 
+LIFE INSURANCE GAP RULE (CHECK FIRST — overrides all other insurance gap logic):
+- If allCoverageCheckmarked is TRUE (Life Insurance Outside Work + Long Term Care Outside Work + Cash Value Life Insurance are ALL checked): Do NOT generate any "LIFE INSURANCE GAP" warning. The client has all three coverage types checked. Amounts in those fields are irrelevant — presence of the checkbox is sufficient. Proceed directly to per-person checks below.
+- If allCoverageCheckmarked is FALSE: Evaluate each coverage type individually per the rules below, and generate a "LIFE INSURANCE GAP" warn only if lifeInsWork amount is zero AND neither lifeInsOutsideWork_Him nor lifeInsOutsideWork_Her is checked AND neither cashValueLifeIns_Him nor cashValueLifeIns_Her is checked.
+
 LIFE INSURANCE OUTSIDE WORK (lifeInsOutsideWork_Him / lifeInsOutsideWork_Her):
 - If BOTH are false: Generate a "warn" recommendation naming BOTH people, explaining neither has personal life insurance. Employer group coverage ends at separation/retirement. Recommend Term Life (affordable) and/or Permanent/IUL (cash value + lifelong coverage) for BOTH.
 - If only _Him is false: Generate a "warn" naming the client (clientName_Him), explaining they have no personal life insurance while their spouse does. Stress income replacement risk if they are the primary earner.
 - If only _Her is false: Generate a "warn" naming the spouse (spouseName_Her), explaining they lack coverage while the client has it. Note the financial impact of losing a spouse's contributions.
+- If BOTH are true: No gap warning for this field. Proceed to other checks.
 
 LONG-TERM CARE OUTSIDE WORK (ltcOutsideOfWork_Him / ltcOutsideOfWork_Her):
 - If BOTH are false: "warn" naming BOTH — neither has LTC coverage. Average nursing home cost >$100K/year, Medicare does not cover custodial care. Recommend hybrid life+LTC policies for both.
 - If only _Him is false: "warn" naming client — they lack LTC while spouse is covered.
 - If only _Her is false: "warn" naming spouse — they lack LTC while client is covered. Note women statistically face longer care needs.
+- If BOTH are true: No LTC gap warning. Proceed to other checks.
 
 CASH VALUE LIFE INSURANCE (cashValueLifeIns_Him / cashValueLifeIns_Her):
-- If BOTH are false: "info" naming BOTH — explain the triple tax advantage of IUL (tax-deferred growth, tax-free loans, tax-free death benefit). Recommend IUL for both to supplement 401K/IRA.
+- IMPORTANT: Do NOT validate dollar amounts (presentCashValue / futureLegacyValue) to determine coverage presence. Use ONLY the checkbox flags (_Him / _Her).
+- If _Him is true OR _Her is true (Cash Value LI IS checked/present): Generate a "good" recommendation. Name the person(s) who have it. Advise: (1) ensure the policy is properly funded annually to avoid lapse, (2) review contribution levels relative to the MEC limit to maximize tax-free cash value, (3) consistent funding over the remaining years to retirement will create significant tax-free retirement income. Recommend the advisor review the policy illustration and optimize the "triple tax advantage."
+- If BOTH are false (neither checked): Generate an "info" recommendation naming BOTH (or the client if no spouse). Explain the triple tax advantage of IUL (tax-deferred growth, tax-free loans, tax-free death benefit). Recommend IUL to supplement 401K/IRA.
 - If only _Him is false: "info" naming client — spouse has it but client does not.
 - If only _Her is false: "info" naming spouse — client has it but spouse does not. Adding a second IUL creates dual income streams.
-- ADDED: If _Him is true OR _Her is true (Cash Value LI IS present): Generate a "good" recommendation. Name the person(s) who have it. Congratulate them on the triple tax advantage and urge them to: (1) ensure the policy is properly funded annually to avoid lapse, (2) review contribution levels relative to the MEC limit to maximize tax-free cash value, (3) note that consistent funding over the remaining ${yearsToRetirement} years will create significant tax-free retirement income. Recommend the advisor review the policy illustration.
 
 SHORT TERM | LONG TERM DISABILITY AT WORK (hasSTD_LTD_Him / hasSTD_LTD_Her):
 - ADDED: This is a NEW required check. Always evaluate these fields.
