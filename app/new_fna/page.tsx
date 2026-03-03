@@ -1668,10 +1668,73 @@ export default function FNAPage() {
       out.push({ kind:'info', text:`COLLEGE SAVINGS: Goals total ${$(data.child1CollegeAmount+data.child2CollegeAmount)}. Consider 529 Plans - contributions grow and withdraw tax-free for qualified education expenses. Many states offer additional state income tax deductions.` });
 
     if (!assets.c2_c1 && !assets.c2_c2)
-      out.push({ kind:'warn', text:`ESTATE PLANNING NEEDED: No Will or Trust on record. Without these, state intestacy laws control asset distribution. Consult an estate attorney for a Will, Living Will, and Healthcare Power of Attorney.` });
+      out.push({ kind:'warn', text:`ESTATE PLANNING NEEDED: No Will or Trust on record. Without these, state intestacy laws control asset distribution. Consult an estate attorney for a Will, Revocable Living Trust, and Healthcare Power of Attorney — these are the foundation for any legacy transfer plan.` });
 
-    if (totProj > totReq && gapVal <= 0)
-      out.push({ kind:'good', text:`SURPLUS STRATEGY: Assets projected to cover ${((totProj/Math.max(totReq,1))*100).toFixed(0)}% of requirements. Consider accelerating charitable giving, increasing life insurance death benefit, or reviewing tax diversification across Traditional and Roth accounts.` });
+    // ── ADDED: High Projected Amount Strategy ─────────────────────────────────
+    // Threshold: projected > 150% of requirement = meaningful surplus needing active management
+    const projCoverageRatio = totProj / Math.max(totReq, 1);
+    const surplusAmt = Math.max(0, totProj - totReq);
+    if (totProj > totReq && gapVal <= 0) {
+      if (projCoverageRatio >= 2.0) {
+        // Very large surplus — specific high-wealth strategies
+        out.push({ kind:'good', text:`HIGH PROJECTED SURPLUS — WEALTH MANAGEMENT REQUIRED: Your projected assets of ${$(totProj)} cover ${(projCoverageRatio*100).toFixed(0)}% of requirements, creating an estimated surplus of ${$(surplusAmt)}. Assets at this level trigger estate tax exposure (federal threshold: $13.61M per individual, $27.22M per couple as of 2024, but scheduled to sunset to ~$7M in 2026). Strategies your advisor can deploy now include: Irrevocable Life Insurance Trusts (ILIT) to remove policy death benefits from the taxable estate, Spousal Lifetime Access Trusts (SLAT), and systematic annual gifting up to the $18,000 per-recipient exclusion limit. Schedule a wealth-transfer review immediately.` });
+      } else if (projCoverageRatio >= 1.5) {
+        out.push({ kind:'good', text:`STRONG SURPLUS — OPTIMIZE DEPLOYMENT: Projected assets of ${$(totProj)} exceed your total requirement by ${$(surplusAmt)} (${(projCoverageRatio*100).toFixed(0)}% coverage). A surplus of this size should not sit idle in taxable accounts. Priority actions: (1) maximize Roth IRA and Roth 401(K) contributions to shift future growth tax-free, (2) fund a Cash Value IUL policy to create a tax-free legacy bucket, (3) consider a Charitable Remainder Trust (CRT) or Donor-Advised Fund (DAF) to reduce taxable estate while supporting causes you value. Your advisor can build a multi-vehicle surplus deployment plan.` });
+      } else {
+        out.push({ kind:'good', text:`SURPLUS STRATEGY: Assets are projected to cover ${(projCoverageRatio*100).toFixed(0)}% of requirements, leaving a surplus of ${$(surplusAmt)}. Channel this surplus into tax-advantaged vehicles — Roth conversions, IUL cash value, or 529 plans — before directing funds to taxable brokerage accounts. Your advisor can model which vehicle produces the best after-tax outcome based on your current income bracket.` });
+      }
+    }
+
+    // ── ADDED: Tax Optimization Recommendations ───────────────────────────────
+    const traditionalBalance = (assets.r1_present||0) + (assets.r4_present||0) + (assets.r5_present||0);
+    const rothBalance = assets.r6_present || 0;
+    const totalRetAccts = traditionalBalance + rothBalance;
+    const rothPct = totalRetAccts > 0 ? (rothBalance / totalRetAccts) * 100 : 0;
+    const annInc2 = assets.s6_present || 0;
+
+    if (traditionalBalance > 0 && rothPct < 30) {
+      // Heavy traditional (pre-tax) exposure — Roth conversion opportunity
+      out.push({ kind:'info', text:`TAX OPTIMIZATION — ROTH CONVERSION OPPORTUNITY: Your retirement portfolio is ${(100-rothPct).toFixed(0)}% pre-tax (Traditional 401K/IRA: ${$(traditionalBalance)}) and only ${rothPct.toFixed(0)}% tax-free (Roth: ${$(rothBalance)}). All pre-tax balances will face ordinary income tax at withdrawal — including Required Minimum Distributions starting at age 73, which could push you into a higher bracket in retirement. A strategic partial Roth conversion during lower-income years (before RMDs begin) can permanently reduce your lifetime tax burden. Your advisor can model a multi-year Roth conversion ladder calibrated to your current and projected tax brackets.` });
+    }
+
+    if (annInc2 > 150000) {
+      // High earner — additional tax optimization strategies
+      out.push({ kind:'info', text:`TAX OPTIMIZATION — HIGH INCOME STRATEGIES: With annual income of ${$(annInc2)}, you are likely in the 32%–37% federal bracket, making tax efficiency critical to preserving wealth. Priority strategies: (1) maximize pre-tax 401(K) contributions ($23,000 limit; $30,500 if age 50+) to reduce current taxable income, (2) fund an HSA if eligible ($4,150 individual / $8,300 family) — the only triple-tax-advantaged account available, (3) consider a Backdoor Roth IRA if income exceeds Roth eligibility limits, (4) review tax-loss harvesting in any taxable investment accounts. Your advisor can identify which combination produces the maximum tax savings for ${$(annInc2)} of annual income.` });
+    } else if (totalRetAccts > 0) {
+      out.push({ kind:'info', text:`TAX OPTIMIZATION — ACCOUNT DIVERSIFICATION: Building tax diversification across three account types — pre-tax (401K/IRA), tax-free (Roth/IUL), and taxable (brokerage) — gives you control over your tax rate in retirement. With ${$(totalRetAccts)} in retirement accounts, your current tax allocation should be reviewed against projected retirement income needs. An IUL policy creates a fourth, uncapped tax-free income stream with no RMD requirements, complementing Roth accounts. Your advisor can design an optimal multi-bucket tax strategy for your specific income level.` });
+    }
+
+    // ── ADDED: Estate & Legacy Transfer Tax Optimization ─────────────────────
+    const legacyGoals = (data.familyLegacy||0) + (data.headstartFund||0) + (data.familySupport||0);
+    const hasRealEstate = ((assets.e1_present||0)+(assets.e2_present||0)+(assets.e3_present||0)+(assets.e4_present||0)) > 0;
+    const hasForeignAssets = ((assets.x1_present||0)+(assets.x2_present||0)) > 0;
+
+    if (legacyGoals > 0 || totProj > 500000) {
+      const estateVal = totProj; // projected estate value at retirement
+      out.push({ kind:'info', text:`ESTATE LEGACY TRANSFER — TAX OPTIMIZATION FOR HEIRS: With a projected estate value of ${$(estateVal)}, strategic planning now can eliminate or dramatically reduce estate and income taxes for your legal heirs. Key tools: (1) an Irrevocable Life Insurance Trust (ILIT) holds a life insurance policy outside your estate — the death benefit passes income-tax-free AND estate-tax-free to heirs, (2) a Revocable Living Trust avoids the costly probate process and keeps asset distribution private, (3) inherited Traditional IRA/401K balances are now subject to the 10-Year Rule (SECURE Act 2.0) — heirs must withdraw all funds within 10 years, potentially generating massive tax bills; converting to Roth now eliminates this inherited tax burden, (4) stepped-up cost basis on appreciated assets reduces capital gains tax for heirs who sell. Your advisor can model the after-tax inheritance value with and without these strategies.` });
+    }
+
+    if (hasRealEstate) {
+      out.push({ kind:'info', text:`REAL ESTATE LEGACY TRANSFER — AVOIDING HEAVY TAXATION: Real estate assets benefit from a stepped-up cost basis at death, meaning heirs inherit at current fair market value — potentially eliminating decades of capital gains. However, properties held in a taxable estate can still face estate taxes above the federal threshold. Strategies to optimize: (1) transfer property into a Family Limited Partnership (FLP) or LLC to apply valuation discounts (typically 20-40%), (2) a Qualified Personal Residence Trust (QPRT) removes your primary home from the estate at a discounted gift-tax value, (3) a 1031 Exchange defers capital gains taxes when selling and reinvesting in like-kind properties. Your advisor and a tax attorney can design the optimal structure to pass real estate to your loved ones with the lowest possible tax impact.` });
+    }
+
+    if (hasForeignAssets) {
+      out.push({ kind:'info', text:`FOREIGN ASSETS — CROSS-BORDER TAX PLANNING: Foreign assets introduce additional tax complexity including FBAR reporting (FinCEN 114), FATCA requirements (Form 8938), and potential double-taxation without a tax treaty benefit. For estate transfer, foreign real estate does not receive stepped-up basis treatment in all jurisdictions and may be subject to both US estate tax AND the foreign country's inheritance tax. Solutions include: foreign trusts, offshore life insurance structures, or strategic gifting before death to reduce taxable foreign estate value. Your advisor should coordinate with a cross-border tax specialist to ensure full compliance and minimize double taxation on your foreign holdings.` });
+    }
+
+    // ── ADDED: Legacy Transfer to Loved Ones — Optimization ──────────────────
+    const hasKids = data.child1CollegeAmount > 0 || data.child2CollegeAmount > 0 || data.child1WeddingAmount > 0;
+    const hasCharityGoal = (data.charity||0) > 0;
+
+    out.push({ kind:'good', text:`LEGACY TRANSFER OPTIMIZATION — LEAVING THE MOST TO LOVED ONES: The most tax-efficient tools for passing wealth to family are: (1) Life Insurance death benefit — passes completely income-tax-free to named beneficiaries outside of probate, with no 10-year withdrawal rule; a $1M IUL policy can deliver $1M tax-free at any age, (2) Roth IRA — inherited Roth accounts allow 10 years of tax-free growth before heirs must withdraw; fund Roth accounts aggressively now, (3) Annual gifting — the 2024 annual gift exclusion is $18,000 per recipient ($36,000 per couple); systematic annual gifting reduces the taxable estate while benefiting loved ones today, (4) 529 superfunding — a one-time $90,000 contribution per beneficiary ($180,000 per couple) uses 5 years of gift exclusions at once for college savings. Your advisor can build a coordinated gifting + insurance + trust strategy that delivers the maximum after-tax legacy to your family.` });
+
+    if (hasCharityGoal) {
+      out.push({ kind:'info', text:`CHARITABLE LEGACY STRATEGY: With a charity goal of ${$(data.charity||0)}, tax-smart giving can amplify impact while reducing estate taxes. A Charitable Remainder Trust (CRT) provides you with an income stream during life, a charitable deduction now, and transfers the remainder to your chosen charity — removing the asset from your taxable estate. A Donor-Advised Fund (DAF) allows an immediate charitable deduction while you invest the funds and distribute them to charities over time. Life insurance is also a powerful charitable tool: name a charity as policy beneficiary and your estate receives a deduction while the charity receives a larger gift than you could afford to give outright. Your advisor can structure the most tax-efficient charitable transfer aligned with your goals.` });
+    }
+
+    if (hasKids) {
+      out.push({ kind:'info', text:`GENERATIONAL WEALTH TRANSFER — CHILDREN & GRANDCHILDREN: For families with children or grandchildren, a coordinated strategy delivers far more than unplanned inheritance. Key vehicles: (1) 529 Plans — contribute up to $18,000/year per child tax-free; superfund $90,000 upfront using 5-year gift election, (2) Custodial Roth IRA — children with earned income can contribute; funds grow tax-free for 50+ years with compound interest, (3) Irrevocable trusts for minor beneficiaries protect assets from misuse and allow controlled distribution at defined ages, (4) Life insurance on parents with children as beneficiaries guarantees a legacy regardless of market conditions. Your advisor can model a multi-generational wealth transfer plan that ensures your children and grandchildren benefit from the wealth you have built throughout your working years.` });
+    }
 
     return out;
   };
@@ -1737,6 +1800,48 @@ export default function FNAPage() {
         annualIncome: annualIncome,
         annualSavings: assets.s7_present || 0,
       },
+      // ADDED: Tax composition breakdown — critical for tax optimization recommendations
+      taxProfile: {
+        // Pre-tax retirement accounts (withdrawals taxed as ordinary income + RMD at 73)
+        preTaxBalance: (assets.r1_present||0) + (assets.r4_present||0) + (assets.r5_present||0),
+        // Tax-free accounts (no tax on growth or qualified withdrawal, no RMD for Roth IRA)
+        taxFreeBalance: (assets.r6_present||0) + (assets.f3_present||0),
+        // Taxable accounts (dividends/gains taxed annually; step-up basis at death)
+        taxableBalance: (assets.s1_present||0) + (assets.s2_present||0) + (assets.s3_present||0) + (assets.s4_present||0) + (assets.s5_present||0),
+        // Roth percentage of total retirement accounts (higher = better tax diversification)
+        rothPctOfRetirement: (() => {
+          const total = (assets.r1_present||0)+(assets.r4_present||0)+(assets.r5_present||0)+(assets.r6_present||0);
+          return total > 0 ? Math.round(((assets.r6_present||0)/total)*100) : 0;
+        })(),
+        hasCashValueLIForTaxFreeIncome: assets.f3_him || assets.f3_her,
+        hsaBalance: assets.f7_present || 0,
+        // Estimated federal tax bracket based on annual income
+        estimatedBracket: annualIncome > 609350 ? '37%' : annualIncome > 243725 ? '35%' : annualIncome > 191950 ? '32%' : annualIncome > 100525 ? '24%' : annualIncome > 47150 ? '22%' : annualIncome > 11600 ? '12%' : '10%',
+      },
+      // ADDED: Estate and legacy data — for transfer planning and tax optimization
+      estateAndLegacy: {
+        projectedEstateValue: totProj,
+        projectedSurplus: Math.max(0, totProj - totReq),
+        projectedCoverageRatio: Math.round((totProj / Math.max(totReq,1)) * 100),  // e.g. 185 = 185% coverage
+        familyLegacyGoal: data.familyLegacy || 0,
+        headstartFundGoal: data.headstartFund || 0,
+        familySupportGoal: data.familySupport || 0,
+        totalLegacyGoals: (data.familyLegacy||0) + (data.headstartFund||0) + (data.familySupport||0),
+        charityGoal: data.charity || 0,
+        child1CollegeGoal: data.child1CollegeAmount || 0,
+        child2CollegeGoal: data.child2CollegeAmount || 0,
+        hasChildrenGoals: data.child1CollegeAmount > 0 || data.child2CollegeAmount > 0 || data.child1WeddingAmount > 0,
+        hasWillOrTrust: assets.c2_c1 || assets.c2_c2,
+        // Real estate — appreciated assets w/ step-up basis opportunity
+        realEstateValue: (assets.e1_present||0)+(assets.e2_present||0)+(assets.e3_present||0)+(assets.e4_present||0),
+        realEstateProjected: (assets.e1_proj||0)+(assets.e2_proj||0)+(assets.e3_proj||0)+(assets.e4_proj||0),
+        // Foreign assets — additional FBAR/FATCA and cross-border estate tax exposure
+        foreignAssetsValue: (assets.x1_present||0)+(assets.x2_present||0),
+        // Estate tax exposure flag (2024 federal threshold $13.61M; sunset ~$7M in 2026)
+        potentialEstateTaxExposure: totProj > 7000000,
+        // Pre-tax IRA/401K inherited by heirs → 10-year rule (SECURE Act 2.0) → taxable
+        inheritedPreTaxRisk: (assets.r1_present||0)+(assets.r4_present||0)+(assets.r5_present||0) > 100000,
+      },
       insurance: {
         // FIX: Person-specific insurance flags — Him = client, Her = spouse
         // The AI must use these names when generating person-specific recommendations
@@ -1797,7 +1902,7 @@ export default function FNAPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 4000,
+          max_tokens: 6000,
           messages: [{
             role: "user",
             content: `You are a financial analysis assistant for a Financial Needs Analysis (FNA) report. Analyze this client's complete financial profile and generate personalized, practical recommendations.
@@ -1806,43 +1911,100 @@ CLIENT FINANCIAL PROFILE:
 ${JSON.stringify(profile, null, 2)}
 
 INSTRUCTIONS:
-- Generate 6-10 specific, personalized recommendations based on the actual numbers in their profile
+- Generate 8-14 specific, personalized recommendations based on the actual numbers in their profile
 - Each recommendation must reference the client's specific dollar amounts, percentages, and situation
 - Focus on ACTIONABLE steps that highlight why they should schedule a meeting with their financial advisor
-- Recommendations should cover: gap/surplus strategy, debt management, retirement readiness, life insurance adequacy, emergency fund, tax optimization, estate planning, college planning, healthcare planning — but ONLY if relevant based on the data
+- Recommendations must cover ALL of the following categories where data is present: gap/surplus strategy, high-projected-amount handling, tax optimization, estate/legacy transfer, legacy to loved ones, debt management, retirement readiness, life insurance adequacy, emergency fund — but ONLY if relevant based on the data
+- Order recommendations by urgency: warn items first, then good items, then info items
 
-CRITICAL INSURANCE CHECKS — ALWAYS generate person-specific recommendations using the names provided:
+══════════════════════════════════════════════════════════════════════
+CATEGORY 1 — HIGH PROJECTED AMOUNT STRATEGY
+══════════════════════════════════════════════════════════════════════
+Use estateAndLegacy.projectedCoverageRatio and estateAndLegacy.projectedSurplus for this section.
+ALWAYS generate at least one recommendation from this category if projectedSurplus > 0.
+
+- If projectedCoverageRatio >= 200 (surplus is >= 100% of requirement): Generate a "good" recommendation titled "HIGH PROJECTED SURPLUS — WEALTH MANAGEMENT REQUIRED". Include: (a) the exact projected amount, surplus dollar amount, and coverage ratio, (b) warning that this level of wealth may trigger estate tax exposure (federal threshold $13.61M individual / $27.22M couple in 2024, but scheduled to sunset to ~$7M in 2026 — act before sunset), (c) specific strategies: Irrevocable Life Insurance Trust (ILIT) to remove death benefits from taxable estate, Spousal Lifetime Access Trust (SLAT), systematic annual gifting at $18,000/recipient exclusion, Grantor Retained Annuity Trust (GRAT) for high-appreciation assets, (d) urgency: advise immediate wealth-transfer review with advisor.
+
+- If projectedCoverageRatio >= 150 and < 200: Generate a "good" recommendation titled "STRONG SURPLUS — DEPLOY TAX-EFFICIENTLY". Include: (a) surplus amount and coverage ratio, (b) prioritized deployment: max Roth contributions first, then fund IUL cash value for tax-free legacy bucket, then Charitable Remainder Trust (CRT) or Donor-Advised Fund (DAF), (c) advisor call-to-action: model which vehicle produces best after-tax return.
+
+- If projectedCoverageRatio >= 110 and < 150: Generate a "good" recommendation titled "SURPLUS DETECTED — OPTIMIZE BEFORE RETIREMENT". Channel surplus into Roth conversions, IUL, or 529 before taxable accounts. Note the projected surplus amount explicitly.
+
+- If projectedCoverageRatio < 100 (gap exists): Generate a "warn" with the shortfall amount and prioritized catch-up strategies (increase contributions, delay retirement, improve projected return, reduce spending goals).
+
+══════════════════════════════════════════════════════════════════════
+CATEGORY 2 — TAX OPTIMIZATION
+══════════════════════════════════════════════════════════════════════
+Use taxProfile data for this section. ALWAYS generate at least one tax recommendation.
+
+- ROTH CONVERSION CHECK: If taxProfile.rothPctOfRetirement < 30 AND taxProfile.preTaxBalance > 50000: Generate an "info" recommendation. Reference the exact pre-tax balance and Roth % figure. Explain: all pre-tax balances face ordinary income tax at withdrawal; RMDs begin at age 73 and FORCE taxable withdrawals even if not needed, potentially triggering Medicare surcharges (IRMAA), higher Social Security taxation, and bracket creep. Recommend a multi-year Roth conversion ladder in years before RMDs begin (or in lower-income years). Advisor can model optimal annual conversion amounts to stay within a target bracket.
+
+- HIGH INCOME TAX CHECK: If taxProfile.estimatedBracket is 32%, 35%, or 37%: Generate an "info" recommendation for high-income strategies: max pre-tax 401K ($23,000 / $30,500 catch-up), HSA triple-tax advantage ($4,150 individual / $8,300 family), Backdoor Roth IRA if income exceeds Roth contribution limits, tax-loss harvesting in taxable accounts. Reference the specific annual income amount and estimated bracket.
+
+- TAX DIVERSIFICATION CHECK: Always generate an "info" recommendation explaining the three tax buckets (pre-tax / tax-free / taxable) and their current balance. Reference taxProfile.preTaxBalance, taxProfile.taxFreeBalance, taxProfile.taxableBalance. Recommend IUL as a fourth uncapped tax-free vehicle with no RMDs, complementing Roth accounts. Goal: no single bucket should dominate retirement income.
+
+- HSA OPPORTUNITY: If taxProfile.hsaBalance == 0: Mention the HSA as the only triple-tax-advantaged account (contribute pre-tax, grow tax-free, withdraw tax-free for medical). Even if not currently eligible, note that if the client ever switches to an HDHP, maximizing HSA should be the first move.
+
+══════════════════════════════════════════════════════════════════════
+CATEGORY 3 — ESTATE & LEGACY TRANSFER TAX OPTIMIZATION (FOR LEGAL HEIRS)
+══════════════════════════════════════════════════════════════════════
+Use estateAndLegacy data. ALWAYS generate at least one estate recommendation if projectedEstateValue > 250000.
+
+- INHERITED PRE-TAX ACCOUNT RISK: If estateAndLegacy.inheritedPreTaxRisk is true: Generate an "info" recommendation. Explain the SECURE Act 2.0 10-Year Rule: heirs who inherit a Traditional IRA/401K must withdraw ALL funds within 10 years of the original owner's death — this can force heirs into high tax brackets for a decade. The solution: Roth conversion before death eliminates this burden entirely, as inherited Roth accounts also follow the 10-year rule but all withdrawals are tax-free. Reference the pre-tax balance amount.
+
+- ESTATE TAX EXPOSURE: If estateAndLegacy.potentialEstateTaxExposure is true: Generate a "warn" recommendation highlighting that projected estate exceeds the sunset threshold. Specific strategies: ILIT (death benefit passes estate-tax-free), gifting strategies, 529 superfunding, FLPs for business/real estate.
+
+- REAL ESTATE LEGACY: If estateAndLegacy.realEstateValue > 0: Generate an "info" recommendation covering: (a) stepped-up cost basis at death — heirs inherit at current fair market value, eliminating decades of embedded capital gains tax, (b) how to preserve step-up: do NOT gift appreciated real estate during life (that transfers the original cost basis); hold until death for maximum tax benefit, (c) Family Limited Partnership (FLP) or LLC for multi-property owners applies valuation discounts of 20-40%, (d) Qualified Personal Residence Trust (QPRT) for primary home, (e) 1031 Exchange to defer gains when selling and reinvesting. Reference specific real estate value.
+
+- WILL & TRUST FOUNDATION: If estateAndLegacy.hasWillOrTrust is false: Generate a "warn" recommending immediate creation of: Revocable Living Trust (avoids probate, keeps distribution private), Pour-Over Will as backup, Healthcare Power of Attorney, Durable Financial Power of Attorney. Without these, the state controls how assets are distributed — potentially contrary to the client's wishes.
+
+- FOREIGN ASSETS COMPLEXITY: If estateAndLegacy.foreignAssetsValue > 0: Generate an "info" covering FBAR, FATCA, and cross-border estate tax (potential double-taxation without a treaty benefit). Recommend coordination with a cross-border tax specialist.
+
+══════════════════════════════════════════════════════════════════════
+CATEGORY 4 — LEGACY TRANSFER OPTIMIZATION (TO LOVED ONES)
+══════════════════════════════════════════════════════════════════════
+Use estateAndLegacy data. ALWAYS generate at least one legacy recommendation.
+
+- LIFE INSURANCE AS LEGACY VEHICLE: Generate a "good" recommendation explaining why life insurance is the most efficient legacy tool: death benefit passes 100% income-tax-free to named beneficiaries, bypasses probate completely, is not subject to the 10-Year Rule, and can be structured (via ILIT) to pass estate-tax-free as well. An IUL policy provides living benefits during life (tax-free cash value) AND a guaranteed legacy at death. Compare the leverage: $500/month in premiums can create a $500,000-$2,000,000 tax-free legacy. Encourage advisor to illustrate a specific face amount based on the client's legacy goals.
+
+- ANNUAL GIFTING PROGRAM: Generate an "info" recommendation if totalLegacyGoals > 0 or annualIncome > 100000. Explain the annual gift exclusion ($18,000 per recipient / $36,000 per couple in 2024 — indexed for inflation). Systematic gifting: (a) reduces taxable estate by the gifted amount each year, (b) allows loved ones to benefit during the client's lifetime, (c) 529 superfunding ($90,000 per beneficiary / $180,000 per couple) uses 5 years of exclusions at once for college savings, (d) direct payment of medical or tuition bills to providers is unlimited and gift-tax-free. Reference totalLegacyGoals amount.
+
+- CHILDREN & GRANDCHILDREN WEALTH TRANSFER: If estateAndLegacy.hasChildrenGoals is true: Generate an "info" covering multi-generational transfer tools: Custodial Roth IRA for children with earned income (50+ years of tax-free compounding), irrevocable trusts for minors with staged distribution ages, 529 plans with superfunding election, and life insurance on parents with children as primary beneficiaries. Emphasize the compounding advantage: $10,000 invested at age 10 at 8% grows to ~$469,000 by age 65. An advisor can build a coordinated plan.
+
+- CHARITABLE LEGACY: If estateAndLegacy.charityGoal > 0: Generate an "info" recommendation covering tax-smart charitable tools: Charitable Remainder Trust (CRT — income stream during life + charity receives remainder, immediate deduction), Donor-Advised Fund (DAF — immediate deduction, invest and distribute over time), naming charities as IRA beneficiaries (charities pay no income tax on inherited IRA, unlike human beneficiaries who face the 10-Year Rule). Reference the specific charity goal amount.
+
+══════════════════════════════════════════════════════════════════════
+INSURANCE CHECKS (existing — preserve all)
+══════════════════════════════════════════════════════════════════════
 IMPORTANT: In the insurance section, "Him" = clientName_Him (the primary client) and "Her" = spouseName_Her (the spouse). Use their ACTUAL FIRST NAMES in all recommendations. If hasSpouse is false, only evaluate _Him fields.
 
 LIFE INSURANCE GAP RULE (CHECK FIRST — overrides all other insurance gap logic):
-- If allCoverageCheckmarked is TRUE (Life Insurance Outside Work + Long Term Care Outside Work + Cash Value Life Insurance are ALL checked): Do NOT generate any "LIFE INSURANCE GAP" warning. The client has all three coverage types checked. Amounts in those fields are irrelevant — presence of the checkbox is sufficient. Proceed directly to per-person checks below.
-- If allCoverageCheckmarked is FALSE: Evaluate each coverage type individually per the rules below, and generate a "LIFE INSURANCE GAP" warn only if lifeInsWork amount is zero AND neither lifeInsOutsideWork_Him nor lifeInsOutsideWork_Her is checked AND neither cashValueLifeIns_Him nor cashValueLifeIns_Her is checked.
+- If allCoverageCheckmarked is TRUE: Do NOT generate any "LIFE INSURANCE GAP" warning. Proceed to per-person checks.
+- If allCoverageCheckmarked is FALSE: Generate a "LIFE INSURANCE GAP" warn only if lifeInsWork amount is zero AND neither lifeInsOutsideWork flag is checked AND neither cashValueLifeIns flag is checked.
 
 LIFE INSURANCE OUTSIDE WORK (lifeInsOutsideWork_Him / lifeInsOutsideWork_Her):
-- If BOTH are false: Generate a "warn" recommendation naming BOTH people, explaining neither has personal life insurance. Employer group coverage ends at separation/retirement. Recommend Term Life (affordable) and/or Permanent/IUL (cash value + lifelong coverage) for BOTH.
-- If only _Him is false: Generate a "warn" naming the client (clientName_Him), explaining they have no personal life insurance while their spouse does. Stress income replacement risk if they are the primary earner.
-- If only _Her is false: Generate a "warn" naming the spouse (spouseName_Her), explaining they lack coverage while the client has it. Note the financial impact of losing a spouse's contributions.
-- If BOTH are true: No gap warning for this field. Proceed to other checks.
+- Both false: "warn" naming BOTH — no personal life insurance. Recommend Term and/or Permanent/IUL.
+- Only _Him false: "warn" naming client only.
+- Only _Her false: "warn" naming spouse only.
+- Both true: no gap warning.
 
 LONG-TERM CARE OUTSIDE WORK (ltcOutsideOfWork_Him / ltcOutsideOfWork_Her):
-- If BOTH are false: "warn" naming BOTH — neither has LTC coverage. Average nursing home cost >$100K/year, Medicare does not cover custodial care. Recommend hybrid life+LTC policies for both.
-- If only _Him is false: "warn" naming client — they lack LTC while spouse is covered.
-- If only _Her is false: "warn" naming spouse — they lack LTC while client is covered. Note women statistically face longer care needs.
-- If BOTH are true: No LTC gap warning. Proceed to other checks.
+- Both false: "warn" naming BOTH — no LTC coverage. Nursing home >$100K/yr; Medicare doesn't cover.
+- Only _Him false: "warn" naming client.
+- Only _Her false: "warn" naming spouse — women face longer care needs.
+- Both true: no LTC gap warning.
 
 CASH VALUE LIFE INSURANCE (cashValueLifeIns_Him / cashValueLifeIns_Her):
-- IMPORTANT: Do NOT validate dollar amounts (presentCashValue / futureLegacyValue) to determine coverage presence. Use ONLY the checkbox flags (_Him / _Her).
-- If _Him is true OR _Her is true (Cash Value LI IS checked/present): Generate a "good" recommendation. Name the person(s) who have it. Advise: (1) ensure the policy is properly funded annually to avoid lapse, (2) review contribution levels relative to the MEC limit to maximize tax-free cash value, (3) consistent funding over the remaining years to retirement will create significant tax-free retirement income. Recommend the advisor review the policy illustration and optimize the "triple tax advantage."
-- If BOTH are false (neither checked): Generate an "info" recommendation naming BOTH (or the client if no spouse). Explain the triple tax advantage of IUL (tax-deferred growth, tax-free loans, tax-free death benefit). Recommend IUL to supplement 401K/IRA.
-- If only _Him is false: "info" naming client — spouse has it but client does not.
-- If only _Her is false: "info" naming spouse — client has it but spouse does not. Adding a second IUL creates dual income streams.
+- Use ONLY checkbox flags — do NOT validate dollar amounts for coverage presence.
+- _Him true OR _Her true: "good" — advise proper annual funding, MEC limit review, triple tax advantage.
+- Both false: "info" — recommend IUL for triple tax advantage to supplement 401K/IRA.
+- Only _Him false: "info" naming client.
+- Only _Her false: "info" naming spouse.
 
 SHORT TERM | LONG TERM DISABILITY AT WORK (hasSTD_LTD_Him / hasSTD_LTD_Her):
-- ADDED: This is a NEW required check. Always evaluate these fields.
-- If BOTH are false (or if hasSpouse is false and _Him is false): Generate a "warn" recommendation naming the affected person(s). Explain that 1 in 4 workers will experience a disability before retirement, making disability more likely than death during working years. Without income protection, a disability event would require liquidating retirement assets. Recommend a Term Life policy with a disability waiver rider AND/OR a Permanent Life (IUL) policy with living benefits as income protection. Stress the importance of meeting the advisor to design a Term or Permanent coverage structure.
-- If only _Him is false: "warn" naming client — they lack disability coverage while spouse is covered. Highlight income replacement risk for the household.
-- If only _Her is false: "warn" naming spouse — they lack disability coverage while client is covered. Note the household financial impact.
-- If both are true: No recommendation needed for this category.
+- Both false (or single client false): "warn" — 1 in 4 workers disabled before retirement. Recommend Term with disability rider or Permanent IUL with living benefits.
+- Only _Him false: "warn" naming client.
+- Only _Her false: "warn" naming spouse.
+- Both true: no recommendation.
 
 - For each recommendation, determine if it is a "warn" (critical gap/risk), "good" (positive/strength), or "info" (opportunity/educational)
 - Each recommendation text should be 2-3 sentences. First sentence: identify the specific finding with numbers. Second sentence: explain the impact. Third sentence: suggest what the advisor can help with.
