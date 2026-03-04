@@ -453,7 +453,10 @@ export default function Dashboard() {
       (fuRows ?? []).forEach((r: any) => bumpDay(r.Followup_Date, fuDay)); 
       const nz = (n: number | undefined) => (n && n !== 0 ? n : undefined); 
       setDaily60(days.map((day) => ({ day, calls: nz(callsDay.get(day) ?? 0), bops: nz(bopsDay.get(day) ?? 0), followups: nz(fuDay.get(day) ?? 0) }))); 
+      /* --- BEGIN CHANGE: Use v_client_call_year_month_counts view for accurate monthly bar chart counts --- */
       const startMonth = startOfMonth(subMonths(today, 11)); 
+      const startYear = startMonth.getFullYear();
+      const startMon = startMonth.getMonth() + 1; // 1-based
       const months: string[] = []; 
       const callsMonth = new Map<string, number>(); 
       const bopsMonth = new Map<string, number>(); 
@@ -466,23 +469,35 @@ export default function Dashboard() {
         bopsMonth.set(key, 0); 
         fuMonth.set(key, 0); 
       } 
-      const [{ data: callsY }, { data: bopsY }, { data: fuY }] = await Promise.all([ 
-        supabase.from("client_registrations").select("CalledOn").gte("CalledOn", startMonth.toISOString()).lt("CalledOn", addMonths(endOfMonth(today), 1).toISOString()).order("CalledOn", { ascending: true }).limit(200000), 
-        supabase.from("client_registrations").select("BOP_Date").gte("BOP_Date", startMonth.toISOString()).lt("BOP_Date", addMonths(endOfMonth(today), 1).toISOString()).order("BOP_Date", { ascending: true }).limit(200000), 
-        supabase.from("client_registrations").select("Followup_Date").gte("Followup_Date", startMonth.toISOString()).lt("Followup_Date", addMonths(endOfMonth(today), 1).toISOString()).order("Followup_Date", { ascending: true }).limit(200000), 
-         ]); 
-      const bumpMonth = (dateVal: any, map: Map<string, number>) => { 
-        if (!dateVal) return; 
-        const d = parseISO(String(dateVal)); 
-        if (!isValid(d)) return; 
-        const k = format(d, "yyyy-MM"); 
-        if (map.has(k)) map.set(k, (map.get(k) ?? 0) + 1); 
-      }; 
-      (callsY ?? []).forEach((r: any) => bumpMonth(r.CalledOn, callsMonth)); 
-      (bopsY ?? []).forEach((r: any) => bumpMonth(r.BOP_Date, bopsMonth)); 
-      (fuY ?? []).forEach((r: any) => bumpMonth(r.Followup_Date, fuMonth)); 
+      // Query the view for the rolling 12-month window
+      const { data: viewRows, error: viewErr } = await supabase
+        .from("v_client_call_year_month_counts")
+        .select("year, month, typename, record_count")
+        .gte("year", startYear)
+        .order("year", { ascending: true })
+        .order("month", { ascending: true });
+      if (viewErr) throw viewErr;
+      // Map each view row into the correct month bucket based on typename
+      (viewRows ?? []).forEach((r: any) => {
+        const yr = Number(r.year);
+        const mo = Number(r.month);
+        // Skip rows before the 12-month window
+        if (yr < startYear || (yr === startYear && mo < startMon)) return;
+        const key = `${yr}-${String(mo).padStart(2, "0")}`;
+        if (!callsMonth.has(key)) return; // outside our 12-month range
+        const tn = String(r.typename ?? "").toLowerCase();
+        const count = Number(r.record_count) || 0;
+        if (tn === "calledon" || tn === "call" || tn === "calls") {
+          callsMonth.set(key, (callsMonth.get(key) ?? 0) + count);
+        } else if (tn === "bop_date" || tn === "bop" || tn === "bops") {
+          bopsMonth.set(key, (bopsMonth.get(key) ?? 0) + count);
+        } else if (tn === "followup_date" || tn === "followup" || tn === "followups" || tn === "follow-up" || tn === "follow_up") {
+          fuMonth.set(key, (fuMonth.get(key) ?? 0) + count);
+        }
+      });
       // Don't filter out zero values - show all months including zeros for proper chart display
-      setMonthly12(months.map((month) => ({ month, calls: callsMonth.get(month) ?? 0, bops: bopsMonth.get(month) ?? 0, followups: fuMonth.get(month) ?? 0 }))); 
+      setMonthly12(months.map((month) => ({ month, calls: callsMonth.get(month) ?? 0, bops: bopsMonth.get(month) ?? 0, followups: fuMonth.get(month) ?? 0 })));
+      /* --- END CHANGE --- */ 
     } catch (e: any) { 
       setError(e?.message ?? "Failed to load trends"); 
     } finally { 
