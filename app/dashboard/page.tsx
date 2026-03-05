@@ -360,6 +360,26 @@ export default function Dashboard() {
   const [trendsVisible, setTrendsVisible] = useState(false);
   const [upcomingVisible, setUpcomingVisible] = useState(false);
   const [progressVisible, setProgressVisible] = useState(false);
+
+  /* --- BEGIN CHANGE: New Client state --- */
+  const NEW_CLIENT_DEFAULTS = {
+    first_name: "",
+    last_name: "",
+    phone: "000-000-0000",
+    email: "chidam.alagar@gmail.com",
+    interest_type: "Both",
+    business_opportunities: ["Financial and Time Freedom"],
+    wealth_solutions: ["protection_planning"],
+    referred_by: "Chidam Alagar",
+    preferred_days: ["Monday"],
+    preferred_time: "PM",
+  };
+  const [newClientOpen, setNewClientOpen] = useState(false);
+  const [newClientForm, setNewClientForm] = useState<Record<string, any>>({ ...NEW_CLIENT_DEFAULTS });
+  const [newClientSaving, setNewClientSaving] = useState(false);
+  const [newClientMsg, setNewClientMsg] = useState<string | null>(null);
+  const [newClientError, setNewClientError] = useState<string | null>(null);
+  /* --- END CHANGE --- */
  
   useEffect(() => {
     (async () => {
@@ -453,10 +473,7 @@ export default function Dashboard() {
       (fuRows ?? []).forEach((r: any) => bumpDay(r.Followup_Date, fuDay)); 
       const nz = (n: number | undefined) => (n && n !== 0 ? n : undefined); 
       setDaily60(days.map((day) => ({ day, calls: nz(callsDay.get(day) ?? 0), bops: nz(bopsDay.get(day) ?? 0), followups: nz(fuDay.get(day) ?? 0) }))); 
-      /* --- BEGIN CHANGE: Use v_client_call_year_month_counts view for accurate monthly bar chart counts --- */
       const startMonth = startOfMonth(subMonths(today, 11)); 
-      const startYear = startMonth.getFullYear();
-      const startMon = startMonth.getMonth() + 1; // 1-based
       const months: string[] = []; 
       const callsMonth = new Map<string, number>(); 
       const bopsMonth = new Map<string, number>(); 
@@ -469,35 +486,23 @@ export default function Dashboard() {
         bopsMonth.set(key, 0); 
         fuMonth.set(key, 0); 
       } 
-      // Query the view for the rolling 12-month window
-      const { data: viewRows, error: viewErr } = await supabase
-        .from("v_client_call_year_month_counts")
-        .select("year, month, typename, record_count")
-        .gte("year", startYear)
-        .order("year", { ascending: true })
-        .order("month", { ascending: true });
-      if (viewErr) throw viewErr;
-      // Map each view row into the correct month bucket based on typename
-      (viewRows ?? []).forEach((r: any) => {
-        const yr = Number(r.year);
-        const mo = Number(r.month);
-        // Skip rows before the 12-month window
-        if (yr < startYear || (yr === startYear && mo < startMon)) return;
-        const key = `${yr}-${String(mo).padStart(2, "0")}`;
-        if (!callsMonth.has(key)) return; // outside our 12-month range
-        const tn = String(r.typename ?? "").toLowerCase();
-        const count = Number(r.record_count) || 0;
-        if (tn === "calledon" || tn === "call" || tn === "calls") {
-          callsMonth.set(key, (callsMonth.get(key) ?? 0) + count);
-        } else if (tn === "bop_date" || tn === "bop" || tn === "bops") {
-          bopsMonth.set(key, (bopsMonth.get(key) ?? 0) + count);
-        } else if (tn === "followup_date" || tn === "followup" || tn === "followups" || tn === "follow-up" || tn === "follow_up") {
-          fuMonth.set(key, (fuMonth.get(key) ?? 0) + count);
-        }
-      });
+      const [{ data: callsY }, { data: bopsY }, { data: fuY }] = await Promise.all([ 
+        supabase.from("client_registrations").select("CalledOn").gte("CalledOn", startMonth.toISOString()).lt("CalledOn", addMonths(endOfMonth(today), 1).toISOString()).order("CalledOn", { ascending: true }).limit(200000), 
+        supabase.from("client_registrations").select("BOP_Date").gte("BOP_Date", startMonth.toISOString()).lt("BOP_Date", addMonths(endOfMonth(today), 1).toISOString()).order("BOP_Date", { ascending: true }).limit(200000), 
+        supabase.from("client_registrations").select("Followup_Date").gte("Followup_Date", startMonth.toISOString()).lt("Followup_Date", addMonths(endOfMonth(today), 1).toISOString()).order("Followup_Date", { ascending: true }).limit(200000), 
+         ]); 
+      const bumpMonth = (dateVal: any, map: Map<string, number>) => { 
+        if (!dateVal) return; 
+        const d = parseISO(String(dateVal)); 
+        if (!isValid(d)) return; 
+        const k = format(d, "yyyy-MM"); 
+        if (map.has(k)) map.set(k, (map.get(k) ?? 0) + 1); 
+      }; 
+      (callsY ?? []).forEach((r: any) => bumpMonth(r.CalledOn, callsMonth)); 
+      (bopsY ?? []).forEach((r: any) => bumpMonth(r.BOP_Date, bopsMonth)); 
+      (fuY ?? []).forEach((r: any) => bumpMonth(r.Followup_Date, fuMonth)); 
       // Don't filter out zero values - show all months including zeros for proper chart display
-      setMonthly12(months.map((month) => ({ month, calls: callsMonth.get(month) ?? 0, bops: bopsMonth.get(month) ?? 0, followups: fuMonth.get(month) ?? 0 })));
-      /* --- END CHANGE --- */ 
+      setMonthly12(months.map((month) => ({ month, calls: callsMonth.get(month) ?? 0, bops: bopsMonth.get(month) ?? 0, followups: fuMonth.get(month) ?? 0 }))); 
     } catch (e: any) { 
       setError(e?.message ?? "Failed to load trends"); 
     } finally { 
@@ -764,6 +769,56 @@ export default function Dashboard() {
     }
   }
 
+  /* --- BEGIN CHANGE: Create New Client function --- */
+  async function createNewClient() {
+    const firstName = (newClientForm.first_name ?? "").trim();
+    const lastName = (newClientForm.last_name ?? "").trim();
+    if (!firstName || !lastName) {
+      setNewClientError("First Name and Last Name are required.");
+      return;
+    }
+    setNewClientSaving(true);
+    setNewClientError(null);
+    setNewClientMsg(null);
+    try {
+      const supabase = getSupabase();
+      const emailVal = (newClientForm.email ?? "").trim() || "chidam.alagar@gmail.com";
+      const payload = {
+        first_name: firstName,
+        last_name: lastName,
+        phone: (newClientForm.phone ?? "").trim() || "000-000-0000",
+        email: emailVal,
+        interest_type: newClientForm.interest_type || "Both",
+        business_opportunities: Array.isArray(newClientForm.business_opportunities)
+          ? newClientForm.business_opportunities
+          : ["Financial and Time Freedom"],
+        wealth_solutions: Array.isArray(newClientForm.wealth_solutions)
+          ? newClientForm.wealth_solutions
+          : ["protection_planning"],
+        referred_by: (newClientForm.referred_by ?? "").trim() || "Chidam Alagar",
+        preferred_days: Array.isArray(newClientForm.preferred_days)
+          ? newClientForm.preferred_days
+          : ["Monday"],
+        preferred_time: newClientForm.preferred_time || "PM",
+        status: "New Client",
+        client_status: "New Client",
+      };
+      const { error: insertErr } = await supabase.from("client_registrations").insert(payload);
+      if (insertErr) throw insertErr;
+      setNewClientMsg(`New Client ${firstName} ${lastName} created`);
+      setNewClientOpen(false);
+      setNewClientForm({ ...NEW_CLIENT_DEFAULTS });
+      await loadPage(0);
+      // Auto-dismiss success message after 5 seconds
+      setTimeout(() => setNewClientMsg(null), 5000);
+    } catch (e: any) {
+      setNewClientError(e?.message ?? "Failed to create client");
+    } finally {
+      setNewClientSaving(false);
+    }
+  }
+  /* --- END CHANGE --- */
+
 
   const totalPages = Math.max(1, Math.ceil((total ?? 0) / ALL_PAGE_SIZE)); 
   const canPrev = page > 0; 
@@ -906,6 +961,14 @@ export default function Dashboard() {
           </div> 
         </header> 
         {error && (<div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{error}</div>)} 
+        {/* --- BEGIN CHANGE: New Client success message --- */}
+        {newClientMsg && (
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-green-700 flex items-center justify-between">
+            <span>{newClientMsg}</span>
+            <button className="ml-4 text-green-500 hover:text-green-800 font-bold" onClick={() => setNewClientMsg(null)}>✕</button>
+          </div>
+        )}
+        {/* --- END CHANGE --- */}
         <Card title="Trends 📊"> 
   <div className="mb-2">
     <Button variant="secondary" onClick={() => {
@@ -1094,6 +1157,11 @@ export default function Dashboard() {
               <Button variant="secondary" onClick={() => loadPage(0)} disabled={!recordsVisible}>➡️</Button> 
               <Button variant="secondary" onClick={() => { clearSaveState(); setQ(""); loadPage(0); }} disabled={!recordsVisible}>🔄</Button> 
               <Button variant="secondary" onClick={saveSelectedRecord} disabled={!saveEnabled || batchSaving || !selectedRecordId}>Save</Button> 
+              {/* --- BEGIN CHANGE: New Client button --- */}
+              <Button variant="secondary" onClick={() => { setNewClientOpen(true); setNewClientError(null); setNewClientForm({ ...NEW_CLIENT_DEFAULTS }); }}>
+                <span className="text-xs whitespace-nowrap">+ New Client</span>
+              </Button>
+              {/* --- END CHANGE --- */}
               <Button variant="secondary" onClick={() => {
                 const willShow = !recordsVisible;
                 setRecordsVisible(willShow);
@@ -1168,6 +1236,77 @@ export default function Dashboard() {
             </> 
           )} 
         </Card> 
+        {/* --- BEGIN CHANGE: New Client Modal --- */}
+        {newClientOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-blue-700">New Client</h2>
+                <button className="text-slate-400 hover:text-slate-700 text-xl font-bold" onClick={() => { setNewClientOpen(false); setNewClientError(null); }}>✕</button>
+              </div>
+              {newClientError && (
+                <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{newClientError}</div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block col-span-1">
+                  <span className="text-xs font-semibold text-black">First Name <span className="text-red-500">*</span></span>
+                  <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={newClientForm.first_name ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, first_name: e.target.value }))} placeholder="First Name" />
+                </label>
+                <label className="block col-span-1">
+                  <span className="text-xs font-semibold text-black">Last Name <span className="text-red-500">*</span></span>
+                  <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={newClientForm.last_name ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, last_name: e.target.value }))} placeholder="Last Name" />
+                </label>
+                <label className="block col-span-1">
+                  <span className="text-xs font-semibold text-black">Phone</span>
+                  <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={newClientForm.phone ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, phone: e.target.value }))} />
+                </label>
+                <label className="block col-span-1">
+                  <span className="text-xs font-semibold text-black">Email</span>
+                  <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={newClientForm.email ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, email: e.target.value }))} />
+                </label>
+                <label className="block col-span-1">
+                  <span className="text-xs font-semibold text-black">Interest Type</span>
+                  <select className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={newClientForm.interest_type ?? "Both"} onChange={(e) => setNewClientForm((f: any) => ({ ...f, interest_type: e.target.value }))}>
+                    <option value="Both">Both</option>
+                    <option value="Business">Business</option>
+                    <option value="Wealth">Wealth</option>
+                  </select>
+                </label>
+                <label className="block col-span-1">
+                  <span className="text-xs font-semibold text-black">Preferred Time</span>
+                  <select className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={newClientForm.preferred_time ?? "PM"} onChange={(e) => setNewClientForm((f: any) => ({ ...f, preferred_time: e.target.value }))}>
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                    <option value="Anytime">Anytime</option>
+                  </select>
+                </label>
+                <label className="block col-span-2">
+                  <span className="text-xs font-semibold text-black">Business Opportunities</span>
+                  <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={Array.isArray(newClientForm.business_opportunities) ? newClientForm.business_opportunities.join(", ") : newClientForm.business_opportunities ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, business_opportunities: e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean) }))} />
+                </label>
+                <label className="block col-span-2">
+                  <span className="text-xs font-semibold text-black">Wealth Solutions</span>
+                  <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={Array.isArray(newClientForm.wealth_solutions) ? newClientForm.wealth_solutions.join(", ") : newClientForm.wealth_solutions ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, wealth_solutions: e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean) }))} />
+                </label>
+                <label className="block col-span-1">
+                  <span className="text-xs font-semibold text-black">Referred By</span>
+                  <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={newClientForm.referred_by ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, referred_by: e.target.value }))} />
+                </label>
+                <label className="block col-span-1">
+                  <span className="text-xs font-semibold text-black">Preferred Days</span>
+                  <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={Array.isArray(newClientForm.preferred_days) ? newClientForm.preferred_days.join(", ") : newClientForm.preferred_days ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, preferred_days: e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean) }))} />
+                </label>
+              </div>
+              <div className="flex items-center justify-end gap-3 mt-5">
+                <Button variant="secondary" onClick={() => { setNewClientOpen(false); setNewClientError(null); }}>Cancel</Button>
+                <Button variant="secondary" onClick={createNewClient} disabled={newClientSaving}>
+                  {newClientSaving ? "Saving…" : "Save New Client"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* --- END CHANGE --- */}
       </div> 
     </div> 
   ); 
