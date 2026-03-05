@@ -368,7 +368,7 @@ export default function Dashboard() {
     phone: "000-000-0000",
     email: "chidam.alagar@gmail.com",
     interest_type: "Both",
-    business_opportunities: ["Financial and Time Freedom"],
+    business_opportunities: ["financial_freedom"],
     wealth_solutions: ["protection_planning"],
     referred_by: "Chidam Alagar",
     preferred_days: ["Monday"],
@@ -791,7 +791,7 @@ export default function Dashboard() {
         interest_type: newClientForm.interest_type || "Both",
         business_opportunities: Array.isArray(newClientForm.business_opportunities)
           ? newClientForm.business_opportunities
-          : ["Financial and Time Freedom"],
+          : ["financial_freedom"],
         wealth_solutions: Array.isArray(newClientForm.wealth_solutions)
           ? newClientForm.wealth_solutions
           : ["protection_planning"],
