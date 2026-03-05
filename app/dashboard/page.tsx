@@ -86,6 +86,13 @@ const READONLY_LIST_COLS = new Set([
   "wealth_solutions", 
   "preferred_days", 
 ]); 
+/* --- BEGIN CHANGE: Array column set for proper save handling --- */
+const ARRAY_COLS = new Set([
+  "business_opportunities",
+  "wealth_solutions",
+  "preferred_days",
+]);
+/* --- END CHANGE --- */ 
 // Date & datetime keys (UI mapping only) 
 const DATE_TIME_KEYS = new Set([ 
   "BOP_Date", 
@@ -361,8 +368,8 @@ export default function Dashboard() {
   const [upcomingVisible, setUpcomingVisible] = useState(false);
   const [progressVisible, setProgressVisible] = useState(false);
 
-  /* --- BEGIN CHANGE: New Client state --- */
-  const NEW_CLIENT_DEFAULTS = {
+  /* --- BEGIN CHANGE: New Client + Soft Delete state --- */
+  const NEW_CLIENT_DEFAULTS: Record<string, any> = {
     first_name: "",
     last_name: "",
     phone: "000-000-0000",
@@ -379,6 +386,9 @@ export default function Dashboard() {
   const [newClientSaving, setNewClientSaving] = useState(false);
   const [newClientMsg, setNewClientMsg] = useState<string | null>(null);
   const [newClientError, setNewClientError] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleting, setDeleting] = useState(false);
   /* --- END CHANGE --- */
  
   useEffect(() => {
@@ -518,9 +528,9 @@ export default function Dashboard() {
       const end = new Date(rangeEnd); 
       const startIso = start.toISOString(); 
       const endIso = new Date(end.getTime() + 24 * 60 * 60 * 1000).toISOString(); 
-      const { data: bopRows, error: bopErr } = await supabase.from("client_registrations").select("*").gte("BOP_Date", startIso).lt("BOP_Date", endIso).limit(5000); 
+      const { data: bopRows, error: bopErr } = await supabase.from("client_registrations").select("*").neq("status", "deleted").gte("BOP_Date", startIso).lt("BOP_Date", endIso).limit(5000); /* CHANGE: exclude deleted */ 
       if (bopErr) throw bopErr; 
-      const { data: fuRows, error: fuErr } = await supabase.from("client_registrations").select("*").gte("Followup_Date", startIso).lt("Followup_Date", endIso).limit(5000); 
+      const { data: fuRows, error: fuErr } = await supabase.from("client_registrations").select("*").neq("status", "deleted").gte("Followup_Date", startIso).lt("Followup_Date", endIso).limit(5000); /* CHANGE: exclude deleted */ 
       if (fuErr) throw fuErr; 
       const map = new Map<string, any>(); 
       for (const r of bopRows ?? []) map.set(String((r as any).id), r); 
@@ -589,14 +599,14 @@ export default function Dashboard() {
     try { 
       const supabase = getSupabase(); 
       const search = q.trim(); 
-      let countQuery = supabase.from("client_registrations").select("id", { count: "exact", head: true }); 
+      let countQuery = supabase.from("client_registrations").select("id", { count: "exact", head: true }).neq("status", "deleted"); /* CHANGE: exclude deleted */ 
       if (search) countQuery = countQuery.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,phone.ilike.%${search}%`); 
       const { count, error: cErr } = await countQuery; 
       if (cErr) throw cErr; 
       setTotal(count ?? 0); 
       
       // Fetch all status counts
-      let allStatusQuery = supabase.from("client_registrations").select("status, client_status");
+      let allStatusQuery = supabase.from("client_registrations").select("status, client_status").neq("status", "deleted"); /* CHANGE: exclude deleted */
       if (search) allStatusQuery = allStatusQuery.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,phone.ilike.%${search}%`);
       const { data: allStatusData, error: statusErr } = await allStatusQuery;
       if (statusErr) throw statusErr;
@@ -612,7 +622,7 @@ export default function Dashboard() {
       
       const from = nextPage * ALL_PAGE_SIZE; 
       const to = from + ALL_PAGE_SIZE - 1; 
-      let dataQuery = supabase.from("client_registrations").select("*").range(from, to); 
+      let dataQuery = supabase.from("client_registrations").select("*").neq("status", "deleted").range(from, to); /* CHANGE: exclude deleted */ 
       if (search) dataQuery = dataQuery.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,phone.ilike.%${search}%`); 
       dataQuery = applySort(dataQuery, sortAll); 
       const { data, error } = await dataQuery; 
@@ -634,7 +644,7 @@ export default function Dashboard() {
       const payload: any = {}; 
       const isDateOnly = DATE_ONLY_KEYS.has(key); 
       const isDateTime = DATE_TIME_KEYS.has(key); 
-      payload[key] = isDateTime ? fromLocalInput(rawValue) : isDateOnly ? fromLocalDate(rawValue) : rawValue?.trim() ? rawValue : null; 
+      payload[key] = isDateTime ? fromLocalInput(rawValue) : isDateOnly ? fromLocalDate(rawValue) : ARRAY_COLS.has(key) ? (rawValue?.trim() ? rawValue.split(",").map((s: string) => s.trim()).filter(Boolean) : []) : rawValue?.trim() ? rawValue : null; /* CHANGE: handle ARRAY_COLS */ 
       const { error } = await supabase.from("client_registrations").update(payload).eq("id", id); 
       if (error) throw error; 
       const patch = (prev: Row[]) => prev.map((r) => (String(r.id) === String(id) ? { ...r, [key]: payload[key] } : r)); 
@@ -713,6 +723,11 @@ export default function Dashboard() {
           payload[key] = converted;
         } else if (isDateOnly) {
           payload[key] = fromLocalDate(String(rawValue ?? ''));
+        } else if (ARRAY_COLS.has(key)) {
+          /* --- BEGIN CHANGE: convert comma-separated string to array for array columns --- */
+          const str = String(rawValue ?? '').trim();
+          payload[key] = str ? str.split(",").map((s: string) => s.trim()).filter(Boolean) : [];
+          /* --- END CHANGE --- */
         } else {
           payload[key] = String(rawValue ?? '').trim() ? String(rawValue) : null;
         }
@@ -809,7 +824,6 @@ export default function Dashboard() {
       setNewClientOpen(false);
       setNewClientForm({ ...NEW_CLIENT_DEFAULTS });
       await loadPage(0);
-      // Auto-dismiss success message after 5 seconds
       setTimeout(() => setNewClientMsg(null), 5000);
     } catch (e: any) {
       setNewClientError(e?.message ?? "Failed to create client");
@@ -819,6 +833,28 @@ export default function Dashboard() {
   }
   /* --- END CHANGE --- */
 
+  /* --- BEGIN CHANGE: Soft Delete Client function --- */
+  async function softDeleteClient(id: string) {
+    setDeleting(true);
+    setError(null);
+    try {
+      const supabase = getSupabase();
+      const { error: delErr } = await supabase
+        .from("client_registrations")
+        .update({ status: "deleted" })
+        .eq("id", id);
+      if (delErr) throw delErr;
+      setDeleteConfirmId(null);
+      setDeleteConfirmName("");
+      clearSaveState();
+      await loadPage(page);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to delete client");
+    } finally {
+      setDeleting(false);
+    }
+  }
+  /* --- END CHANGE: Soft Delete --- */
 
   const totalPages = Math.max(1, Math.ceil((total ?? 0) / ALL_PAGE_SIZE)); 
   const canPrev = page > 0; 
@@ -1157,9 +1193,18 @@ export default function Dashboard() {
               <Button variant="secondary" onClick={() => loadPage(0)} disabled={!recordsVisible}>➡️</Button> 
               <Button variant="secondary" onClick={() => { clearSaveState(); setQ(""); loadPage(0); }} disabled={!recordsVisible}>🔄</Button> 
               <Button variant="secondary" onClick={saveSelectedRecord} disabled={!saveEnabled || batchSaving || !selectedRecordId}>Save</Button> 
-              {/* --- BEGIN CHANGE: New Client button --- */}
+              {/* --- BEGIN CHANGE: New Client + Delete buttons --- */}
               <Button variant="secondary" onClick={() => { setNewClientOpen(true); setNewClientError(null); setNewClientForm({ ...NEW_CLIENT_DEFAULTS }); }}>
                 <span className="text-xs whitespace-nowrap">+ New Client</span>
+              </Button>
+              <Button variant="secondary" onClick={() => {
+                if (!selectedRecordId) return;
+                const row = records.find((r) => String(r.id) === String(selectedRecordId));
+                const name = row ? `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() : "";
+                setDeleteConfirmName(name);
+                setDeleteConfirmId(selectedRecordId);
+              }} disabled={!selectedRecordId || batchSaving}>
+                <span className="text-xs whitespace-nowrap">Delete 🗑️</span>
               </Button>
               {/* --- END CHANGE --- */}
               <Button variant="secondary" onClick={() => {
@@ -1306,7 +1351,32 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        {/* --- END CHANGE --- */}
+        {/* --- END CHANGE: New Client Modal --- */}
+        {/* --- BEGIN CHANGE: Delete Confirmation Modal --- */}
+        {deleteConfirmId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-red-600">Confirm Delete</h2>
+                <button className="text-slate-400 hover:text-slate-700 text-xl font-bold" onClick={() => { setDeleteConfirmId(null); setDeleteConfirmName(""); }}>✕</button>
+              </div>
+              <p className="text-sm text-black mb-5">
+                Are you sure you want to delete client <span className="font-bold">{deleteConfirmName || deleteConfirmId}</span>? This will mark the record as deleted.
+              </p>
+              <div className="flex items-center justify-end gap-3">
+                <Button variant="secondary" onClick={() => { setDeleteConfirmId(null); setDeleteConfirmName(""); }}>Cancel</Button>
+                <button
+                  className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded hover:bg-red-700 disabled:opacity-50"
+                  onClick={() => softDeleteClient(deleteConfirmId)}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* --- END CHANGE: Delete Confirmation Modal --- */}
       </div> 
     </div> 
   ); 
@@ -1663,28 +1733,46 @@ function ExcelTableEditable({
                     </td> 
                   ); 
                 } 
+                // --- BEGIN CHANGE: Make list columns editable ---
                 if (READONLY_LIST_COLS.has(k)) { 
                   const cellIdList = `${r.id}:${k}`; 
                   const items = asListItems(r[k]); 
                   const display = items.join(", "); 
                   const showPopup = openCell === cellIdList; 
+                  const draftVal = drafts[cellIdList] ?? display;
                   return ( 
                     <td key={c.id} className={`border border-slate-300 px-2 py-2 align-top ${shouldHighlight(k, r) ? "bg-yellow-200" : ""}`} style={style}> 
                       <div className="relative"> 
-                        <button type="button" className="w-full text-left text-black whitespace-normal break-words" onClick={() => setOpenCell((cur) => (cur === cellIdList ? null : cellIdList))}>{display || "—"}</button> 
+                        <button type="button" className="w-full text-left text-black whitespace-normal break-words" onClick={() => { setDrafts((prev) => ({ ...prev, [cellIdList]: drafts[cellIdList] ?? display })); setOpenCell((cur) => (cur === cellIdList ? null : cellIdList)); }}>{display || "—"}</button> 
                         {showPopup && ( 
-                          <div className="absolute left-0 top-full mt-1 w-72 max-w-[70vw] bg-white border border-slate-500 shadow-lg z-30"> 
+                          <div className="absolute left-0 top-full mt-1 w-80 max-w-[80vw] bg-white border border-slate-500 shadow-xl z-40"> 
                             <div className="px-2 py-1 text-xs font-semibold text-black bg-slate-100 border-b border-slate-300">{labelFor(k)}</div> 
-                            <ul className="max-h-48 overflow-auto"> 
-                              {(items.length ? items : ["(empty)"]).map((x, i) => (<li key={i} className="px-2 py-1 text-sm border-b border-slate-100">{x}</li>))} 
-                            </ul> 
-                            <div className="p-2"><Button variant="secondary" onClick={() => setOpenCell(null)}>Close</Button></div> 
+                            <div className="p-2"> 
+                              <textarea rows={3} className="w-full border border-slate-300 px-2 py-1 text-sm whitespace-pre-wrap break-words resize-none overflow-auto" value={draftVal} onChange={(e) => setDrafts((prev) => ({ ...prev, [cellIdList]: e.target.value }))} />
+                              <div className="text-xs text-slate-500 mt-1 mb-2">Separate multiple values with commas</div>
+                              <div className="flex items-center gap-2"> 
+                                <Button variant="secondary" onClick={async () => {
+                                  const v = drafts[cellIdList] ?? "";
+                                  if (deferSave) {
+                                    onPendingChange?.(String(r.id), k, String(v));
+                                    setOpenCell(null);
+                                    setDrafts((prev) => { const next = { ...prev }; delete next[cellIdList]; return next; });
+                                    return;
+                                  }
+                                  await onUpdate(String(r.id), k, String(v));
+                                  setOpenCell(null);
+                                  setDrafts((prev) => { const next = { ...prev }; delete next[cellIdList]; return next; });
+                                }} disabled={savingId != null && String(savingId) === String(r.id)}>Save</Button>
+                                <Button variant="secondary" onClick={() => { setOpenCell(null); setDrafts((prev) => { const next = { ...prev }; delete next[cellIdList]; return next; }); }}>Cancel</Button> 
+                              </div> 
+                            </div> 
                           </div> 
                         )} 
                       </div> 
                     </td> 
                   ); 
                 } 
+                // --- END CHANGE ---
                 if (WRAP_KEYS.has(k) && viewOnlyPopupKeys.has(k)) { 
                   const cellIdView = `${r.id}:${k}`; 
                   const showPopup = openCell === cellIdView; 
