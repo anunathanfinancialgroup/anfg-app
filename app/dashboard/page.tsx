@@ -86,12 +86,41 @@ const READONLY_LIST_COLS = new Set([
   "wealth_solutions", 
   "preferred_days", 
 ]); 
-/* --- BEGIN CHANGE: Array column set for proper save handling --- */
+/* --- BEGIN CHANGE: Array columns + multi-select option lists keyed by interest_type --- */
 const ARRAY_COLS = new Set([
   "business_opportunities",
   "wealth_solutions",
   "preferred_days",
 ]);
+const BUSINESS_OPPORTUNITIES_OPTIONS: string[] = [
+  "financial_freedom",
+  "time_freedom",
+  "tax_free_retirement",
+  "living_benefits",
+  "business_building",
+  "leadership_development",
+  "legacy_building",
+];
+const WEALTH_SOLUTIONS_OPTIONS: string[] = [
+  "protection_planning",
+  "retirement_planning",
+  "education_planning",
+  "investment_planning",
+  "estate_planning",
+  "tax_planning",
+  "debt_management",
+];
+/** Returns available options for each multi-select field based on interest_type */
+function getMultiSelectOptions(interestType: string): {
+  business_opportunities: string[];
+  wealth_solutions: string[];
+} {
+  const it = (interestType ?? "Both").toLowerCase();
+  return {
+    business_opportunities: it === "wealth" ? [] : BUSINESS_OPPORTUNITIES_OPTIONS,
+    wealth_solutions: it === "business" ? [] : WEALTH_SOLUTIONS_OPTIONS,
+  };
+}
 /* --- END CHANGE --- */ 
 // Date & datetime keys (UI mapping only) 
 const DATE_TIME_KEYS = new Set([ 
@@ -389,6 +418,11 @@ export default function Dashboard() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [deleting, setDeleting] = useState(false);
+  /* Derive available options for New Client modal based on selected interest_type */
+  const newClientMultiOpts = useMemo(
+    () => getMultiSelectOptions(newClientForm.interest_type ?? "Both"),
+    [newClientForm.interest_type]
+  );
   /* --- END CHANGE --- */
  
   useEffect(() => {
@@ -718,16 +752,14 @@ export default function Dashboard() {
         const isDateTime = DATE_TIME_KEYS.has(key);
         
         if (isDateTime) {
-          // rawValue should be in format: YYYY-MM-DDTHH:MM (datetime-local format)
           const converted = fromLocalInput(String(rawValue ?? ''));
           payload[key] = converted;
         } else if (isDateOnly) {
           payload[key] = fromLocalDate(String(rawValue ?? ''));
         } else if (ARRAY_COLS.has(key)) {
-          /* --- BEGIN CHANGE: convert comma-separated string to array for array columns --- */
+          /* CHANGE: convert comma-separated string to array for array columns */
           const str = String(rawValue ?? '').trim();
           payload[key] = str ? str.split(",").map((s: string) => s.trim()).filter(Boolean) : [];
-          /* --- END CHANGE --- */
         } else {
           payload[key] = String(rawValue ?? '').trim() ? String(rawValue) : null;
         }
@@ -831,7 +863,7 @@ export default function Dashboard() {
       setNewClientSaving(false);
     }
   }
-  /* --- END CHANGE --- */
+  /* --- END CHANGE: Create New Client --- */
 
   /* --- BEGIN CHANGE: Soft Delete Client function --- */
   async function softDeleteClient(id: string) {
@@ -855,6 +887,7 @@ export default function Dashboard() {
     }
   }
   /* --- END CHANGE: Soft Delete --- */
+
 
   const totalPages = Math.max(1, Math.ceil((total ?? 0) / ALL_PAGE_SIZE)); 
   const canPrev = page > 0; 
@@ -1281,10 +1314,10 @@ export default function Dashboard() {
             </> 
           )} 
         </Card> 
-        {/* --- BEGIN CHANGE: New Client Modal --- */}
+        {/* --- BEGIN CHANGE: New Client Modal with multi-select checkboxes --- */}
         {newClientOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-blue-700">New Client</h2>
                 <button className="text-slate-400 hover:text-slate-700 text-xl font-bold" onClick={() => { setNewClientOpen(false); setNewClientError(null); }}>✕</button>
@@ -1309,9 +1342,25 @@ export default function Dashboard() {
                   <span className="text-xs font-semibold text-black">Email</span>
                   <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={newClientForm.email ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, email: e.target.value }))} />
                 </label>
+                {/* Interest Type drives which multi-selects appear below */}
                 <label className="block col-span-1">
                   <span className="text-xs font-semibold text-black">Interest Type</span>
-                  <select className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={newClientForm.interest_type ?? "Both"} onChange={(e) => setNewClientForm((f: any) => ({ ...f, interest_type: e.target.value }))}>
+                  <select className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={newClientForm.interest_type ?? "Both"} onChange={(e) => {
+                    const it = e.target.value;
+                    setNewClientForm((f: any) => {
+                      const opts = getMultiSelectOptions(it);
+                      return {
+                        ...f,
+                        interest_type: it,
+                        business_opportunities: opts.business_opportunities.length > 0
+                          ? (f.business_opportunities ?? []).filter((v: string) => opts.business_opportunities.includes(v))
+                          : [],
+                        wealth_solutions: opts.wealth_solutions.length > 0
+                          ? (f.wealth_solutions ?? []).filter((v: string) => opts.wealth_solutions.includes(v))
+                          : [],
+                      };
+                    });
+                  }}>
                     <option value="Both">Both</option>
                     <option value="Business">Business</option>
                     <option value="Wealth">Wealth</option>
@@ -1325,14 +1374,52 @@ export default function Dashboard() {
                     <option value="Anytime">Anytime</option>
                   </select>
                 </label>
-                <label className="block col-span-2">
-                  <span className="text-xs font-semibold text-black">Business Opportunities</span>
-                  <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={Array.isArray(newClientForm.business_opportunities) ? newClientForm.business_opportunities.join(", ") : newClientForm.business_opportunities ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, business_opportunities: e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean) }))} />
-                </label>
-                <label className="block col-span-2">
-                  <span className="text-xs font-semibold text-black">Wealth Solutions</span>
-                  <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={Array.isArray(newClientForm.wealth_solutions) ? newClientForm.wealth_solutions.join(", ") : newClientForm.wealth_solutions ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, wealth_solutions: e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean) }))} />
-                </label>
+                {/* Business Opportunities — multi-select checkboxes */}
+                {newClientMultiOpts.business_opportunities.length > 0 && (
+                  <div className="col-span-2">
+                    <span className="text-xs font-semibold text-black">Business Opportunities</span>
+                    <div className="mt-1 border border-slate-300 rounded p-2 max-h-40 overflow-y-auto grid grid-cols-2 gap-1">
+                      {newClientMultiOpts.business_opportunities.map((opt) => {
+                        const selected = Array.isArray(newClientForm.business_opportunities) && newClientForm.business_opportunities.includes(opt);
+                        return (
+                          <label key={opt} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 px-1 py-0.5 rounded">
+                            <input type="checkbox" checked={selected} onChange={() => {
+                              setNewClientForm((f: any) => {
+                                const cur: string[] = Array.isArray(f.business_opportunities) ? [...f.business_opportunities] : [];
+                                const next = selected ? cur.filter((v) => v !== opt) : [...cur, opt];
+                                return { ...f, business_opportunities: next };
+                              });
+                            }} className="accent-blue-600" />
+                            <span className="select-none">{opt.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {/* Wealth Solutions — multi-select checkboxes */}
+                {newClientMultiOpts.wealth_solutions.length > 0 && (
+                  <div className="col-span-2">
+                    <span className="text-xs font-semibold text-black">Wealth Solutions</span>
+                    <div className="mt-1 border border-slate-300 rounded p-2 max-h-40 overflow-y-auto grid grid-cols-2 gap-1">
+                      {newClientMultiOpts.wealth_solutions.map((opt) => {
+                        const selected = Array.isArray(newClientForm.wealth_solutions) && newClientForm.wealth_solutions.includes(opt);
+                        return (
+                          <label key={opt} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 px-1 py-0.5 rounded">
+                            <input type="checkbox" checked={selected} onChange={() => {
+                              setNewClientForm((f: any) => {
+                                const cur: string[] = Array.isArray(f.wealth_solutions) ? [...f.wealth_solutions] : [];
+                                const next = selected ? cur.filter((v) => v !== opt) : [...cur, opt];
+                                return { ...f, wealth_solutions: next };
+                              });
+                            }} className="accent-blue-600" />
+                            <span className="select-none">{opt.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <label className="block col-span-1">
                   <span className="text-xs font-semibold text-black">Referred By</span>
                   <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={newClientForm.referred_by ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, referred_by: e.target.value }))} />
@@ -1772,7 +1859,7 @@ function ExcelTableEditable({
                     </td> 
                   ); 
                 } 
-                // --- END CHANGE ---
+                // --- END CHANGE: Make list columns editable --- 
                 if (WRAP_KEYS.has(k) && viewOnlyPopupKeys.has(k)) { 
                   const cellIdView = `${r.id}:${k}`; 
                   const showPopup = openCell === cellIdView; 
