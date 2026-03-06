@@ -141,8 +141,8 @@ interface AssetsData {
   r2_him: boolean; r2_her: boolean; r2_notes: string; r2_present: number; // Company Match – N/A proj
   r3_him: boolean; r3_her: boolean; r3_notes: string; r3_present: number; r3_proj: number; // Max Funding – editable proj
   r4_him: boolean; r4_her: boolean; r4_notes: string; r4_present: number; r4_proj: number; // Previous 401K – calc+edit
-  r5_him: boolean; r5_her: boolean; r5_notes: string; r5_present: number; // Traditional IRA – auto
-  r6_him: boolean; r6_her: boolean; r6_notes: string; r6_present: number; // Roth IRA – auto
+  r5_him: boolean; r5_her: boolean; r5_notes: string; r5_present: number; r5_proj: number; // Traditional IRA – calc+edit
+  r6_him: boolean; r6_her: boolean; r6_notes: string; r6_present: number; r6_proj: number; // Roth IRA – annuity+edit
   r7_him: boolean; r7_her: boolean; r7_notes: string; r7_present: number; r7_proj: number; // ESPP/RSU – calc+edit
   // ── REAL ESTATE (USA) – manual projected ───────────────────────────────
   e1_him: boolean; e1_her: boolean; e1_notes: string; e1_present: number; e1_proj: number;
@@ -153,7 +153,7 @@ interface AssetsData {
   s1_him: boolean; s1_her: boolean; s1_notes: string; s1_present: number; s1_proj: number; // Stocks/MFs – calc+edit
   s2_him: boolean; s2_her: boolean; s2_notes: string; s2_present: number; s2_proj: number; // Business – manual
   s3_him: boolean; s3_her: boolean; s3_notes: string; s3_present: number; s3_proj: number; // Alt Investments – calc+edit
-  s4_him: boolean; s4_her: boolean; s4_notes: string; s4_present: number; // CDs – auto
+  s4_him: boolean; s4_her: boolean; s4_notes: string; s4_present: number; s4_proj: number; // CDs – calc+edit
   s5_him: boolean; s5_her: boolean; s5_notes: string; s5_present: number; s5_proj: number; // Cash in Bank – calc+edit
   s6_him: boolean; s6_her: boolean; s6_notes: string; s6_present: number; s6_proj: number; // Annual Income – editable proj
   s7_him: boolean; s7_her: boolean; s7_notes: string; s7_present: number; s7_proj: number; // Annual Savings – manual
@@ -210,8 +210,8 @@ const initialAssets: AssetsData = {
   r2_him:false, r2_her:false, r2_notes:"", r2_present:0,
   r3_him:false, r3_her:false, r3_notes:"", r3_present:0, r3_proj:0,
   r4_him:false, r4_her:false, r4_notes:"", r4_present:0, r4_proj:0,
-  r5_him:false, r5_her:false, r5_notes:"", r5_present:0,
-  r6_him:false, r6_her:false, r6_notes:"", r6_present:0,
+  r5_him:false, r5_her:false, r5_notes:"", r5_present:0, r5_proj:0,
+  r6_him:false, r6_her:false, r6_notes:"", r6_present:0, r6_proj:0,
   r7_him:false, r7_her:false, r7_notes:"", r7_present:0, r7_proj:0,
   e1_him:false, e1_her:false, e1_notes:"", e1_present:0, e1_proj:0,
   e2_him:false, e2_her:false, e2_notes:"", e2_present:0, e2_proj:0,
@@ -220,7 +220,7 @@ const initialAssets: AssetsData = {
   s1_him:false, s1_her:false, s1_notes:"", s1_present:0, s1_proj:0,
   s2_him:false, s2_her:false, s2_notes:"", s2_present:0, s2_proj:0,
   s3_him:false, s3_her:false, s3_notes:"", s3_present:0, s3_proj:0,
-  s4_him:false, s4_her:false, s4_notes:"", s4_present:0,
+  s4_him:false, s4_her:false, s4_notes:"", s4_present:0, s4_proj:0,
   s5_him:false, s5_her:false, s5_notes:"", s5_present:0, s5_proj:0,
   s6_him:false, s6_her:false, s6_notes:"", s6_present:0, s6_proj:0,
   s7_him:false, s7_her:false, s7_notes:"", s7_present:0, s7_proj:0,
@@ -655,6 +655,12 @@ export default function FNAPage() {
     return pv * Math.pow(1 + rate, yearsToRetirement);
   }, [yearsToRetirement, rate]);
 
+  /** Annuity-due: FV = PMT × [((1+r)^n − 1) / r] × (1+r)  (annual contributions, paid at start of period) */
+  const autoAnnuityProj = useCallback((pmt: number): number => {
+    if (pmt <= 0 || yearsToRetirement <= 0) return 0;
+    return pmt * ((Math.pow(1 + rate, yearsToRetirement) - 1) / rate) * (1 + rate);
+  }, [yearsToRetirement, rate]);
+
   // ── Liabilities helpers ────────────────────────────────────────────────────
   const liabilityCols: FieldDef[] = useMemo(() => [
     { key: "liability_type",  label: "Liability Type",      type: "select", options: LIABILITY_TYPES },
@@ -740,19 +746,21 @@ export default function FNAPage() {
   }, [assets]);
 
   const totalProjected = useMemo(() => {
-    // Auto (read-only) projected rows — using autoProj formula
-    const autoRows = [
-      assets.r5_present, assets.r6_present,  // Traditional IRA + Roth IRA still auto
-    ].reduce((s, p) => s + autoProj(p), 0);
     // Calc+edit projected rows — user may have overridden, so use stored proj value
+    // For r5/r6/s4: fall back to auto-formula if proj not yet set (e.g. loaded from old data)
+    const fallbackR5 = assets.r5_proj > 0 ? assets.r5_proj : autoProj(assets.r5_present);
+    const fallbackR6 = assets.r6_proj > 0 ? assets.r6_proj : autoAnnuityProj(assets.r6_present);
+    const fallbackS4 = assets.s4_proj > 0 ? assets.s4_proj : autoProj(assets.s4_present);
     const calcEditRows = [
       assets.r1_proj,  // 401K/403B — calc+edit (was auto)
       assets.r3_proj,  // Max Funding — editable $0 default
       assets.r4_proj,  // Previous 401K — calc+edit (was auto)
+      assets.r5_proj > 0 || assets.r5_present > 0 ? fallbackR5 : 0, // Traditional IRA — calc+edit
+      assets.r6_proj > 0 || assets.r6_present > 0 ? fallbackR6 : 0, // Roth IRA — annuity+edit
       assets.r7_proj,  // ESPP/RSU
       assets.s1_proj,  // Stocks/MFs
       assets.s3_proj,  // Alt Investments
-      assets.s4_present > 0 ? autoProj(assets.s4_present) : 0, // CDs still auto
+      assets.s4_proj > 0 || assets.s4_present > 0 ? fallbackS4 : 0, // CDs — calc+edit
       assets.s5_proj,  // Cash in Bank
       assets.s6_proj,  // Annual Income — editable $0 default
       assets.f7_proj,  // HSA
@@ -766,8 +774,8 @@ export default function FNAPage() {
       // Foreign
       assets.x1_proj, assets.x2_proj,
     ].reduce((s, v) => s + (v || 0), 0);
-    return autoRows + calcEditRows;
-  }, [assets, autoProj]);
+    return calcEditRows;
+  }, [assets, autoProj, autoAnnuityProj]);
 
   // ── Auth ─────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1423,12 +1431,21 @@ export default function FNAPage() {
 
   // stdCellsCalc – called as a function (not JSX component) to avoid remount issues.
   // Auto-calculates projected from present on blur; projected cell stays editable.
+  // annuity=true uses FV-of-annuity-due formula (for ROTH IRA annual contributions).
   const stdCellsCalc = (
     himKey: keyof AssetsData, herKey: keyof AssetsData,
-    notesKey: keyof AssetsData, presentKey: keyof AssetsData, projKey: keyof AssetsData
+    notesKey: keyof AssetsData, presentKey: keyof AssetsData, projKey: keyof AssetsData,
+    annuity = false
   ) => {
     const calcAndSet = (val: number) => {
-      const proj = yearsToRetirement > 0 ? Math.round(val * Math.pow(1 + rate, yearsToRetirement) * 100) / 100 : 0;
+      let proj = 0;
+      if (yearsToRetirement > 0) {
+        if (annuity) {
+          proj = Math.round(val * ((Math.pow(1 + rate, yearsToRetirement) - 1) / rate) * (1 + rate) * 100) / 100;
+        } else {
+          proj = Math.round(val * Math.pow(1 + rate, yearsToRetirement) * 100) / 100;
+        }
+      }
       setAssets(prev => ({ ...prev, [presentKey]: val, [projKey]: proj }));
     };
     return (
@@ -2467,8 +2484,8 @@ Example format:
         ['Company Match %',              assets.r2_him,assets.r2_her,assets.r2_present,0],
         ['Max Funding (~$23K)?',         assets.r3_him,assets.r3_her,assets.r3_present,assets.r3_proj||0],
         ['Previous 401K / Rollover',     assets.r4_him,assets.r4_her,assets.r4_present,assets.r4_proj||autoProj(assets.r4_present)],
-        ['Traditional IRA / SEP-IRA',   assets.r5_him,assets.r5_her,assets.r5_present,autoProj(assets.r5_present)],
-        ['Roth IRA / Roth 401K',         assets.r6_him,assets.r6_her,assets.r6_present,autoProj(assets.r6_present)],
+        ['Traditional IRA / SEP-IRA',   assets.r5_him,assets.r5_her,assets.r5_present,assets.r5_proj||autoProj(assets.r5_present)],
+        ['Roth IRA / Roth 401K',         assets.r6_him,assets.r6_her,assets.r6_present,assets.r6_proj||autoAnnuityProj(assets.r6_present)],
         ['ESPP / RSU / Annuities',       assets.r7_him,assets.r7_her,assets.r7_present,assets.r7_proj||0],
         ['Personal Home',                assets.e1_him,assets.e1_her,assets.e1_present,assets.e1_proj||0],
         ['Real Estate / Rentals',        assets.e2_him,assets.e2_her,assets.e2_present,assets.e2_proj||0],
@@ -2477,7 +2494,7 @@ Example format:
         ['Stocks / MFs / Bonds / ETFs', assets.s1_him,assets.s1_her,assets.s1_present,assets.s1_proj||0],
         ['Business Ownership',           assets.s2_him,assets.s2_her,assets.s2_present,assets.s2_proj||0],
         ['Alternative Investments',      assets.s3_him,assets.s3_her,assets.s3_present,assets.s3_proj||0],
-        ['CDs (Certificate of Deposit)', assets.s4_him,assets.s4_her,assets.s4_present,autoProj(assets.s4_present)],
+        ['CDs (Certificate of Deposit)', assets.s4_him,assets.s4_her,assets.s4_present,assets.s4_proj||autoProj(assets.s4_present)],
         ['Cash in Bank / Emergency',     assets.s5_him,assets.s5_her,assets.s5_present,assets.s5_proj||0],
         ['Annual Household Income',      assets.s6_him,assets.s6_her,assets.s6_present,assets.s6_proj||0],
         ['Annual Savings Forward',       assets.s7_him,assets.s7_her,assets.s7_present,assets.s7_proj||0],
@@ -3277,19 +3294,17 @@ Example format:
                       <td className="border border-black px-2 py-1 text-xs">Previous 401K | Rollover 401K</td>
                       {stdCellsCalc("r4_him","r4_her","r4_notes","r4_present","r4_proj")}
                     </tr>
-                    {/* r5 – Traditional IRA auto */}
+                    {/* r5 – Traditional IRA calc+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#5</td>
                       <td className="border border-black px-2 py-1 text-xs">Traditional IRA | SEP-IRA [Tax-Deferred]</td>
-                      {stdCells("r5_him","r5_her","r5_notes","r5_present")}
-                      <AutoProjCell present={assets.r5_present} />
+                      {stdCellsCalc("r5_him","r5_her","r5_notes","r5_present","r5_proj")}
                     </tr>
-                    {/* r6 – Roth IRA auto */}
+                    {/* r6 – Roth IRA annuity+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#6</td>
                       <td className="border border-black px-2 py-1 text-xs">ROTH IRA | ROTH 401K [Tax-Free]</td>
-                      {stdCells("r6_him","r6_her","r6_notes","r6_present")}
-                      <AutoProjCell present={assets.r6_present} />
+                      {stdCellsCalc("r6_him","r6_her","r6_notes","r6_present","r6_proj", true)}
                     </tr>
                     {/* r7 – ESPP/RSU auto */}
                     <tr>
@@ -3355,8 +3370,7 @@ Example format:
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#15</td>
                       <td className="border border-black px-2 py-1 text-xs">Certificate Of Deposits (Bank CDs)</td>
-                      {stdCells("s4_him","s4_her","s4_notes","s4_present")}
-                      <AutoProjCell present={assets.s4_present} />
+                      {stdCellsCalc("s4_him","s4_her","s4_notes","s4_present","s4_proj")}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#16</td>
