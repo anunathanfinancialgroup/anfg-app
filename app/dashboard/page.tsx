@@ -530,11 +530,19 @@ export default function Dashboard() {
         bopsMonth.set(key, 0); 
         fuMonth.set(key, 0); 
       } 
-      const [{ data: callsY }, { data: bopsY }, { data: fuY }] = await Promise.all([ 
+      // --- BEGIN CHANGE: Add v_client_call_year_month_counts query for current-month correction ---
+      // The view counts actual tracked activity rows (from client_call_track) per typename per month,
+      // giving more accurate counts than scanning client_registrations date columns directly.
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth() + 1; // getMonth() is 0-indexed; view stores 1-indexed month
+
+      const [{ data: callsY }, { data: bopsY }, { data: fuY }, { data: viewCounts }] = await Promise.all([ 
         supabase.from("client_registrations").select("CalledOn").gte("CalledOn", startMonth.toISOString()).lt("CalledOn", addMonths(endOfMonth(today), 1).toISOString()).order("CalledOn", { ascending: true }).limit(200000), 
         supabase.from("client_registrations").select("BOP_Date").gte("BOP_Date", startMonth.toISOString()).lt("BOP_Date", addMonths(endOfMonth(today), 1).toISOString()).order("BOP_Date", { ascending: true }).limit(200000), 
         supabase.from("client_registrations").select("Followup_Date").gte("Followup_Date", startMonth.toISOString()).lt("Followup_Date", addMonths(endOfMonth(today), 1).toISOString()).order("Followup_Date", { ascending: true }).limit(200000), 
-         ]); 
+        // Fetch current-month row counts from the audit-based view for all three typenames
+        supabase.from("v_client_call_year_month_counts").select("typename, record_count").eq("year", currentYear).eq("month", currentMonth), 
+      ]); 
       const bumpMonth = (dateVal: any, map: Map<string, number>) => { 
         if (!dateVal) return; 
         const d = parseISO(String(dateVal)); 
@@ -546,7 +554,25 @@ export default function Dashboard() {
       (bopsY ?? []).forEach((r: any) => bumpMonth(r.BOP_Date, bopsMonth)); 
       (fuY ?? []).forEach((r: any) => bumpMonth(r.Followup_Date, fuMonth)); 
       // Don't filter out zero values - show all months including zeros for proper chart display
-      setMonthly12(months.map((month) => ({ month, calls: callsMonth.get(month) ?? 0, bops: bopsMonth.get(month) ?? 0, followups: fuMonth.get(month) ?? 0 }))); 
+      const monthly12Built = months.map((month) => ({ month, calls: callsMonth.get(month) ?? 0, bops: bopsMonth.get(month) ?? 0, followups: fuMonth.get(month) ?? 0 }));
+
+      // Override current month's counts using v_client_call_year_month_counts (audit-track view).
+      // typename values in client_call_track match the column names: "CalledOn", "BOP_Date", "Followup_Date".
+      if (viewCounts && viewCounts.length > 0) {
+        const currentMonthKey = format(today, "yyyy-MM");
+        const idx = monthly12Built.findIndex((m) => m.month === currentMonthKey);
+        if (idx !== -1) {
+          const viewCallsCount = (viewCounts as any[]).find((r) => r.typename === "CalledOn")?.record_count;
+          const viewBopsCount  = (viewCounts as any[]).find((r) => r.typename === "BOP_Date")?.record_count;
+          const viewFuCount    = (viewCounts as any[]).find((r) => r.typename === "Followup_Date")?.record_count;
+          if (viewCallsCount != null) monthly12Built[idx].calls     = Number(viewCallsCount);
+          if (viewBopsCount  != null) monthly12Built[idx].bops      = Number(viewBopsCount);
+          if (viewFuCount    != null) monthly12Built[idx].followups  = Number(viewFuCount);
+        }
+      }
+      // --- END CHANGE ---
+
+      setMonthly12(monthly12Built); 
     } catch (e: any) { 
       setError(e?.message ?? "Failed to load trends"); 
     } finally { 
