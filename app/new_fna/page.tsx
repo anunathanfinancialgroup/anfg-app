@@ -2141,11 +2141,11 @@ Example format:
           doc.text('AnNa Financial Group', M, HDR_H - 2);
         }
 
-        // Centre title
-        doc.setFont(FONT,'bold'); doc.setFontSize(12); doc.setTextColor(...NAVY);
-        doc.text('FLS Document', PW/2, HDR_H - 2, { align:'center' });
+        // Centre title — CHANGED: replaced 'FLS Document' with full 'Financial Lifestyle Strategy'
+        doc.setFont(FONT,'bold'); doc.setFontSize(11); doc.setTextColor(...NAVY);
+        doc.text('Financial Lifestyle Strategy', PW/2, HDR_H - 2, { align:'center' });
 
-        // FLS badge (right)
+        // Badge (right) — unchanged stacked text
         doc.setFillColor(...NAVY); doc.rect(PW-M-64, 4, 64, HDR_H + 4, 'F');
         doc.setFont(FONT,'bold'); doc.setFontSize(5.5); doc.setTextColor(...WHITE);
         doc.text('FINANCIAL',  PW-M-60, 13);
@@ -2643,15 +2643,23 @@ Example format:
 
       // FIX: Call AI-powered recommendations (async), fallback to static
       const suggs = await buildAIRecommendations(totalPresent,totalLiabilities,data.totalRequirement,totalProjected,Gap,data.yearsToRetirement,data.calculatedInterestPercentage);
+      // CHANGED: Pre-calculate each box height before drawing so no recommendation is ever split
+      // across a page boundary. Each item is rendered in full on one page.
       suggs.forEach((s,si)=>{
-        if(y>PH-72){doc.addPage();y=topBar('Recommendations (cont.)')+28;pgFoot();}
         const bdrClr:[number,number,number]=s.kind==='warn'?[200,80,30]:s.kind==='good'?[30,140,60]:[60,100,200];
         const bgClr: [number,number,number]=s.kind==='warn'?[255,244,228]:s.kind==='good'?[232,252,232]:[230,240,255];
         const sL=doc.splitTextToSize(S(s.text), TW-20);
         const boxH=sL.length*11+16;
+        // CHANGED: break to new page if this box + a small bottom margin won't fit
+        // Using boxH+12 as minimum headroom so the item is never split mid-box
+        if(y + boxH + 12 > PH - 40){
+          doc.addPage();
+          y=topBar('Financial Recommendations (cont.)')+28; // CHANGED: full title in continuation header
+          pgFoot();
+        }
         doc.setFillColor(...bgClr); doc.rect(M,y,TW,boxH,'F');
         doc.setFillColor(...bdrClr); doc.rect(M,y,5,boxH,'F');
-        // FIX: Number badge on left border
+        // Number badge on left border
         doc.setFont(FONT,'bold'); doc.setFontSize(7); doc.setTextColor(255,255,255);
         doc.setFillColor(...bdrClr); doc.rect(M,y+4,14,14,'F');
         doc.text(String(si+1), M+7, y+13.5, { align:'center' });
@@ -2660,8 +2668,8 @@ Example format:
         y+=boxH+8;
       });
 
-      // FIX: Call-to-action footer block
-      if(y>PH-80){doc.addPage();y=topBar('Recommendations (cont.)')+28;pgFoot();}
+      // CHANGED: ensure CTA block fits before drawing (needs 80pt)
+      if(y + 80 > PH - 40){doc.addPage();y=topBar('Financial Recommendations (cont.)')+28;pgFoot();}
       y+=6;
       doc.setFillColor(20,50,80); doc.rect(M, y, TW, 52, 'F');
       doc.setFont(FONT,'bold'); doc.setFontSize(10); doc.setTextColor(255,255,255);
@@ -2706,27 +2714,38 @@ Example format:
       const tplPdf: any    = await PDFDocument.load(b64ToBytes(HGI_TEMPLATE_B64));
 
       const totalGenPages = clientPdf.getPageCount();
-      const splitAt       = Math.min(8, totalGenPages);  // after page 8
       const tplCount      = tplPdf.getPageCount();
 
-      // Build merged PDF
+      // ── CHANGED: Merge strategy — ALL FNA pages first, then template pages ──────
+      // Previous order: FNA pages 1-8 → Template → Overflow FNA pages 9+
+      //   Problem: Financial Recommendations that spill beyond page 8 were placed
+      //            AFTER the template pages (Part C), splitting the recommendations
+      //            mid-section with the HGI template pages in between.
+      //
+      // New order: ALL FNA pages (1 through N) → Template pages
+      //   Result: All Financial Recommendation pages (8, 9, 10 …) are contiguous.
+      //           Template pages follow the complete FNA report at the end.
+      //
+      // tplStartIndex=2 (was 1): skips the first TWO template pages.
+      //   Index 0 was already a repeated page (per original comment).
+      //   Index 1 is the duplicate "6 Steps to Financial Security" page — removed here.
+      // ─────────────────────────────────────────────────────────────────────────────
       const mergedPdf: any = await PDFDocument.create();
 
-      // Part A: FNA pages 1–8
-      const firstPages = await mergedPdf.copyPages(clientPdf, Array.from({length:splitAt},(_,i)=>i));
-      firstPages.forEach((p: any) => mergedPdf.addPage(p));
+      // Part A: ALL FNA generated pages (Cover → Disclaimer → Facts → Summary →
+      //         Assets → Liabilities → Goals → Financial Recommendations pages 1…N)
+      // This guarantees all recommendation items appear on consecutive pages.
+      const allFnaPages = await mergedPdf.copyPages(clientPdf, Array.from({length:totalGenPages},(_,i)=>i));
+      allFnaPages.forEach((p: any) => mergedPdf.addPage(p));
 
-      // Part B: ALL template pages — completely unmodified
-      // FIX: Skip template page index 0 — pages 9 and 10 contained repeated info; remove page 9, keep page 10 onwards
-      const tplStartIndex = 1;
-      const tplPages = await mergedPdf.copyPages(tplPdf, Array.from({length:tplCount - tplStartIndex},(_,i)=>i + tplStartIndex));
-      tplPages.forEach((p: any) => mergedPdf.addPage(p));
-
-      // Part C: overflow FNA pages beyond page 8 (if Goals/Recs spill to extra pages)
-      if(totalGenPages > splitAt) {
-        const restPages = await mergedPdf.copyPages(clientPdf, Array.from({length:totalGenPages-splitAt},(_,i)=>i+splitAt));
-        restPages.forEach((p: any) => mergedPdf.addPage(p));
+      // Part B: Template pages — skip index 0 (duplicate cover/intro) AND
+      //         index 1 (duplicate "6 Steps to Financial Security" page).
+      const tplStartIndex = 2; // CHANGED from 1 → 2 to remove duplicate "6 Steps" page
+      if (tplCount > tplStartIndex) {
+        const tplPages = await mergedPdf.copyPages(tplPdf, Array.from({length:tplCount - tplStartIndex},(_,i)=>i + tplStartIndex));
+        tplPages.forEach((p: any) => mergedPdf.addPage(p));
       }
+      // ── END CHANGED: Merge strategy ──────────────────────────────────────────
 
       const finalBytes: Uint8Array = await mergedPdf.save();
 
