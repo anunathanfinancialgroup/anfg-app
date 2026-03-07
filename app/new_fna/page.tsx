@@ -1,4 +1,5 @@
 
+
 "use client"; //    GAP: <span style={{ color: Gap >= 0 ? '#15803d' : '#dc2626' }}>{fmt(Gap)}</span>
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -105,6 +106,8 @@ interface Client {
   id: string; first_name: string; last_name: string;
   phone: string; email: string; spouse_name: string;
   city: string; state: string; date_of_birth: string;
+  // ADDED: status field to support deleted-client filtering
+  status?: string | null;
 }
 
 interface FNAData {
@@ -613,6 +616,8 @@ export default function FNAPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  // ADDED: search term for filtering the Client Name dropdown
+  const [clientSearch, setClientSearch] = useState('');
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [cardsExpanded, setCardsExpanded] = useState(false);
@@ -796,7 +801,9 @@ export default function FNAPage() {
     try {
       const { data: cd, error } = await supabase
         .from('client_registrations')
-        .select('id, first_name, last_name, phone, email, spouse_name, city, state, date_of_birth')
+        .select('id, first_name, last_name, phone, email, spouse_name, city, state, date_of_birth, status')
+        // ADDED: exclude clients with status = 'deleted'
+        .neq('status', 'deleted')
         .order('first_name', { ascending: true });
       if (error) throw error;
       setClients(cd || []);
@@ -2837,11 +2844,27 @@ Example format:
           <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: '2fr 1fr 1.4fr 1fr' }}>
             <div>
               <label className="block text-xs font-semibold mb-1 text-gray-600">Client Name *</label>
+              {/* ADDED: Search input to filter the client dropdown (status !== 'deleted' already applied server-side) */}
+              <input
+                type="text"
+                value={clientSearch}
+                onChange={e => setClientSearch(e.target.value)}
+                placeholder="Search client…"
+                disabled={loading}
+                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none mb-1"
+              />
+              {/* MODIFIED: dropdown now shows only clients matching the search term; deleted clients excluded by loadClients */}
               <select value={data.clientId} disabled={loading}
-                onChange={e => handleClientSelect(e.target.value)}
+                onChange={e => { handleClientSelect(e.target.value); setClientSearch(''); }}
                 className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none">
                 <option value="">-- Select Client --</option>
-                {clients.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
+                {clients
+                  .filter(c => {
+                    if (!clientSearch.trim()) return true;
+                    const term = clientSearch.trim().toLowerCase();
+                    return `${c.first_name} ${c.last_name}`.toLowerCase().includes(term);
+                  })
+                  .map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
               </select>
             </div>
             <div>
