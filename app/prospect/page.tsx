@@ -44,8 +44,6 @@ type Prospect = {
   result: string | null; // Business / Both / Client Solution / In-Progress / Called / Not Interested / Others
   next_steps: string | null;
   comments: string | null;
-  // ADDED: status field — rows with status = 'deleted' are excluded from the table
-  status?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -510,12 +508,7 @@ export default function ProspectPage() {
     setLoading(true);
     setErrorMsg(null);
 
-    const { data, error } = await supabase
-      .from('prospects')
-      .select('*')
-      // ADDED: exclude prospects with status = 'deleted' at the database level
-      .neq('status', 'deleted')
-      .order('id', { ascending: false });
+    const { data, error } = await supabase.from('prospects').select('*').order('id', { ascending: false });
 
     if (error) {
       setToast('error', `Error loading prospects: ${error.message}`);
@@ -529,9 +522,6 @@ export default function ProspectPage() {
   // Filter and sort prospects
   const filtered = useMemo(() => {
     let arr = prospects.slice();
-
-    // ADDED: client-side guard — exclude any 'deleted' records that may have slipped through
-    arr = arr.filter((p) => (p.status ?? '').toLowerCase() !== 'deleted');
 
     // Filter by text search
     if (search.trim()) {
