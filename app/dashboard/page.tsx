@@ -408,7 +408,8 @@ export default function Dashboard() {
     wealth_solutions: ["protection_planning"],
     referred_by: "Chidam Alagar",
     preferred_days: ["Monday"],
-    preferred_time: "PM",
+    // MODIFIED: preferred_time is now a multi-select array
+    preferred_time: ["PM"],
   };
   const [newClientOpen, setNewClientOpen] = useState(false);
   const [newClientForm, setNewClientForm] = useState<Record<string, any>>({ ...NEW_CLIENT_DEFAULTS });
@@ -890,7 +891,10 @@ export default function Dashboard() {
         preferred_days: Array.isArray(newClientForm.preferred_days)
           ? newClientForm.preferred_days
           : ["Monday"],
-        preferred_time: newClientForm.preferred_time || "PM",
+        // MODIFIED: preferred_time is now a multi-select array; preserve array or wrap legacy string
+        preferred_time: Array.isArray(newClientForm.preferred_time)
+          ? newClientForm.preferred_time
+          : (newClientForm.preferred_time ? [newClientForm.preferred_time] : ["PM"]),
         status: "New Client",
         client_status: "New Client",
       };
@@ -1410,14 +1414,6 @@ export default function Dashboard() {
                     <option value="Wealth">Wealth</option>
                   </select>
                 </label>
-                <label className="block col-span-1">
-                  <span className="text-xs font-semibold text-black">Preferred Time</span>
-                  <select className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={newClientForm.preferred_time ?? "PM"} onChange={(e) => setNewClientForm((f: any) => ({ ...f, preferred_time: e.target.value }))}>
-                    <option value="AM">AM</option>
-                    <option value="PM">PM</option>
-                    <option value="Anytime">Anytime</option>
-                  </select>
-                </label>
                 {/* Business Opportunities — multi-select checkboxes */}
                 {newClientMultiOpts.business_opportunities.length > 0 && (
                   <div className="col-span-2">
@@ -1468,10 +1464,74 @@ export default function Dashboard() {
                   <span className="text-xs font-semibold text-black">Referred By</span>
                   <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={newClientForm.referred_by ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, referred_by: e.target.value }))} />
                 </label>
-                <label className="block col-span-1">
-                  <span className="text-xs font-semibold text-black">Preferred Days</span>
-                  <input type="text" className="w-full border border-slate-300 px-2 py-1 mt-1 text-sm" value={Array.isArray(newClientForm.preferred_days) ? newClientForm.preferred_days.join(", ") : newClientForm.preferred_days ?? ""} onChange={(e) => setNewClientForm((f: any) => ({ ...f, preferred_days: e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean) }))} />
-                </label>
+
+                {/* MODIFIED: Preferred Days + Preferred Time — multi-select checkboxes, aligned on one row */}
+                <div className="col-span-2 grid grid-cols-2 gap-3">
+                  {/* Preferred Days — multi-select checkboxes (Mon–Sun) */}
+                  <div>
+                    <span className="text-xs font-semibold text-black">Preferred Days</span>
+                    <div className="mt-1 border border-slate-300 rounded p-2 grid grid-cols-2 gap-x-2 gap-y-0.5">
+                      {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => {
+                        const currentDays: string[] = Array.isArray(newClientForm.preferred_days)
+                          ? newClientForm.preferred_days
+                          : (newClientForm.preferred_days ? String(newClientForm.preferred_days).split(",").map((s: string) => s.trim()).filter(Boolean) : []);
+                        const checked = currentDays.includes(day);
+                        return (
+                          <label key={day} className="flex items-center gap-1.5 text-sm cursor-pointer hover:bg-slate-50 px-1 py-0.5 rounded">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              className="accent-blue-600"
+                              onChange={() => {
+                                setNewClientForm((f: any) => {
+                                  const cur: string[] = Array.isArray(f.preferred_days)
+                                    ? [...f.preferred_days]
+                                    : (f.preferred_days ? String(f.preferred_days).split(",").map((s: string) => s.trim()).filter(Boolean) : []);
+                                  const next = checked ? cur.filter((v) => v !== day) : [...cur, day];
+                                  return { ...f, preferred_days: next };
+                                });
+                              }}
+                            />
+                            <span className="select-none">{day}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Preferred Time — multi-select checkboxes (AM / PM / Anytime) */}
+                  <div>
+                    <span className="text-xs font-semibold text-black">Preferred Time</span>
+                    <div className="mt-1 border border-slate-300 rounded p-2 flex flex-col gap-0.5">
+                      {["AM", "PM", "Anytime"].map((slot) => {
+                        const currentTimes: string[] = Array.isArray(newClientForm.preferred_time)
+                          ? newClientForm.preferred_time
+                          : (newClientForm.preferred_time ? String(newClientForm.preferred_time).split(",").map((s: string) => s.trim()).filter(Boolean) : []);
+                        const checked = currentTimes.includes(slot);
+                        return (
+                          <label key={slot} className="flex items-center gap-1.5 text-sm cursor-pointer hover:bg-slate-50 px-1 py-0.5 rounded">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              className="accent-blue-600"
+                              onChange={() => {
+                                setNewClientForm((f: any) => {
+                                  const cur: string[] = Array.isArray(f.preferred_time)
+                                    ? [...f.preferred_time]
+                                    : (f.preferred_time ? String(f.preferred_time).split(",").map((s: string) => s.trim()).filter(Boolean) : []);
+                                  const next = checked ? cur.filter((v) => v !== slot) : [...cur, slot];
+                                  return { ...f, preferred_time: next };
+                                });
+                              }}
+                            />
+                            <span className="select-none">{slot}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+                {/* END MODIFIED: Preferred Days + Preferred Time */}
               </div>
               <div className="flex items-center justify-end gap-3 mt-5">
                 <Button variant="secondary" onClick={() => { setNewClientOpen(false); setNewClientError(null); }}>Cancel</Button>
