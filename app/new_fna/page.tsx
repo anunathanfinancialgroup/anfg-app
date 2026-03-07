@@ -616,8 +616,6 @@ export default function FNAPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
-  // ADDED: search term for filtering the Client Name dropdown
-  const [clientSearch, setClientSearch] = useState('');
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [cardsExpanded, setCardsExpanded] = useState(false);
@@ -2844,27 +2842,12 @@ Example format:
           <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: '2fr 1fr 1.4fr 1fr' }}>
             <div>
               <label className="block text-xs font-semibold mb-1 text-gray-600">Client Name *</label>
-              {/* ADDED: Search input to filter the client dropdown (status !== 'deleted' already applied server-side) */}
-              <input
-                type="text"
-                value={clientSearch}
-                onChange={e => setClientSearch(e.target.value)}
-                placeholder="Search client…"
-                disabled={loading}
-                className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none mb-1"
-              />
-              {/* MODIFIED: dropdown now shows only clients matching the search term; deleted clients excluded by loadClients */}
+              {/* REMOVED: client search input — dropdown shows all non-deleted clients directly */}
               <select value={data.clientId} disabled={loading}
-                onChange={e => { handleClientSelect(e.target.value); setClientSearch(''); }}
+                onChange={e => handleClientSelect(e.target.value)}
                 className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:border-blue-500 focus:outline-none">
                 <option value="">-- Select Client --</option>
-                {clients
-                  .filter(c => {
-                    if (!clientSearch.trim()) return true;
-                    const term = clientSearch.trim().toLowerCase();
-                    return `${c.first_name} ${c.last_name}`.toLowerCase().includes(term);
-                  })
-                  .map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
+                {clients.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
               </select>
             </div>
             <div>
