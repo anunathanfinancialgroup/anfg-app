@@ -497,11 +497,14 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
       {/* ADDED: Print CSS — suppress browser default header/footer, landscape, compact font */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          @page { margin: 0; size: A4 landscape; }
-          body { margin: 0; padding: 0; }
-          .print-page-wrap { padding: 6mm 7mm; }
-          .print-table table { font-size: 7.5px !important; border-collapse: collapse; width: 100%; }
-          .print-table th, .print-table td { padding: 3px 5px !important; }
+          @page { margin: 10mm 8mm; size: A4 landscape; }
+          body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .print-page-wrap { padding: 0; }
+          /* Excel-style borders on every cell */
+          .print-table table { font-size: 7.5px !important; border-collapse: collapse !important; width: 100%; }
+          .print-table th, .print-table td { padding: 3px 5px !important; border: 1px solid #9ca3af !important; }
+          /* Blue header row in print */
+          .print-table thead tr th { background-color: #1E5AA8 !important; color: #ffffff !important; font-weight: 700 !important; }
         }
       ` }} />
 
@@ -821,20 +824,22 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
 
             {/* Table */}
             <div className="overflow-x-auto print-table">
-              <table className="w-full text-sm">
+              {/* MODIFIED: border-collapse + Excel-style borders on screen and print */}
+              <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr className="bg-slate-100 text-slate-700 text-xs font-semibold">
-                    <th className="px-4 py-3 text-left sticky left-0 bg-slate-100 z-10 whitespace-nowrap">#</th>
-                    <th className="px-4 py-3 text-left sticky left-8 bg-slate-100 z-10 whitespace-nowrap min-w-[160px]">Carrier / Product</th>
-                    <th className="px-4 py-3 text-right whitespace-nowrap">Monthly</th>
-                    <th className="px-4 py-3 text-right whitespace-nowrap">Annual</th>
-                    {/* MODIFIED: all columns now shown in print/PDF */}
-                    <th className="px-4 py-3 text-right whitespace-nowrap">Total ({params.term_years} yrs)</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">vs. Lowest</th>
+                  {/* MODIFIED: blue fill header row with bold white text + Excel borders */}
+                  <tr className="text-white text-xs font-bold" style={{ backgroundColor: '#1E5AA8' }}>
+                    <th className="px-4 py-3 text-left sticky left-0 z-10 whitespace-nowrap border border-blue-700" style={{ backgroundColor: '#1E5AA8' }}>#</th>
+                    <th className="px-4 py-3 text-left sticky left-8 z-10 whitespace-nowrap min-w-[160px] border border-blue-700" style={{ backgroundColor: '#1E5AA8' }}>Carrier / Product</th>
+                    <th className="px-4 py-3 text-right whitespace-nowrap border border-blue-700">Monthly</th>
+                    <th className="px-4 py-3 text-right whitespace-nowrap border border-blue-700">Annual</th>
+                    {/* all columns shown in print/PDF */}
+                    <th className="px-4 py-3 text-right whitespace-nowrap border border-blue-700">Total ({params.term_years} yrs)</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap border border-blue-700">vs. Lowest</th>
                     {showABR && <>
-                      <th className="px-4 py-3 text-center whitespace-nowrap min-w-[110px]">Chronic Illness ABR</th>
-                      <th className="px-4 py-3 text-center whitespace-nowrap min-w-[110px]">Critical Illness ABR</th>
-                      <th className="px-4 py-3 text-center whitespace-nowrap min-w-[110px]">Terminal Illness ABR</th>
+                      <th className="px-4 py-3 text-center whitespace-nowrap min-w-[110px] border border-blue-700">Chronic Illness ABR</th>
+                      <th className="px-4 py-3 text-center whitespace-nowrap min-w-[110px] border border-blue-700">Critical Illness ABR</th>
+                      <th className="px-4 py-3 text-center whitespace-nowrap min-w-[110px] border border-blue-700">Terminal Illness ABR</th>
                     </>}
                   </tr>
                 </thead>
@@ -867,12 +872,11 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
                     return (
                       <tr
                         key={r.id}
-                        // ADDED: click to select/deselect row
                         onClick={() => handleRowSelect(r.id)}
-                        className={`border-t border-slate-100 transition-colors cursor-pointer select-none ${rowBg}`}
+                        className={`transition-colors cursor-pointer select-none ${rowBg}`}
                       >
-                        {/* Rank */}
-                        <td className={`px-4 py-3 sticky left-0 z-10 font-bold text-xs ${stickyBg}`}>
+                        {/* Rank — border on every cell */}
+                        <td className={`px-4 py-3 sticky left-0 z-10 font-bold text-xs border border-slate-300 ${stickyBg}`}>
                           {isLowest ? (
                             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-[10px] font-bold">1</span>
                           ) : (
@@ -881,7 +885,7 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
                         </td>
 
                         {/* Carrier name */}
-                        <td className={`px-4 py-3 sticky left-8 z-10 ${stickyBg}`}>
+                        <td className={`px-4 py-3 sticky left-8 z-10 border border-slate-300 ${stickyBg}`}>
                           <div className="flex items-center gap-2">
                             <div>
                               <div className="font-semibold text-slate-800 text-xs flex items-center gap-1.5">
@@ -903,19 +907,19 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
                         </td>
 
                         {/* Premiums */}
-                        <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                        <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap border border-slate-300">
                           {fmt(r.monthly)}
                         </td>
-                        <td className="px-4 py-3 text-right text-slate-700 whitespace-nowrap">
+                        <td className="px-4 py-3 text-right text-slate-700 whitespace-nowrap border border-slate-300">
                           {fmt(annual(r.monthly))}
                         </td>
-                        {/* MODIFIED: Total and vs. Lowest now shown in print/PDF */}
-                        <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">
+                        {/* Total — shown in print/PDF */}
+                        <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap border border-slate-300">
                           {fmt(total(r.monthly))}
                         </td>
 
                         {/* vs lowest */}
-                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <td className="px-4 py-3 text-center whitespace-nowrap border border-slate-300">
                           {isLowest ? (
                             <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
                               Best Rate
@@ -927,23 +931,21 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
                           )}
                         </td>
 
-                        {/* MODIFIED: ABR benefits — detailed text on screen, Available/Not Available in print */}
+                        {/* ABR benefits — detailed text on screen, Available/Not Available in print */}
                         {showABR && <>
-                          <td className="px-4 py-3 text-xs text-center">
-                            {/* Screen view: full detail */}
+                          <td className="px-4 py-3 text-xs text-center border border-slate-300">
                             <span className={`print:hidden ${abrColor(r.abr.chronic)}`}>{r.abr.chronic}</span>
-                            {/* PDF/print view: Available or Not Available */}
                             <span className={`hidden print:inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${abrAvailable(r.abr.chronic) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
                               {abrAvailable(r.abr.chronic) ? 'Available' : 'Not Available'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-xs text-center">
+                          <td className="px-4 py-3 text-xs text-center border border-slate-300">
                             <span className={`print:hidden ${abrColor(r.abr.critical)}`}>{r.abr.critical}</span>
                             <span className={`hidden print:inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${abrAvailable(r.abr.critical) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
                               {abrAvailable(r.abr.critical) ? 'Available' : 'Not Available'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-xs text-center">
+                          <td className="px-4 py-3 text-xs text-center border border-slate-300">
                             <span className={`print:hidden ${abrColor(r.abr.terminal)}`}>{r.abr.terminal}</span>
                             <span className={`hidden print:inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${abrAvailable(r.abr.terminal) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
                               {abrAvailable(r.abr.terminal) ? 'Available' : 'Not Available'}
@@ -957,16 +959,15 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
 
                 {/* Summary footer */}
                 <tfoot>
-                  <tr className="border-t-2 border-slate-200 bg-slate-50 text-xs text-slate-500">
-                    {/* MODIFIED: all 9 cols now visible, unified tfoot */}
-                    <td colSpan={showABR ? 9 : 6} className="px-4 py-2.5 print:hidden">
+                  <tr className="bg-slate-50 text-xs text-slate-500">
+                    <td colSpan={showABR ? 9 : 6} className="px-4 py-2.5 border border-slate-300 print:hidden">
                       <div className="flex flex-wrap gap-x-6 gap-y-1">
                         <span>Rates shown are <b>estimated monthly premiums</b> for illustrative purposes only.</span>
                         <span>Actual premiums are subject to full underwriting and carrier approval.</span>
                         <span>ABR = Accelerated Death Benefit Rider (not a replacement for Long Term Care Insurance).</span>
                       </div>
                     </td>
-                    <td colSpan={showABR ? 9 : 6} className="hidden print:table-cell px-2 py-1.5 text-[8px] text-slate-500 italic">
+                    <td colSpan={showABR ? 9 : 6} className="hidden print:table-cell px-2 py-1.5 border border-slate-300 text-[8px] text-slate-500 italic">
                       Premiums are estimated. Actual rates subject to underwriting. ABR availability varies by carrier and state. All columns shown.
                     </td>
                   </tr>
