@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 // ─── Auth cookie helpers ───────────────────────────────────────────────────────
@@ -139,18 +139,7 @@ const CARRIERS: CarrierDef[] = [
       terminal: '$1,000,000 – No wait',
     },
   },
-  {
-    id: 'jh',
-    carrier: 'John Hancock',
-    product: 'Protection Term',
-    highlight: false,
-    basePer1000: 0.16156,
-    abr: {
-      chronic: 'N/A',
-      critical: 'N/A',
-      terminal: '$500,000 – No wait',
-    },
-  },
+  // REMOVED: John Hancock Protection Term (per requirements)
   {
     id: 'transamerica',
     carrier: 'Transamerica',
@@ -277,6 +266,11 @@ function abrColor(val: string) {
   return 'text-slate-700';
 }
 
+// ADDED: ABR availability helper — returns true if rider is available for this carrier
+function abrAvailable(val: string): boolean {
+  return val !== 'N/A';
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════════════════
@@ -300,6 +294,71 @@ export default function QuoteToolPage() {
   );
   const [quoteGenerated, setQuoteGenerated] = useState(false);
   const [showABR, setShowABR] = useState(true);
+
+  // ADDED: AI-powered premium insights state
+  const [aiInsights, setAiInsights] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  // ADDED: Fetch AI insights from Anthropic API — called after quote is generated
+  const fetchAIInsights = useCallback(async () => {
+    setAiLoading(true);
+    setAiError(null);
+    setAiInsights(null);
+    try {
+      const carrierSummary = CARRIERS
+        .filter((c) => selectedCarriers.has(c.id))
+        .map((c) => {
+          const monthly = calcMonthlyPremium(c, params);
+          return `${c.carrier} (${c.product}): $${monthly.toFixed(2)}/mo | Chronic ABR: ${c.abr.chronic} | Critical ABR: ${c.abr.critical} | Terminal ABR: ${c.abr.terminal}`;
+        })
+        .join('\n');
+
+      const prompt = `You are a licensed life insurance advisor assistant at AnNa Financial Group.
+
+A quote has been generated for the following client profile:
+- Name: ${params.first_name || 'Prospect'} ${params.last_name || ''}
+- Gender: ${params.gender}
+- Age: ${params.age}
+- Date of Birth: ${params.date_of_birth || 'Not provided'}
+- Health Class: ${params.health_class}
+- Face Amount: ${fmtFace(params.face_amount)}
+- Term Duration: ${params.term_years} years
+
+Quoted carrier premiums (sorted by monthly rate):
+${carrierSummary}
+
+Please provide:
+1. A brief analysis of the best value carrier(s) considering both premium and living benefits.
+2. Key industry insights for this client profile (age/health class/coverage amount).
+3. 2-3 actionable recommendations the advisor should discuss with the client.
+4. Any important rider considerations based on the client's profile.
+
+Keep the response professional, concise (under 300 words), and structured with clear sections. Use plain text only — no markdown symbols like ** or ##.`;
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+
+      if (!response.ok) throw new Error(`API error ${response.status}`);
+      const data = await response.json();
+      const text = data.content
+        ?.filter((b: any) => b.type === 'text')
+        .map((b: any) => b.text)
+        .join('') || '';
+      setAiInsights(text.trim());
+    } catch (err: any) {
+      setAiError('AI insights unavailable. Please review the quote manually.');
+    } finally {
+      setAiLoading(false);
+    }
+  }, [selectedCarriers, params]);
 
   // ── Derived: active carriers sorted by premium ────────────────────────────
   const quoteResults = useMemo(() => {
@@ -336,11 +395,16 @@ export default function QuoteToolPage() {
       return;
     }
     setQuoteGenerated(true);
+    // ADDED: auto-fetch AI insights on quote generation
+    fetchAIInsights();
   };
 
   const resetQuote = () => {
     setParams({ ...DEFAULT_PARAMS });
     setQuoteGenerated(false);
+    // ADDED: clear AI insights on reset
+    setAiInsights(null);
+    setAiError(null);
   };
 
   const printQuote = () => window.print();
@@ -393,20 +457,44 @@ export default function QuoteToolPage() {
         </div>
       </div>
 
-      {/* Print header (only visible when printing) */}
-      <div className="hidden print:block px-6 pt-4 pb-2 border-b">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xl font-bold text-[#1E5AA8]">Term Life Insurance Quote Comparison</div>
-            <div className="text-sm text-slate-600 mt-0.5">
-              Generated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+      {/* MODIFIED: Print header — logo + professional layout (only visible when printing) */}
+      <div className="hidden print:block">
+        {/* Top bar */}
+        <div className="px-8 pt-6 pb-4 border-b-2 border-[#1E5AA8]">
+          <div className="flex items-center justify-between">
+            {/* Logo + company name */}
+            <div className="flex items-center gap-4">
+              <img
+                src="/anunathan-logo.png"
+                alt="AnNa Financial Group"
+                style={{ height: '56px', width: 'auto', objectFit: 'contain' }}
+              />
+              <div>
+                <div className="text-lg font-bold text-[#1E5AA8]">AnNa Financial Group</div>
+                <div className="text-xs text-[#808000] font-semibold">Build your career. Protect their future</div>
+              </div>
+            </div>
+            {/* Report title + date */}
+            <div className="text-right">
+              <div className="text-lg font-bold text-slate-800">Term Life Insurance</div>
+              <div className="text-base font-semibold text-slate-700">Premium Comparison Report</div>
+              <div className="text-xs text-slate-500 mt-0.5">
+                Generated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+              </div>
             </div>
           </div>
-          <div className="text-right text-xs text-slate-500">
-            <div className="font-semibold">AnNa Financial Group</div>
-            <div>Build your career. Protect their future</div>
-            <div className="mt-1 text-[10px] text-slate-400">FOR FINANCIAL PROFESSIONAL USE ONLY · NOT FOR PUBLIC DISTRIBUTION</div>
-          </div>
+        </div>
+        {/* Client snapshot bar */}
+        <div className="px-8 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap gap-x-8 gap-y-1 text-xs text-slate-700">
+          {(params.first_name || params.last_name) && (
+            <span><b>Client:</b> {params.first_name} {params.last_name}</span>
+          )}
+          <span><b>Gender:</b> {params.gender}</span>
+          <span><b>Age:</b> {params.age}</span>
+          {params.date_of_birth && <span><b>DOB:</b> {params.date_of_birth}</span>}
+          <span><b>Health Class:</b> {params.health_class}</span>
+          <span><b>Face Amount:</b> {fmtFace(params.face_amount)}</span>
+          <span><b>Term Duration:</b> {params.term_years} Years</span>
         </div>
       </div>
 
@@ -654,12 +742,13 @@ export default function QuoteToolPage() {
                     <th className="px-4 py-3 text-left sticky left-8 bg-slate-100 z-10 whitespace-nowrap min-w-[160px]">Carrier / Product</th>
                     <th className="px-4 py-3 text-right whitespace-nowrap">Monthly</th>
                     <th className="px-4 py-3 text-right whitespace-nowrap">Annual</th>
-                    <th className="px-4 py-3 text-right whitespace-nowrap">Total ({params.term_years} yrs)</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">vs. Lowest</th>
+                    {/* MODIFIED: hide Total and vs. Lowest columns in print/PDF */}
+                    <th className="px-4 py-3 text-right whitespace-nowrap print:hidden">Total ({params.term_years} yrs)</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap print:hidden">vs. Lowest</th>
                     {showABR && <>
-                      <th className="px-4 py-3 text-left whitespace-nowrap min-w-[220px]">Chronic Illness ABR</th>
-                      <th className="px-4 py-3 text-left whitespace-nowrap min-w-[220px]">Critical Illness ABR</th>
-                      <th className="px-4 py-3 text-left whitespace-nowrap min-w-[180px]">Terminal Illness ABR</th>
+                      <th className="px-4 py-3 text-center whitespace-nowrap min-w-[110px]">Chronic Illness ABR</th>
+                      <th className="px-4 py-3 text-center whitespace-nowrap min-w-[110px]">Critical Illness ABR</th>
+                      <th className="px-4 py-3 text-center whitespace-nowrap min-w-[110px]">Terminal Illness ABR</th>
                     </>}
                   </tr>
                 </thead>
@@ -714,12 +803,13 @@ export default function QuoteToolPage() {
                         <td className="px-4 py-3 text-right text-slate-700 whitespace-nowrap">
                           {fmt(annual(r.monthly))}
                         </td>
-                        <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">
+                        {/* MODIFIED: hide Total and vs. Lowest in print/PDF */}
+                        <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap print:hidden">
                           {fmt(total(r.monthly))}
                         </td>
 
-                        {/* vs lowest */}
-                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                        {/* vs lowest — hidden in print */}
+                        <td className="px-4 py-3 text-center whitespace-nowrap print:hidden">
                           {isLowest ? (
                             <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
                               Best Rate
@@ -731,11 +821,28 @@ export default function QuoteToolPage() {
                           )}
                         </td>
 
-                        {/* ABR benefits */}
+                        {/* MODIFIED: ABR benefits — detailed text on screen, Available/Not Available in print */}
                         {showABR && <>
-                          <td className={`px-4 py-3 text-xs ${abrColor(r.abr.chronic)}`}>{r.abr.chronic}</td>
-                          <td className={`px-4 py-3 text-xs ${abrColor(r.abr.critical)}`}>{r.abr.critical}</td>
-                          <td className={`px-4 py-3 text-xs ${abrColor(r.abr.terminal)}`}>{r.abr.terminal}</td>
+                          <td className="px-4 py-3 text-xs text-center">
+                            {/* Screen view: full detail */}
+                            <span className={`print:hidden ${abrColor(r.abr.chronic)}`}>{r.abr.chronic}</span>
+                            {/* PDF/print view: Available or Not Available */}
+                            <span className={`hidden print:inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${abrAvailable(r.abr.chronic) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
+                              {abrAvailable(r.abr.chronic) ? 'Available' : 'Not Available'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-center">
+                            <span className={`print:hidden ${abrColor(r.abr.critical)}`}>{r.abr.critical}</span>
+                            <span className={`hidden print:inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${abrAvailable(r.abr.critical) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
+                              {abrAvailable(r.abr.critical) ? 'Available' : 'Not Available'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-center">
+                            <span className={`print:hidden ${abrColor(r.abr.terminal)}`}>{r.abr.terminal}</span>
+                            <span className={`hidden print:inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${abrAvailable(r.abr.terminal) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
+                              {abrAvailable(r.abr.terminal) ? 'Available' : 'Not Available'}
+                            </span>
+                          </td>
                         </>}
                       </tr>
                     );
@@ -745,24 +852,29 @@ export default function QuoteToolPage() {
                 {/* Summary footer */}
                 <tfoot>
                   <tr className="border-t-2 border-slate-200 bg-slate-50 text-xs text-slate-500">
-                    <td colSpan={showABR ? 9 : 6} className="px-4 py-2.5">
+                    {/* MODIFIED: colSpan accounts for hidden print columns (Total + vs.Lowest removed = -2) */}
+                    <td colSpan={showABR ? 9 : 6} className="px-4 py-2.5 print:hidden">
                       <div className="flex flex-wrap gap-x-6 gap-y-1">
                         <span>Rates shown are <b>estimated monthly premiums</b> for illustrative purposes only.</span>
                         <span>Actual premiums are subject to full underwriting and carrier approval.</span>
                         <span>ABR = Accelerated Death Benefit Rider (not a replacement for Long Term Care Insurance).</span>
                       </div>
                     </td>
+                    {/* ADDED: print-only tfoot with correct colSpan (7 cols – 2 hidden = 5 + ABR cols) */}
+                    <td colSpan={showABR ? 7 : 4} className="hidden print:table-cell px-4 py-2 text-[10px] text-slate-500 italic">
+                      Premiums are estimated. Actual rates subject to underwriting. ABR availability varies by carrier and state.
+                    </td>
                   </tr>
                 </tfoot>
               </table>
             </div>
 
-            {/* Savings callout */}
+            {/* Savings callout — screen only */}
             {quoteResults.length >= 2 && (() => {
               const highest = quoteResults[quoteResults.length - 1].monthly;
               const savings = (highest - lowestMonthly) * 12;
               return savings > 0 ? (
-                <div className="px-6 py-3 border-t border-slate-100 bg-gradient-to-r from-emerald-50 to-blue-50">
+                <div className="px-6 py-3 border-t border-slate-100 bg-gradient-to-r from-emerald-50 to-blue-50 print:hidden">
                   <div className="text-xs text-slate-700">
                     💡 <span className="font-semibold">Potential Savings:</span> Choosing the lowest-rate carrier saves up to{' '}
                     <span className="font-bold text-emerald-700">{fmt(savings)}/year</span>{' '}
@@ -771,6 +883,107 @@ export default function QuoteToolPage() {
                 </div>
               ) : null;
             })()}
+          </div>
+        )}
+
+        {/* ADDED: AI Insights Panel — screen only, shown after quote is generated */}
+        {quoteGenerated && (
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden print:hidden">
+            <div className="px-5 py-3 border-b border-slate-100 bg-gradient-to-r from-violet-50 to-blue-50 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🤖</span>
+                <div>
+                  <div className="text-sm font-bold text-slate-800">AI Advisor Insights</div>
+                  <div className="text-[10px] text-slate-500">Powered by Claude · Personalized analysis for this quote</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={fetchAIInsights}
+                disabled={aiLoading}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white text-violet-700 font-semibold px-3 py-1.5 text-xs hover:bg-violet-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {aiLoading ? '⏳ Analyzing…' : '↺ Refresh'}
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              {aiLoading && (
+                <div className="flex items-center gap-3 text-sm text-slate-500 py-4">
+                  <svg className="animate-spin h-4 w-4 text-violet-500" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Generating personalized insights for this client profile…
+                </div>
+              )}
+              {aiError && !aiLoading && (
+                <div className="text-xs text-red-500 py-2">{aiError}</div>
+              )}
+              {aiInsights && !aiLoading && (
+                <div className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{aiInsights}</div>
+              )}
+              {!aiInsights && !aiLoading && !aiError && (
+                <div className="text-xs text-slate-400 py-2 italic">Click Refresh to generate AI insights for this quote.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ADDED: Print-only ABR Rider Availability Disclaimer section */}
+        {quoteGenerated && (
+          <div className="hidden print:block mt-4 px-2">
+            <div className="border border-slate-300 rounded p-4 bg-slate-50">
+              <div className="text-xs font-bold text-slate-800 mb-2 uppercase tracking-wide">
+                Rider Availability Disclaimer
+              </div>
+              <div className="text-[10px] text-slate-600 leading-relaxed space-y-1.5">
+                <p>
+                  The "Available" / "Not Available" indicators above reflect whether each carrier's product includes
+                  an Accelerated Death Benefit Rider (ABR) for the specified illness category as a standard or optional
+                  feature. Rider availability, benefit limits, and elimination periods vary by carrier, product, state of issue,
+                  and individual underwriting. Not all riders listed are available in all states.
+                </p>
+                <p>
+                  An ABR is <strong>not a replacement for Long Term Care Insurance (LTCI)</strong>. It is a life insurance
+                  benefit that gives the policyholder the option to accelerate a portion of the death benefit if they meet
+                  the criteria for a qualifying chronic, critical, or terminal illness event as defined in the policy contract.
+                  ABR payments reduce the remaining death benefit and policy cash values, if applicable. ABR payments
+                  may affect eligibility for Medicaid or other government assistance programs.
+                </p>
+                <p>
+                  Tax treatment of ABR proceeds is governed by IRC Section 101(g). Policyholders should consult a
+                  qualified tax advisor before receiving any accelerated benefit payments.
+                </p>
+                <p className="font-semibold text-slate-700">
+                  All premiums shown are estimated figures for illustrative purposes only, based on published carrier
+                  rate tables as of March 2025. Actual premiums are subject to full carrier underwriting, state availability,
+                  and individual health classification. Premiums are not guaranteed until a policy is issued.
+                </p>
+              </div>
+            </div>
+
+            {/* Print footer */}
+            <div className="mt-6 pt-3 border-t-2 border-[#1E5AA8] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img
+                  src="/anunathan-logo.png"
+                  alt="AnNa Financial Group"
+                  style={{ height: '32px', width: 'auto', objectFit: 'contain' }}
+                />
+                <div>
+                  <div className="text-xs font-bold text-[#1E5AA8]">AnNa Financial Group</div>
+                  <div className="text-[9px] text-[#808000]">Build your career. Protect their future</div>
+                </div>
+              </div>
+              <div className="text-right text-[9px] text-slate-400">
+                <div className="font-semibold text-slate-500">FOR FINANCIAL PROFESSIONAL USE ONLY · NOT FOR PUBLIC DISTRIBUTION</div>
+                <div className="mt-0.5">
+                  Generated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} ·
+                  Rates source: Corebridge Financial market comparison, March 24, 2025
+                </div>
+                <div className="mt-0.5">© {new Date().getFullYear()} AnNa Financial Group. All rights reserved.</div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -785,9 +998,9 @@ export default function QuoteToolPage() {
           </div>
         )}
 
-        {/* ── ABR DISCLOSURE ────────────────────────────────────────────────── */}
+        {/* ── ABR DISCLOSURE — screen only (print version is in the print block above) ── */}
         {quoteGenerated && (
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 print:hidden">
             <h3 className="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
               Accelerated Benefit Riders (ABR) Disclosure
             </h3>
