@@ -300,6 +300,14 @@ export default function QuoteToolPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  // ADDED: selected row state — tracks which carrier row the user clicked
+  const [selectedRow, setSelectedRow] = useState<string | null>(null);
+
+  // ADDED: per-carrier AI insight state for the selected row
+  const [selectedCarrierInsight, setSelectedCarrierInsight] = useState<string | null>(null);
+  const [selectedCarrierLoading, setSelectedCarrierLoading] = useState(false);
+  const [selectedCarrierError, setSelectedCarrierError] = useState<string | null>(null);
+
   // ADDED: Fetch AI insights from Anthropic API — called after quote is generated
   const fetchAIInsights = useCallback(async () => {
     setAiLoading(true);
@@ -360,6 +368,64 @@ Keep the response professional, concise (under 300 words), and structured with c
     }
   }, [selectedCarriers, params]);
 
+  // ADDED: Fetch AI insight for a single selected carrier row
+  const fetchSelectedCarrierInsights = useCallback(async (carrierId: string) => {
+    const carrier = CARRIERS.find((c) => c.id === carrierId);
+    if (!carrier) return;
+    const monthly = calcMonthlyPremium(carrier, params);
+    setSelectedCarrierLoading(true);
+    setSelectedCarrierError(null);
+    setSelectedCarrierInsight(null);
+    try {
+      const prompt = `You are a licensed life insurance advisor assistant at AnNa Financial Group.
+
+The advisor has selected the following carrier for deeper analysis:
+
+Carrier: ${carrier.carrier}
+Product: ${carrier.product}
+Estimated Monthly Premium: $${monthly.toFixed(2)}
+Estimated Annual Premium: $${(monthly * 12).toFixed(2)}
+Chronic Illness ABR: ${carrier.abr.chronic}
+Critical Illness ABR: ${carrier.abr.critical}
+Terminal Illness ABR: ${carrier.abr.terminal}
+
+Client Profile:
+- Name: ${params.first_name || 'Prospect'} ${params.last_name || ''}
+- Gender: ${params.gender}, Age: ${params.age}
+- Health Class: ${params.health_class}
+- Face Amount: ${fmtFace(params.face_amount)}
+- Term Duration: ${params.term_years} years
+
+Please provide a focused 3-4 sentence analysis of this specific carrier/product for this client:
+1. Key strengths of this product for the client's profile.
+2. Any notable limitations or considerations.
+3. One specific conversation point the advisor should raise.
+
+Be concise (under 150 words). Use plain text only — no markdown symbols.`;
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      if (!response.ok) throw new Error(`API error ${response.status}`);
+      const data = await response.json();
+      const text = data.content
+        ?.filter((b: any) => b.type === 'text')
+        .map((b: any) => b.text)
+        .join('') || '';
+      setSelectedCarrierInsight(text.trim());
+    } catch {
+      setSelectedCarrierError('Could not load carrier insight.');
+    } finally {
+      setSelectedCarrierLoading(false);
+    }
+  }, [params]);
+
   // ── Derived: active carriers sorted by premium ────────────────────────────
   const quoteResults = useMemo(() => {
     if (!quoteGenerated) return [];
@@ -405,6 +471,22 @@ Keep the response professional, concise (under 300 words), and structured with c
     // ADDED: clear AI insights on reset
     setAiInsights(null);
     setAiError(null);
+    // ADDED: clear row selection on reset
+    setSelectedRow(null);
+    setSelectedCarrierInsight(null);
+    setSelectedCarrierError(null);
+  };
+
+  // ADDED: row click handler — selects/deselects a carrier row and fetches its AI insight
+  const handleRowSelect = (id: string) => {
+    if (selectedRow === id) {
+      setSelectedRow(null);
+      setSelectedCarrierInsight(null);
+      setSelectedCarrierError(null);
+    } else {
+      setSelectedRow(id);
+      fetchSelectedCarrierInsights(id);
+    }
   };
 
   const printQuote = () => window.print();
@@ -418,6 +500,17 @@ Keep the response professional, concise (under 300 words), and structured with c
   // ════════════════════════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen bg-slate-50 print:bg-white">
+
+      {/* ADDED: Print CSS — suppress browser default header/footer, landscape, compact font */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page { margin: 0; size: A4 landscape; }
+          body { margin: 0; padding: 0; }
+          .print-page-wrap { padding: 6mm 7mm; }
+          .print-table table { font-size: 7.5px !important; border-collapse: collapse; width: 100%; }
+          .print-table th, .print-table td { padding: 3px 5px !important; }
+        }
+      ` }} />
 
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
       <div className="max-w-[1400px] mx-auto px-4 pt-5 pb-3 print:hidden">
@@ -458,7 +551,7 @@ Keep the response professional, concise (under 300 words), and structured with c
       </div>
 
       {/* MODIFIED: Print header — logo + professional layout (only visible when printing) */}
-      <div className="hidden print:block">
+      <div className="hidden print:block print-page-wrap">
         {/* Top bar */}
         <div className="px-8 pt-6 pb-4 border-b-2 border-[#1E5AA8]">
           <div className="flex items-center justify-between">
@@ -734,7 +827,7 @@ Keep the response professional, concise (under 300 words), and structured with c
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto print-table">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 text-xs font-semibold">
@@ -742,9 +835,9 @@ Keep the response professional, concise (under 300 words), and structured with c
                     <th className="px-4 py-3 text-left sticky left-8 bg-slate-100 z-10 whitespace-nowrap min-w-[160px]">Carrier / Product</th>
                     <th className="px-4 py-3 text-right whitespace-nowrap">Monthly</th>
                     <th className="px-4 py-3 text-right whitespace-nowrap">Annual</th>
-                    {/* MODIFIED: hide Total and vs. Lowest columns in print/PDF */}
-                    <th className="px-4 py-3 text-right whitespace-nowrap print:hidden">Total ({params.term_years} yrs)</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap print:hidden">vs. Lowest</th>
+                    {/* MODIFIED: all columns now shown in print/PDF */}
+                    <th className="px-4 py-3 text-right whitespace-nowrap">Total ({params.term_years} yrs)</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">vs. Lowest</th>
                     {showABR && <>
                       <th className="px-4 py-3 text-center whitespace-nowrap min-w-[110px]">Chronic Illness ABR</th>
                       <th className="px-4 py-3 text-center whitespace-nowrap min-w-[110px]">Critical Illness ABR</th>
@@ -758,19 +851,35 @@ Keep the response professional, concise (under 300 words), and structured with c
                       ? ((r.monthly - lowestMonthly) / lowestMonthly) * 100
                       : 0;
                     const isLowest = idx === 0;
-                    const rowBg = r.highlight
+                    const isSelected = selectedRow === r.id;
+
+                    // MODIFIED: row background — selected takes priority with amber highlight
+                    const rowBg = isSelected
+                      ? 'bg-amber-100 hover:bg-amber-200 ring-2 ring-amber-400 ring-inset'
+                      : r.highlight
                       ? 'bg-emerald-50 hover:bg-emerald-100'
                       : isLowest
                       ? 'bg-blue-50 hover:bg-blue-100'
                       : 'hover:bg-slate-50';
 
+                    // sticky cell bg mirrors row bg
+                    const stickyBg = isSelected
+                      ? 'bg-amber-100'
+                      : r.highlight
+                      ? 'bg-emerald-50'
+                      : isLowest
+                      ? 'bg-blue-50'
+                      : 'bg-white';
+
                     return (
                       <tr
                         key={r.id}
-                        className={`border-t border-slate-100 transition-colors ${rowBg}`}
+                        // ADDED: click to select/deselect row
+                        onClick={() => handleRowSelect(r.id)}
+                        className={`border-t border-slate-100 transition-colors cursor-pointer select-none ${rowBg}`}
                       >
                         {/* Rank */}
-                        <td className={`px-4 py-3 sticky left-0 z-10 font-bold text-xs ${r.highlight ? 'bg-emerald-50' : isLowest ? 'bg-blue-50' : 'bg-white'}`}>
+                        <td className={`px-4 py-3 sticky left-0 z-10 font-bold text-xs ${stickyBg}`}>
                           {isLowest ? (
                             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-[10px] font-bold">1</span>
                           ) : (
@@ -779,7 +888,7 @@ Keep the response professional, concise (under 300 words), and structured with c
                         </td>
 
                         {/* Carrier name */}
-                        <td className={`px-4 py-3 sticky left-8 z-10 ${r.highlight ? 'bg-emerald-50' : isLowest ? 'bg-blue-50' : 'bg-white'}`}>
+                        <td className={`px-4 py-3 sticky left-8 z-10 ${stickyBg}`}>
                           <div className="flex items-center gap-2">
                             <div>
                               <div className="font-semibold text-slate-800 text-xs flex items-center gap-1.5">
@@ -789,6 +898,10 @@ Keep the response professional, concise (under 300 words), and structured with c
                                 )}
                                 {isLowest && !r.highlight && (
                                   <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700">LOWEST</span>
+                                )}
+                                {/* ADDED: selected badge */}
+                                {isSelected && (
+                                  <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-amber-200 text-amber-800">▶ SELECTED</span>
                                 )}
                               </div>
                               <div className="text-[10px] text-slate-500">{r.product}</div>
@@ -803,13 +916,13 @@ Keep the response professional, concise (under 300 words), and structured with c
                         <td className="px-4 py-3 text-right text-slate-700 whitespace-nowrap">
                           {fmt(annual(r.monthly))}
                         </td>
-                        {/* MODIFIED: hide Total and vs. Lowest in print/PDF */}
-                        <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap print:hidden">
+                        {/* MODIFIED: Total and vs. Lowest now shown in print/PDF */}
+                        <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">
                           {fmt(total(r.monthly))}
                         </td>
 
-                        {/* vs lowest — hidden in print */}
-                        <td className="px-4 py-3 text-center whitespace-nowrap print:hidden">
+                        {/* vs lowest */}
+                        <td className="px-4 py-3 text-center whitespace-nowrap">
                           {isLowest ? (
                             <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
                               Best Rate
@@ -852,7 +965,7 @@ Keep the response professional, concise (under 300 words), and structured with c
                 {/* Summary footer */}
                 <tfoot>
                   <tr className="border-t-2 border-slate-200 bg-slate-50 text-xs text-slate-500">
-                    {/* MODIFIED: colSpan accounts for hidden print columns (Total + vs.Lowest removed = -2) */}
+                    {/* MODIFIED: all 9 cols now visible, unified tfoot */}
                     <td colSpan={showABR ? 9 : 6} className="px-4 py-2.5 print:hidden">
                       <div className="flex flex-wrap gap-x-6 gap-y-1">
                         <span>Rates shown are <b>estimated monthly premiums</b> for illustrative purposes only.</span>
@@ -860,9 +973,8 @@ Keep the response professional, concise (under 300 words), and structured with c
                         <span>ABR = Accelerated Death Benefit Rider (not a replacement for Long Term Care Insurance).</span>
                       </div>
                     </td>
-                    {/* ADDED: print-only tfoot with correct colSpan (7 cols – 2 hidden = 5 + ABR cols) */}
-                    <td colSpan={showABR ? 7 : 4} className="hidden print:table-cell px-4 py-2 text-[10px] text-slate-500 italic">
-                      Premiums are estimated. Actual rates subject to underwriting. ABR availability varies by carrier and state.
+                    <td colSpan={showABR ? 9 : 6} className="hidden print:table-cell px-2 py-1.5 text-[8px] text-slate-500 italic">
+                      Premiums are estimated. Actual rates subject to underwriting. ABR availability varies by carrier and state. All columns shown.
                     </td>
                   </tr>
                 </tfoot>
@@ -886,44 +998,91 @@ Keep the response professional, concise (under 300 words), and structured with c
           </div>
         )}
 
-        {/* ADDED: AI Insights Panel — screen only, shown after quote is generated */}
+        {/* MODIFIED: AI Insights Panel — shows selected carrier insight when a row is chosen, else general quote insights */}
         {quoteGenerated && (
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden print:hidden">
             <div className="px-5 py-3 border-b border-slate-100 bg-gradient-to-r from-violet-50 to-blue-50 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-base">🤖</span>
                 <div>
-                  <div className="text-sm font-bold text-slate-800">AI Advisor Insights</div>
-                  <div className="text-[10px] text-slate-500">Powered by Claude · Personalized analysis for this quote</div>
+                  <div className="text-sm font-bold text-slate-800">
+                    {selectedRow
+                      ? `AI Insight — ${CARRIERS.find(c => c.id === selectedRow)?.carrier ?? 'Selected Carrier'}`
+                      : 'AI Advisor Insights'}
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    {selectedRow
+                      ? 'Click a different row to compare · Click same row to deselect'
+                      : 'Powered by Claude · Click any row in the table for a carrier-specific analysis'}
+                  </div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={fetchAIInsights}
-                disabled={aiLoading}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white text-violet-700 font-semibold px-3 py-1.5 text-xs hover:bg-violet-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {aiLoading ? '⏳ Analyzing…' : '↺ Refresh'}
-              </button>
+              <div className="flex items-center gap-2">
+                {selectedRow && (
+                  <button
+                    type="button"
+                    onClick={() => fetchSelectedCarrierInsights(selectedRow)}
+                    disabled={selectedCarrierLoading}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white text-amber-700 font-semibold px-3 py-1.5 text-xs hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {selectedCarrierLoading ? '⏳ Loading…' : '↺ Refresh'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={fetchAIInsights}
+                  disabled={aiLoading}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white text-violet-700 font-semibold px-3 py-1.5 text-xs hover:bg-violet-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {aiLoading ? '⏳ Analyzing…' : '↺ Full Analysis'}
+                </button>
+              </div>
             </div>
             <div className="px-5 py-4">
+              {/* Selected carrier insight */}
+              {selectedRow && (
+                <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                  <div className="text-[10px] font-bold text-amber-800 uppercase tracking-wide mb-1.5">
+                    {CARRIERS.find(c => c.id === selectedRow)?.carrier} · {CARRIERS.find(c => c.id === selectedRow)?.product}
+                  </div>
+                  {selectedCarrierLoading && (
+                    <div className="flex items-center gap-2 text-xs text-amber-700 py-1">
+                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      Analyzing this carrier for your client…
+                    </div>
+                  )}
+                  {selectedCarrierError && !selectedCarrierLoading && (
+                    <div className="text-xs text-red-500">{selectedCarrierError}</div>
+                  )}
+                  {selectedCarrierInsight && !selectedCarrierLoading && (
+                    <div className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{selectedCarrierInsight}</div>
+                  )}
+                </div>
+              )}
+
+              {/* Full quote insights */}
               {aiLoading && (
-                <div className="flex items-center gap-3 text-sm text-slate-500 py-4">
+                <div className="flex items-center gap-3 text-sm text-slate-500 py-2">
                   <svg className="animate-spin h-4 w-4 text-violet-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg>
-                  Generating personalized insights for this client profile…
+                  Generating full analysis for this client profile…
                 </div>
               )}
               {aiError && !aiLoading && (
-                <div className="text-xs text-red-500 py-2">{aiError}</div>
+                <div className="text-xs text-red-500 py-1">{aiError}</div>
               )}
               {aiInsights && !aiLoading && (
                 <div className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{aiInsights}</div>
               )}
-              {!aiInsights && !aiLoading && !aiError && (
-                <div className="text-xs text-slate-400 py-2 italic">Click Refresh to generate AI insights for this quote.</div>
+              {!aiInsights && !aiLoading && !aiError && !selectedRow && (
+                <div className="text-xs text-slate-400 py-2 italic">
+                  Click any carrier row above for a targeted insight, or click Full Analysis for an overview of all carriers.
+                </div>
               )}
             </div>
           </div>
