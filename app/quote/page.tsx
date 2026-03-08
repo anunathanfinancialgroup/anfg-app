@@ -52,14 +52,15 @@ type CarrierDef = {
 };
 
 // ─── Carrier database ──────────────────────────────────────────────────────────
-// Base rates derived from Corebridge market comparison data (March 24, 2025)
-// Base: Male, Age 40, Preferred Non-Tobacco, 30-Year, $1,000,000 face amount
+// Base rates sourced from independent market data (March 2025).
+// All carriers are treated equally — no carrier is designated as a baseline or featured.
+// Base parameters: Male, Age 40, Preferred Non-Tobacco, 30-Year, $1,000,000 face amount.
 const CARRIERS: CarrierDef[] = [
   {
     id: 'corebridge',
     carrier: 'Corebridge Financial',
     product: 'QoL Flex Term',
-    highlight: true,
+    highlight: false, // MODIFIED: removed featured/baseline designation
     basePer1000: 0.11541,
     abr: {
       chronic: '$1,000,000 – 30-day wait',
@@ -308,9 +309,7 @@ export default function QuoteToolPage() {
   const [selectedCarrierLoading, setSelectedCarrierLoading] = useState(false);
   const [selectedCarrierError, setSelectedCarrierError] = useState<string | null>(null);
 
-  // ADDED: Fetch AI insights from Anthropic API — called after quote is generated
-  // MODIFIED: prompt is provider-neutral — compares only the user-selected carriers,
-  //           no reference to Corebridge as a baseline or preferred carrier.
+  // Fetch AI insights — compares ONLY user-selected carriers, no Corebridge bias, produces best-quote recommendation
   const fetchAIInsights = useCallback(async () => {
     setAiLoading(true);
     setAiError(null);
@@ -327,36 +326,42 @@ export default function QuoteToolPage() {
 
       const carrierSummary = selectedList
         .map((c, i) =>
-          `${i + 1}. ${c.carrier} (${c.product}): $${c.monthly.toFixed(2)}/mo | Chronic ABR: ${c.abr.chronic} | Critical ABR: ${c.abr.critical} | Terminal ABR: ${c.abr.terminal}`
+          `${i + 1}. ${c.carrier} (${c.product})\n   Monthly: $${c.monthly.toFixed(2)} | Annual: $${(c.monthly * 12).toFixed(2)} | Total (${params.term_years} yrs): $${(c.monthly * 12 * params.term_years).toFixed(2)}\n   Chronic ABR: ${c.abr.chronic}\n   Critical ABR: ${c.abr.critical}\n   Terminal ABR: ${c.abr.terminal}`
         )
-        .join('\n');
+        .join('\n\n');
 
-      // MODIFIED: neutral prompt — no Corebridge preference, evaluate all selected equally
+      // MODIFIED: prompt instructs AI to evaluate all selected carriers equally and name the single best recommendation
       const prompt = `You are a licensed life insurance advisor assistant at AnNa Financial Group.
 
-A premium comparison has been generated for the following client profile:
+A premium comparison has been generated for the following client:
 - Name: ${params.first_name || 'Prospect'} ${params.last_name || ''}
-- Gender: ${params.gender}
-- Age: ${params.age}
-- Date of Birth: ${params.date_of_birth || 'Not provided'}
+- Gender: ${params.gender} | Age: ${params.age} | DOB: ${params.date_of_birth || 'Not provided'}
 - Health Class: ${params.health_class}
-- Face Amount: ${fmtFace(params.face_amount)}
-- Term Duration: ${params.term_years} years
+- Face Amount: ${fmtFace(params.face_amount)} | Term: ${params.term_years} years
 
-The following ${selectedList.length} carrier(s) were selected for comparison (sorted lowest to highest monthly premium):
+The following ${selectedList.length} carrier(s) have been selected for comparison (sorted lowest to highest monthly premium):
+
 ${carrierSummary}
 
-Evaluate ALL of the above carriers equally — do not favor or default to any specific carrier.
-Please provide:
-1. An objective analysis of the best-value carrier(s) among those listed, weighing both premium cost and living benefit (ABR) strength.
-2. Key industry insights relevant to this client's profile (age, health class, coverage amount, term length).
-3. 2-3 specific, actionable talking points the advisor should raise with the client based on this comparison.
-4. Any important rider or coverage considerations based on the carriers shown and the client's situation.
+Your task:
+Evaluate ALL carriers listed above on equal footing — do not favor any specific carrier over another.
+Based purely on the data above, provide a structured analysis with these four sections:
 
-Keep the response professional, concise (under 300 words), and structured with clear sections. Use plain text only — no markdown symbols like ** or ##.`;
+Best Quote Recommendation:
+Name the single best-value carrier from the list above and explain why in 2-3 sentences, weighing both monthly premium and living benefit (ABR) coverage. If multiple carriers are close in value, name the top 2 and explain the trade-off.
 
-      // FIXED: call server-side API route instead of Anthropic directly.
-      // Direct browser → api.anthropic.com calls are blocked (CORS + no API key).
+Premium Analysis:
+Identify the lowest-cost option and the highest-cost option. Quantify the annual savings of choosing the lowest over the highest. Note any carriers that offer exceptional ABR coverage at a competitive price point.
+
+Client Profile Insights:
+2-3 key insurance considerations specific to this client's age, health class, and coverage amount (${fmtFace(params.face_amount)} / ${params.term_years}-year term).
+
+Advisor Talking Points:
+2-3 specific, actionable questions or talking points the advisor should raise with the client during the presentation based on the carriers shown.
+
+Keep each section to 2-4 sentences. Use plain text only — no markdown symbols like **, ##, or bullet dashes.`;
+
+      // Server-side API route (browser cannot call Anthropic directly)
       const response = await fetch('/api/ai-insight', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -376,57 +381,58 @@ Keep the response professional, concise (under 300 words), and structured with c
     }
   }, [selectedCarriers, params]);
 
-  // ADDED: Fetch AI insight for a single selected carrier row
-  // MODIFIED: compares the clicked carrier against ALL other selected carriers — no Corebridge bias
+  // Fetch AI insight for a single selected carrier row — compares against ALL other selected carriers
   const fetchSelectedCarrierInsights = useCallback(async (carrierId: string) => {
     const carrier = CARRIERS.find((c) => c.id === carrierId);
     if (!carrier) return;
     const monthly = calcMonthlyPremium(carrier, params);
+    const annualPremium = monthly * 12;
+    const totalPremium = monthly * 12 * params.term_years;
     setSelectedCarrierLoading(true);
     setSelectedCarrierError(null);
     setSelectedCarrierInsight(null);
     try {
-      // Build context of all other selected carriers for comparison
+      // All other selected carriers with their premiums for comparison context
       const otherSelected = CARRIERS
         .filter((c) => selectedCarriers.has(c.id) && c.id !== carrierId)
         .map((c) => {
           const m = calcMonthlyPremium(c, params);
-          return `  - ${c.carrier} (${c.product}): $${m.toFixed(2)}/mo`;
+          return `  - ${c.carrier} (${c.product}): $${m.toFixed(2)}/mo | Annual: $${(m * 12).toFixed(2)} | Chronic: ${c.abr.chronic} | Critical: ${c.abr.critical} | Terminal: ${c.abr.terminal}`;
         })
         .join('\n');
 
-      // MODIFIED: neutral prompt — evaluate selected carrier vs. all other selected providers equally
+      // MODIFIED: richer prompt — uses annualized and total cost, ranks vs. other selected carriers, produces targeted recommendation
       const prompt = `You are a licensed life insurance advisor assistant at AnNa Financial Group.
 
 The advisor has selected the following carrier for a deeper analysis:
 
-Carrier: ${carrier.carrier}
-Product: ${carrier.product}
-Estimated Monthly Premium: $${monthly.toFixed(2)}
-Estimated Annual Premium: $${(monthly * 12).toFixed(2)}
+Carrier: ${carrier.carrier} | Product: ${carrier.product}
+Monthly Premium: $${monthly.toFixed(2)} | Annual: $${annualPremium.toFixed(2)} | Total (${params.term_years} yrs): $${totalPremium.toFixed(2)}
 Chronic Illness ABR: ${carrier.abr.chronic}
 Critical Illness ABR: ${carrier.abr.critical}
 Terminal Illness ABR: ${carrier.abr.terminal}
 
 Client Profile:
-- Name: ${params.first_name || 'Prospect'} ${params.last_name || ''}
-- Gender: ${params.gender}, Age: ${params.age}
-- Health Class: ${params.health_class}
-- Face Amount: ${fmtFace(params.face_amount)}
-- Term Duration: ${params.term_years} years
+Name: ${params.first_name || 'Prospect'} ${params.last_name || ''} | Gender: ${params.gender} | Age: ${params.age}
+Health Class: ${params.health_class} | Face Amount: ${fmtFace(params.face_amount)} | Term: ${params.term_years} years
 
-Other carriers currently selected for comparison:
+Other selected carriers for comparison:
 ${otherSelected || '  (No other carriers selected)'}
 
-Evaluate this carrier objectively against the others listed above — do not favor any specific provider.
-Please provide a focused 3-4 sentence analysis:
-1. Key strengths of this carrier/product for the client's profile compared to the other selected options.
-2. Any notable limitations or trade-offs relative to the other selected carriers.
-3. One specific conversation point the advisor should raise with the client about this option.
+Evaluate this carrier objectively — do not favor any specific provider. Provide a focused analysis in exactly three labeled sections:
 
-Be concise (under 150 words). Use plain text only — no markdown symbols.`;
+Strengths:
+2 sentences on what makes this carrier/product a strong option for this specific client profile, referencing the premium and ABR benefits.
 
-      // FIXED: call server-side API route instead of Anthropic directly.
+Considerations:
+1-2 sentences on any trade-offs, limitations, or reasons a client might choose a different carrier from the list above.
+
+Key Talking Point:
+One specific, precise question or statement the advisor should raise with the client about this carrier option.
+
+Use plain text only — no markdown symbols.`;
+
+      // Server-side API route
       const response = await fetch('/api/ai-insight', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -520,13 +526,12 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
   return (
     <div className="min-h-screen bg-slate-50 print:bg-white">
 
-      {/* ADDED: Print CSS — landscape, cell borders, blue header, page numbers in footer */}
+      {/* Print CSS — landscape, cell borders, blue header, page numbers in footer */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page {
             size: A4 landscape;
             margin: 10mm 8mm 16mm 8mm;
-            /* MODIFIED: page number in footer only — no header */
             @bottom-center {
               content: "Page " counter(page) " of " counter(pages);
               font-size: 8pt;
@@ -541,6 +546,11 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
           .print-table th, .print-table td { padding: 3px 5px !important; border: 1px solid #9ca3af !important; }
           /* Blue header row in print */
           .print-table thead tr th { background-color: #1E5AA8 !important; color: #ffffff !important; font-weight: 700 !important; }
+          /* MODIFIED: all body rows print with white background — no amber/blue/emerald row highlights in PDF */
+          .print-table tbody tr { background-color: #ffffff !important; box-shadow: none !important; outline: none !important; }
+          .print-table tbody td { background-color: #ffffff !important; }
+          /* MODIFIED: hide selected-row indicator elements in print */
+          .print-selected-badge { display: none !important; }
         }
       ` }} />
 
@@ -582,7 +592,46 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
         </div>
       </div>
 
-      {/* MODIFIED: Print header removed — PDF starts directly with the table. Page numbers are shown via @page CSS counter. */}
+      {/* MODIFIED: Print header — restored with business logo, title, client snapshot (visible only when printing) */}
+      <div className="hidden print:block print-page-wrap">
+        {/* Top bar */}
+        <div className="px-8 pt-5 pb-3 border-b-2 border-[#1E5AA8]">
+          <div className="flex items-center justify-between">
+            {/* Logo + company name */}
+            <div className="flex items-center gap-4">
+              <img
+                src="/anunathan-logo.png"
+                alt="AnNa Financial Group"
+                style={{ height: '48px', width: 'auto', objectFit: 'contain' }}
+              />
+              <div>
+                <div className="text-base font-bold text-[#1E5AA8]">AnNa Financial Group</div>
+                <div className="text-[10px] text-[#808000] font-semibold">Build your career. Protect their future</div>
+              </div>
+            </div>
+            {/* Report title + date */}
+            <div className="text-right">
+              <div className="text-base font-bold text-slate-800">Term Life Insurance</div>
+              <div className="text-sm font-semibold text-slate-700">Premium Comparison Report</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">
+                Generated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Client snapshot bar */}
+        <div className="px-8 py-2 bg-slate-50 border-b border-slate-200 flex flex-wrap gap-x-6 gap-y-0.5 text-[10px] text-slate-700">
+          {(params.first_name || params.last_name) && (
+            <span><b>Client:</b> {params.first_name} {params.last_name}</span>
+          )}
+          <span><b>Gender:</b> {params.gender}</span>
+          <span><b>Age:</b> {params.age}</span>
+          {params.date_of_birth && <span><b>DOB:</b> {params.date_of_birth}</span>}
+          <span><b>Health Class:</b> {params.health_class}</span>
+          <span><b>Face Amount:</b> {fmtFace(params.face_amount)}</span>
+          <span><b>Term Duration:</b> {params.term_years} Years</span>
+        </div>
+      </div>
 
       <div className="max-w-[1400px] mx-auto px-4 pb-10 space-y-5">
 
@@ -627,11 +676,7 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-semibold text-slate-800 truncate">{c.carrier}</span>
-                      {c.highlight && (
-                        <span className="flex-shrink-0 px-1 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700">
-                          ★ TOP
-                        </span>
-                      )}
+                      {/* MODIFIED: removed ★ TOP badge — no carrier is featured */}
                     </div>
                     <div className="text-[10px] text-slate-500 truncate">{c.product}</div>
                   </div>
@@ -848,20 +893,16 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
                     const isLowest = idx === 0;
                     const isSelected = selectedRow === r.id;
 
-                    // MODIFIED: row background — selected takes priority with amber highlight
+                    // MODIFIED: removed r.highlight (Corebridge featured) from rowBg — only selected/lowest matter
                     const rowBg = isSelected
                       ? 'bg-amber-100 hover:bg-amber-200 ring-2 ring-amber-400 ring-inset'
-                      : r.highlight
-                      ? 'bg-emerald-50 hover:bg-emerald-100'
                       : isLowest
                       ? 'bg-blue-50 hover:bg-blue-100'
                       : 'hover:bg-slate-50';
 
-                    // sticky cell bg mirrors row bg
+                    // MODIFIED: sticky cell bg — no highlight branch
                     const stickyBg = isSelected
                       ? 'bg-amber-100'
-                      : r.highlight
-                      ? 'bg-emerald-50'
                       : isLowest
                       ? 'bg-blue-50'
                       : 'bg-white';
@@ -887,15 +928,13 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
                             <div>
                               <div className="font-semibold text-slate-800 text-xs flex items-center gap-1.5">
                                 {r.carrier}
-                                {r.highlight && (
-                                  <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700">★ FEATURED</span>
-                                )}
-                                {isLowest && !r.highlight && (
+                                {/* MODIFIED: removed ★ FEATURED badge — no carrier is featured */}
+                                {isLowest && (
                                   <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700">LOWEST</span>
                                 )}
-                                {/* ADDED: selected badge */}
+                                {/* MODIFIED: print-selected-badge class hides this in PDF via print CSS */}
                                 {isSelected && (
-                                  <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-amber-200 text-amber-800">▶ SELECTED</span>
+                                  <span className="print-selected-badge px-1 py-0.5 rounded text-[9px] font-bold bg-amber-200 text-amber-800">▶ SELECTED</span>
                                 )}
                               </div>
                               <div className="text-[10px] text-slate-500">{r.product}</div>
