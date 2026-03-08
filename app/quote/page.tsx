@@ -309,22 +309,32 @@ export default function QuoteToolPage() {
   const [selectedCarrierError, setSelectedCarrierError] = useState<string | null>(null);
 
   // ADDED: Fetch AI insights from Anthropic API — called after quote is generated
+  // MODIFIED: prompt is provider-neutral — compares only the user-selected carriers,
+  //           no reference to Corebridge as a baseline or preferred carrier.
   const fetchAIInsights = useCallback(async () => {
     setAiLoading(true);
     setAiError(null);
     setAiInsights(null);
     try {
-      const carrierSummary = CARRIERS
+      // Build summary from ONLY the user-selected carriers — sorted lowest to highest premium
+      const selectedList = CARRIERS
         .filter((c) => selectedCarriers.has(c.id))
         .map((c) => {
           const monthly = calcMonthlyPremium(c, params);
-          return `${c.carrier} (${c.product}): $${monthly.toFixed(2)}/mo | Chronic ABR: ${c.abr.chronic} | Critical ABR: ${c.abr.critical} | Terminal ABR: ${c.abr.terminal}`;
+          return { carrier: c.carrier, product: c.product, monthly, abr: c.abr };
         })
+        .sort((a, b) => a.monthly - b.monthly);
+
+      const carrierSummary = selectedList
+        .map((c, i) =>
+          `${i + 1}. ${c.carrier} (${c.product}): $${c.monthly.toFixed(2)}/mo | Chronic ABR: ${c.abr.chronic} | Critical ABR: ${c.abr.critical} | Terminal ABR: ${c.abr.terminal}`
+        )
         .join('\n');
 
+      // MODIFIED: neutral prompt — no Corebridge preference, evaluate all selected equally
       const prompt = `You are a licensed life insurance advisor assistant at AnNa Financial Group.
 
-A quote has been generated for the following client profile:
+A premium comparison has been generated for the following client profile:
 - Name: ${params.first_name || 'Prospect'} ${params.last_name || ''}
 - Gender: ${params.gender}
 - Age: ${params.age}
@@ -333,14 +343,15 @@ A quote has been generated for the following client profile:
 - Face Amount: ${fmtFace(params.face_amount)}
 - Term Duration: ${params.term_years} years
 
-Quoted carrier premiums (sorted by monthly rate):
+The following ${selectedList.length} carrier(s) were selected for comparison (sorted lowest to highest monthly premium):
 ${carrierSummary}
 
+Evaluate ALL of the above carriers equally — do not favor or default to any specific carrier.
 Please provide:
-1. A brief analysis of the best value carrier(s) considering both premium and living benefits.
-2. Key industry insights for this client profile (age/health class/coverage amount).
-3. 2-3 actionable recommendations the advisor should discuss with the client.
-4. Any important rider considerations based on the client's profile.
+1. An objective analysis of the best-value carrier(s) among those listed, weighing both premium cost and living benefit (ABR) strength.
+2. Key industry insights relevant to this client's profile (age, health class, coverage amount, term length).
+3. 2-3 specific, actionable talking points the advisor should raise with the client based on this comparison.
+4. Any important rider or coverage considerations based on the carriers shown and the client's situation.
 
 Keep the response professional, concise (under 300 words), and structured with clear sections. Use plain text only — no markdown symbols like ** or ##.`;
 
@@ -366,6 +377,7 @@ Keep the response professional, concise (under 300 words), and structured with c
   }, [selectedCarriers, params]);
 
   // ADDED: Fetch AI insight for a single selected carrier row
+  // MODIFIED: compares the clicked carrier against ALL other selected carriers — no Corebridge bias
   const fetchSelectedCarrierInsights = useCallback(async (carrierId: string) => {
     const carrier = CARRIERS.find((c) => c.id === carrierId);
     if (!carrier) return;
@@ -374,9 +386,19 @@ Keep the response professional, concise (under 300 words), and structured with c
     setSelectedCarrierError(null);
     setSelectedCarrierInsight(null);
     try {
+      // Build context of all other selected carriers for comparison
+      const otherSelected = CARRIERS
+        .filter((c) => selectedCarriers.has(c.id) && c.id !== carrierId)
+        .map((c) => {
+          const m = calcMonthlyPremium(c, params);
+          return `  - ${c.carrier} (${c.product}): $${m.toFixed(2)}/mo`;
+        })
+        .join('\n');
+
+      // MODIFIED: neutral prompt — evaluate selected carrier vs. all other selected providers equally
       const prompt = `You are a licensed life insurance advisor assistant at AnNa Financial Group.
 
-The advisor has selected the following carrier for deeper analysis:
+The advisor has selected the following carrier for a deeper analysis:
 
 Carrier: ${carrier.carrier}
 Product: ${carrier.product}
@@ -393,10 +415,14 @@ Client Profile:
 - Face Amount: ${fmtFace(params.face_amount)}
 - Term Duration: ${params.term_years} years
 
-Please provide a focused 3-4 sentence analysis of this specific carrier/product for this client:
-1. Key strengths of this product for the client's profile.
-2. Any notable limitations or considerations.
-3. One specific conversation point the advisor should raise.
+Other carriers currently selected for comparison:
+${otherSelected || '  (No other carriers selected)'}
+
+Evaluate this carrier objectively against the others listed above — do not favor any specific provider.
+Please provide a focused 3-4 sentence analysis:
+1. Key strengths of this carrier/product for the client's profile compared to the other selected options.
+2. Any notable limitations or trade-offs relative to the other selected carriers.
+3. One specific conversation point the advisor should raise with the client about this option.
 
 Be concise (under 150 words). Use plain text only — no markdown symbols.`;
 
@@ -417,7 +443,7 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
     } finally {
       setSelectedCarrierLoading(false);
     }
-  }, [params]);
+  }, [params, selectedCarriers]);
 
   // ── Derived: active carriers sorted by premium ────────────────────────────
   const quoteResults = useMemo(() => {
@@ -494,10 +520,20 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
   return (
     <div className="min-h-screen bg-slate-50 print:bg-white">
 
-      {/* ADDED: Print CSS — suppress browser default header/footer, landscape, compact font */}
+      {/* ADDED: Print CSS — landscape, cell borders, blue header, page numbers in footer */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          @page { margin: 10mm 8mm; size: A4 landscape; }
+          @page {
+            size: A4 landscape;
+            margin: 10mm 8mm 16mm 8mm;
+            /* MODIFIED: page number in footer only — no header */
+            @bottom-center {
+              content: "Page " counter(page) " of " counter(pages);
+              font-size: 8pt;
+              color: #64748b;
+              font-family: sans-serif;
+            }
+          }
           body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .print-page-wrap { padding: 0; }
           /* Excel-style borders on every cell */
@@ -546,46 +582,7 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
         </div>
       </div>
 
-      {/* MODIFIED: Print header — logo + professional layout (only visible when printing) */}
-      <div className="hidden print:block print-page-wrap">
-        {/* Top bar */}
-        <div className="px-8 pt-6 pb-4 border-b-2 border-[#1E5AA8]">
-          <div className="flex items-center justify-between">
-            {/* Logo + company name */}
-            <div className="flex items-center gap-4">
-              <img
-                src="/anunathan-logo.png"
-                alt="AnNa Financial Group"
-                style={{ height: '56px', width: 'auto', objectFit: 'contain' }}
-              />
-              <div>
-                <div className="text-lg font-bold text-[#1E5AA8]">AnNa Financial Group</div>
-                <div className="text-xs text-[#808000] font-semibold">Build your career. Protect their future</div>
-              </div>
-            </div>
-            {/* Report title + date */}
-            <div className="text-right">
-              <div className="text-lg font-bold text-slate-800">Term Life Insurance</div>
-              <div className="text-base font-semibold text-slate-700">Premium Comparison Report</div>
-              <div className="text-xs text-slate-500 mt-0.5">
-                Generated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-              </div>
-            </div>
-          </div>
-        </div>
-        {/* Client snapshot bar */}
-        <div className="px-8 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap gap-x-8 gap-y-1 text-xs text-slate-700">
-          {(params.first_name || params.last_name) && (
-            <span><b>Client:</b> {params.first_name} {params.last_name}</span>
-          )}
-          <span><b>Gender:</b> {params.gender}</span>
-          <span><b>Age:</b> {params.age}</span>
-          {params.date_of_birth && <span><b>DOB:</b> {params.date_of_birth}</span>}
-          <span><b>Health Class:</b> {params.health_class}</span>
-          <span><b>Face Amount:</b> {fmtFace(params.face_amount)}</span>
-          <span><b>Term Duration:</b> {params.term_years} Years</span>
-        </div>
-      </div>
+      {/* MODIFIED: Print header removed — PDF starts directly with the table. Page numbers are shown via @page CSS counter. */}
 
       <div className="max-w-[1400px] mx-auto px-4 pb-10 space-y-5">
 
@@ -1114,29 +1111,8 @@ Be concise (under 150 words). Use plain text only — no markdown symbols.`;
                 </p>
               </div>
             </div>
-
-            {/* Print footer */}
-            <div className="mt-6 pt-3 border-t-2 border-[#1E5AA8] flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <img
-                  src="/anunathan-logo.png"
-                  alt="AnNa Financial Group"
-                  style={{ height: '32px', width: 'auto', objectFit: 'contain' }}
-                />
-                <div>
-                  <div className="text-xs font-bold text-[#1E5AA8]">AnNa Financial Group</div>
-                  <div className="text-[9px] text-[#808000]">Build your career. Protect their future</div>
-                </div>
-              </div>
-              <div className="text-right text-[9px] text-slate-400">
-                <div className="font-semibold text-slate-500">FOR FINANCIAL PROFESSIONAL USE ONLY · NOT FOR PUBLIC DISTRIBUTION</div>
-                <div className="mt-0.5">
-                  Generated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} ·
-                  Rates source: Corebridge Financial market comparison, March 24, 2025
-                </div>
-                <div className="mt-0.5">© {new Date().getFullYear()} AnNa Financial Group. All rights reserved.</div>
-              </div>
-            </div>
+            {/* MODIFIED: Print footer removed — page numbers are rendered by the @page @bottom-center CSS rule above.
+                No logo, company name, or Corebridge reference in the PDF footer. */}
           </div>
         )}
 
