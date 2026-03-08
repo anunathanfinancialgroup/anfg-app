@@ -8,7 +8,7 @@ const DESTINATIONS = [
   { value: 'prospect', label: 'Prospect List', path: '/prospect' },
   { value: 'new_fna', label: 'Financial Need Analysis', path: '/new_fna'},
   // ADDED: Quote Tool — Term Life Insurance Premium Comparison page
-  { value: 'quote_tool', label: 'Quote Tool', path: '/quote' },
+  { value: 'quote', label: 'Quote Tool', path: '/quote' },
  ];
 
 const AUTH_COOKIE = 'canfs_auth';
