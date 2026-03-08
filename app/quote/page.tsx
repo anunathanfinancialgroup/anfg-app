@@ -33,6 +33,8 @@ type QuoteParams = {
   health_class: HealthClass;
   face_amount: number;
   term_years: number;
+  // ADDED: state of issue — used in AI comparison for state-specific underwriting/availability context
+  state: string;
 };
 
 type ABRBenefit = {
@@ -237,6 +239,36 @@ const HEALTH_CLASSES: HealthClass[] = [
   'Tobacco',
 ];
 
+// ADDED: US state list for the State of Issue field
+const US_STATES: { abbr: string; name: string }[] = [
+  { abbr: 'AL', name: 'Alabama' }, { abbr: 'AK', name: 'Alaska' },
+  { abbr: 'AZ', name: 'Arizona' }, { abbr: 'AR', name: 'Arkansas' },
+  { abbr: 'CA', name: 'California' }, { abbr: 'CO', name: 'Colorado' },
+  { abbr: 'CT', name: 'Connecticut' }, { abbr: 'DE', name: 'Delaware' },
+  { abbr: 'FL', name: 'Florida' }, { abbr: 'GA', name: 'Georgia' },
+  { abbr: 'HI', name: 'Hawaii' }, { abbr: 'ID', name: 'Idaho' },
+  { abbr: 'IL', name: 'Illinois' }, { abbr: 'IN', name: 'Indiana' },
+  { abbr: 'IA', name: 'Iowa' }, { abbr: 'KS', name: 'Kansas' },
+  { abbr: 'KY', name: 'Kentucky' }, { abbr: 'LA', name: 'Louisiana' },
+  { abbr: 'ME', name: 'Maine' }, { abbr: 'MD', name: 'Maryland' },
+  { abbr: 'MA', name: 'Massachusetts' }, { abbr: 'MI', name: 'Michigan' },
+  { abbr: 'MN', name: 'Minnesota' }, { abbr: 'MS', name: 'Mississippi' },
+  { abbr: 'MO', name: 'Missouri' }, { abbr: 'MT', name: 'Montana' },
+  { abbr: 'NE', name: 'Nebraska' }, { abbr: 'NV', name: 'Nevada' },
+  { abbr: 'NH', name: 'New Hampshire' }, { abbr: 'NJ', name: 'New Jersey' },
+  { abbr: 'NM', name: 'New Mexico' }, { abbr: 'NY', name: 'New York' },
+  { abbr: 'NC', name: 'North Carolina' }, { abbr: 'ND', name: 'North Dakota' },
+  { abbr: 'OH', name: 'Ohio' }, { abbr: 'OK', name: 'Oklahoma' },
+  { abbr: 'OR', name: 'Oregon' }, { abbr: 'PA', name: 'Pennsylvania' },
+  { abbr: 'RI', name: 'Rhode Island' }, { abbr: 'SC', name: 'South Carolina' },
+  { abbr: 'SD', name: 'South Dakota' }, { abbr: 'TN', name: 'Tennessee' },
+  { abbr: 'TX', name: 'Texas' }, { abbr: 'UT', name: 'Utah' },
+  { abbr: 'VT', name: 'Vermont' }, { abbr: 'VA', name: 'Virginia' },
+  { abbr: 'WA', name: 'Washington' }, { abbr: 'WV', name: 'West Virginia' },
+  { abbr: 'WI', name: 'Wisconsin' }, { abbr: 'WY', name: 'Wyoming' },
+  { abbr: 'DC', name: 'District of Columbia' },
+];
+
 // ─── Default form values ───────────────────────────────────────────────────────
 const DEFAULT_PARAMS: QuoteParams = {
   first_name: '',
@@ -247,6 +279,7 @@ const DEFAULT_PARAMS: QuoteParams = {
   health_class: 'Preferred Non-Tobacco',
   face_amount: 1_000_000,
   term_years: 30,
+  state: '', // ADDED: state of issue — empty means not specified
 };
 
 // ─── Helper: compute age from DOB ─────────────────────────────────────────────
@@ -330,7 +363,11 @@ export default function QuoteToolPage() {
         )
         .join('\n\n');
 
-      // MODIFIED: prompt instructs AI to evaluate all selected carriers equally and name the single best recommendation
+      // MODIFIED: neutral prompt — includes state for state-specific underwriting/availability context
+      const stateLabel = params.state
+        ? `${params.state} (${US_STATES.find(s => s.abbr === params.state)?.name ?? params.state})`
+        : 'Not specified';
+
       const prompt = `You are a licensed life insurance advisor assistant at AnNa Financial Group.
 
 A premium comparison has been generated for the following client:
@@ -338,6 +375,7 @@ A premium comparison has been generated for the following client:
 - Gender: ${params.gender} | Age: ${params.age} | DOB: ${params.date_of_birth || 'Not provided'}
 - Health Class: ${params.health_class}
 - Face Amount: ${fmtFace(params.face_amount)} | Term: ${params.term_years} years
+- State of Issue: ${stateLabel}
 
 The following ${selectedList.length} carrier(s) have been selected for comparison (sorted lowest to highest monthly premium):
 
@@ -345,19 +383,20 @@ ${carrierSummary}
 
 Your task:
 Evaluate ALL carriers listed above on equal footing — do not favor any specific carrier over another.
+${params.state ? `The client is in ${stateLabel}. Factor in any known state-specific considerations: carrier availability, state approval status, regulatory differences (e.g. NY requires DFS-approved products), or riders that may be restricted or enhanced in this state.` : ''}
 Based purely on the data above, provide a structured analysis with these four sections:
 
 Best Quote Recommendation:
-Name the single best-value carrier from the list above and explain why in 2-3 sentences, weighing both monthly premium and living benefit (ABR) coverage. If multiple carriers are close in value, name the top 2 and explain the trade-off.
+Name the single best-value carrier from the list above and explain why in 2-3 sentences, weighing both monthly premium and living benefit (ABR) coverage${params.state ? ` and state-specific availability in ${params.state}` : ''}. If multiple carriers are close in value, name the top 2 and explain the trade-off.
 
 Premium Analysis:
 Identify the lowest-cost option and the highest-cost option. Quantify the annual savings of choosing the lowest over the highest. Note any carriers that offer exceptional ABR coverage at a competitive price point.
 
 Client Profile Insights:
-2-3 key insurance considerations specific to this client's age, health class, and coverage amount (${fmtFace(params.face_amount)} / ${params.term_years}-year term).
+2-3 key insurance considerations specific to this client's age, health class, coverage amount (${fmtFace(params.face_amount)} / ${params.term_years}-year term)${params.state ? `, and state of issue (${params.state})` : ''}.
 
 Advisor Talking Points:
-2-3 specific, actionable questions or talking points the advisor should raise with the client during the presentation based on the carriers shown.
+2-3 specific, actionable questions or talking points the advisor should raise with the client during the presentation based on the carriers shown${params.state ? ` and the client's state (${params.state})` : ''}.
 
 Keep each section to 2-4 sentences. Use plain text only — no markdown symbols like **, ##, or bullet dashes.`;
 
@@ -401,7 +440,11 @@ Keep each section to 2-4 sentences. Use plain text only — no markdown symbols 
         })
         .join('\n');
 
-      // MODIFIED: richer prompt — uses annualized and total cost, ranks vs. other selected carriers, produces targeted recommendation
+      // MODIFIED: richer prompt — includes state for state-specific carrier availability + regulatory context
+      const stateLabel = params.state
+        ? `${params.state} (${US_STATES.find(s => s.abbr === params.state)?.name ?? params.state})`
+        : 'Not specified';
+
       const prompt = `You are a licensed life insurance advisor assistant at AnNa Financial Group.
 
 The advisor has selected the following carrier for a deeper analysis:
@@ -415,17 +458,20 @@ Terminal Illness ABR: ${carrier.abr.terminal}
 Client Profile:
 Name: ${params.first_name || 'Prospect'} ${params.last_name || ''} | Gender: ${params.gender} | Age: ${params.age}
 Health Class: ${params.health_class} | Face Amount: ${fmtFace(params.face_amount)} | Term: ${params.term_years} years
+State of Issue: ${stateLabel}
 
 Other selected carriers for comparison:
 ${otherSelected || '  (No other carriers selected)'}
 
-Evaluate this carrier objectively — do not favor any specific provider. Provide a focused analysis in exactly three labeled sections:
+Evaluate this carrier objectively — do not favor any specific provider.
+${params.state ? `The client is in ${stateLabel}. Consider any known state-specific factors: carrier approval status, rider availability, or regulatory rules that may affect this product in ${params.state}.` : ''}
+Provide a focused analysis in exactly three labeled sections:
 
 Strengths:
-2 sentences on what makes this carrier/product a strong option for this specific client profile, referencing the premium and ABR benefits.
+2 sentences on what makes this carrier/product a strong option for this specific client profile, referencing the premium, ABR benefits${params.state ? `, and state suitability (${params.state})` : ''}.
 
 Considerations:
-1-2 sentences on any trade-offs, limitations, or reasons a client might choose a different carrier from the list above.
+1-2 sentences on any trade-offs, limitations, or reasons a client might choose a different carrier from the list above${params.state ? `, including any state-specific limitations in ${params.state}` : ''}.
 
 Key Talking Point:
 One specific, precise question or statement the advisor should raise with the client about this carrier option.
@@ -619,7 +665,7 @@ Use plain text only — no markdown symbols.`;
             </div>
           </div>
         </div>
-        {/* Client snapshot bar */}
+        {/* Client snapshot bar — MODIFIED: added State */}
         <div className="px-8 py-2 bg-slate-50 border-b border-slate-200 flex flex-wrap gap-x-6 gap-y-0.5 text-[10px] text-slate-700">
           {(params.first_name || params.last_name) && (
             <span><b>Client:</b> {params.first_name} {params.last_name}</span>
@@ -630,6 +676,7 @@ Use plain text only — no markdown symbols.`;
           <span><b>Health Class:</b> {params.health_class}</span>
           <span><b>Face Amount:</b> {fmtFace(params.face_amount)}</span>
           <span><b>Term Duration:</b> {params.term_years} Years</span>
+          {params.state && <span><b>State:</b> {params.state} — {US_STATES.find(s => s.abbr === params.state)?.name ?? ''}</span>}
         </div>
       </div>
 
@@ -692,8 +739,8 @@ Use plain text only — no markdown symbols.`;
           <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
             <h2 className="text-sm font-bold text-slate-800 mb-4">Quote Parameters</h2>
 
-            {/* Personal info */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            {/* Personal info — MODIFIED: added State field, grid extended to 5 cols */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">First Name</label>
                 <input
@@ -735,6 +782,20 @@ Use plain text only — no markdown symbols.`;
                   value={params.age}
                   onChange={(e) => setParams((p) => ({ ...p, age: parseInt(e.target.value) || 0 }))}
                 />
+              </div>
+              {/* ADDED: State of Issue dropdown */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">State</label>
+                <select
+                  className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 bg-white"
+                  value={params.state}
+                  onChange={(e) => setParams((p) => ({ ...p, state: e.target.value }))}
+                >
+                  <option value="">— Select State —</option>
+                  {US_STATES.map((s) => (
+                    <option key={s.abbr} value={s.abbr}>{s.abbr} — {s.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -789,12 +850,13 @@ Use plain text only — no markdown symbols.`;
               </div>
             </div>
 
-            {/* Summary pill */}
+            {/* Summary pill — MODIFIED: added State */}
             <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-slate-600 mb-4">
               <span>👤 <b>{params.gender}</b>, Age <b>{params.age}</b></span>
               <span>❤️ <b>{params.health_class}</b></span>
               <span>💰 Face Amount: <b>{fmtFace(params.face_amount)}</b></span>
               <span>📅 <b>{params.term_years}-Year</b> Term</span>
+              {params.state && <span>📍 State: <b>{params.state}</b></span>}
               {(params.first_name || params.last_name) && (
                 <span>🧾 Client: <b>{params.first_name} {params.last_name}</b></span>
               )}
@@ -854,6 +916,7 @@ Use plain text only — no markdown symbols.`;
                   </h2>
                   <p className="text-blue-100 text-xs mt-0.5">
                     {params.gender}, Age {params.age} · {params.health_class} · {fmtFace(params.face_amount)} Face Amount · {params.term_years}-Year Term
+                    {params.state && ` · ${params.state}`}
                     {(params.first_name || params.last_name) && ` · ${params.first_name} ${params.last_name}`}
                   </p>
                 </div>
