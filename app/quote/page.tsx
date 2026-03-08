@@ -344,23 +344,20 @@ Please provide:
 
 Keep the response professional, concise (under 300 words), and structured with clear sections. Use plain text only — no markdown symbols like ** or ##.`;
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      // FIXED: call server-side API route instead of Anthropic directly.
+      // Direct browser → api.anthropic.com calls are blocked (CORS + no API key).
+      const response = await fetch('/api/ai-insight', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }],
-        }),
+        body: JSON.stringify({ prompt, max_tokens: 1000 }),
       });
 
-      if (!response.ok) throw new Error(`API error ${response.status}`);
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error ?? `Server error ${response.status}`);
+      }
       const data = await response.json();
-      const text = data.content
-        ?.filter((b: any) => b.type === 'text')
-        .map((b: any) => b.text)
-        .join('') || '';
-      setAiInsights(text.trim());
+      setAiInsights((data.text ?? '').trim());
     } catch (err: any) {
       setAiError('AI insights unavailable. Please review the quote manually.');
     } finally {
@@ -403,22 +400,18 @@ Please provide a focused 3-4 sentence analysis of this specific carrier/product 
 
 Be concise (under 150 words). Use plain text only — no markdown symbols.`;
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      // FIXED: call server-side API route instead of Anthropic directly.
+      const response = await fetch('/api/ai-insight', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }],
-        }),
+        body: JSON.stringify({ prompt, max_tokens: 1000 }),
       });
-      if (!response.ok) throw new Error(`API error ${response.status}`);
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error ?? `Server error ${response.status}`);
+      }
       const data = await response.json();
-      const text = data.content
-        ?.filter((b: any) => b.type === 'text')
-        .map((b: any) => b.text)
-        .join('') || '';
-      setSelectedCarrierInsight(text.trim());
+      setSelectedCarrierInsight((data.text ?? '').trim());
     } catch {
       setSelectedCarrierError('Could not load carrier insight.');
     } finally {
