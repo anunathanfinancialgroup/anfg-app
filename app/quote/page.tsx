@@ -35,6 +35,8 @@ type QuoteParams = {
   term_years: number;
   // ADDED: state of issue — used in AI comparison for state-specific underwriting/availability context
   state: string;
+  // ADDED: Saved Age (Age Nearest Birthday) — when true, premium uses ANB instead of ALB
+  use_saved_age: boolean;
 };
 
 type ABRBenefit = {
@@ -186,19 +188,62 @@ const CARRIERS: CarrierDef[] = [
 // Multiplier tables calibrated to common actuarial patterns.
 
 /**
+ * Compute Age Nearest Birthday (ANB) — the basis for "Saved Age" policies.
+ * If the insured is within 6 months AFTER their last birthday → use ALB (age).
+ * If the insured is within 6 months BEFORE their next birthday → use ALB + 1.
+ * Requires DOB string (YYYY-MM-DD). Returns ALB unchanged if DOB is missing.
+ *
+ * Life insurance premium basis:
+ *   ALB (Age Last Birthday) — standard, uses exact integer age entered.
+ *   ANB (Age Nearest Birthday / Saved Age) — rounds to nearest birthday.
+ *   ANB can be LOWER than ALB (e.g. age 54 yr 4 mo → ANB = 54 = ALB;
+ *   age 54 yr 8 mo → ANB = 55 = ALB+1; but also age 55 yr 1 mo → ANB = 55 = ALB).
+ *   Using ANB early in the year (< 6 months after birthday) saves 1 year of premium.
+ */
+function savedAgeFromDob(dob: string, alb: number): number {
+  if (!dob) return alb; // no DOB → cannot compute ANB, return ALB unchanged
+  const today = new Date();
+  const birth = new Date(dob);
+  // Days since last birthday
+  const lastBday = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
+  if (lastBday > today) lastBday.setFullYear(today.getFullYear() - 1);
+  const daysSinceLastBday = Math.floor((today.getTime() - lastBday.getTime()) / 86_400_000);
+  // Days until next birthday
+  const nextBday = new Date(lastBday.getFullYear() + 1, birth.getMonth(), birth.getDate());
+  const daysUntilNextBday = Math.floor((nextBday.getTime() - today.getTime()) / 86_400_000);
+  // Round to nearest birthday: if closer to next → ANB = ALB + 1
+  return daysUntilNextBday < daysSinceLastBday ? alb + 1 : alb;
+}
+
+/**
+ * Saved Age from integer ALB only (no DOB available).
+ * Without a DOB we cannot determine which side of the half-year boundary the client is on.
+ * As a conservative estimate we assume the client is in the second half of their current year
+ * (i.e. ANB = ALB + 1). Advisors should confirm with actual DOB when possible.
+ */
+function savedAgeFromAlb(alb: number): number {
+  return alb + 1;
+}
+
+/** Resolve the effective rating age from params — ALB or ANB (Saved Age) */
+function effectiveAge(p: QuoteParams): number {
+  if (!p.use_saved_age) return p.age;
+  return p.date_of_birth
+    ? savedAgeFromDob(p.date_of_birth, p.age)
+    : savedAgeFromAlb(p.age);
+}
+
+/**
  * Age multiplier relative to base age 40.
- * PREMIUM BASIS: Age Last Birthday (ALB) — the exact integer age supplied by the advisor.
- * "Saved Age" (Age Nearest Birthday rounding) is intentionally NOT applied here.
- * Carriers may offer saved-age policies separately; this engine always uses ALB.
+ * Accepts the EFFECTIVE age (ALB or ANB) — see effectiveAge().
  */
 function ageMultiplier(age: number): number {
   // Exponential age loading calibrated to SOA VBT 2015 S&U table shape.
-  // Pure ALB: no rounding to nearest birthday.
   const base = 40;
   const diff = age - base;
   if (diff === 0) return 1.0;
-  if (diff > 0) return Math.pow(1.072, diff);  // ~7.2% per year older (ALB)
-  return Math.pow(0.940, Math.abs(diff));       // ~6.0% per year younger (ALB)
+  if (diff > 0) return Math.pow(1.072, diff);  // ~7.2% per year older
+  return Math.pow(0.940, Math.abs(diff));       // ~6.0% per year younger
 }
 
 /** Gender multiplier (Female historically ~20-25% lower than Male) */
@@ -225,10 +270,13 @@ function termMultiplier(years: number): number {
   return table[years] ?? 1.0;
 }
 
-/** Calculate monthly premium for a carrier given quote params */
+/** Calculate monthly premium for a carrier given quote params.
+ * Uses effectiveAge(p) which returns ALB or ANB (Saved Age) based on p.use_saved_age.
+ */
 function calcMonthlyPremium(carrier: CarrierDef, p: QuoteParams): number {
+  const ratingAge = effectiveAge(p); // ALB or ANB depending on use_saved_age flag
   const perThousand = carrier.basePer1000
-    * ageMultiplier(p.age)
+    * ageMultiplier(ratingAge)
     * genderMultiplier(p.gender)
     * healthMultiplier(p.health_class)
     * termMultiplier(p.term_years);
@@ -299,6 +347,7 @@ const DEFAULT_PARAMS: QuoteParams = {
   face_amount: 1_000_000,
   term_years: 30,
   state: 'TX', // MODIFIED: default state set to Texas
+  use_saved_age: false, // ADDED: Saved Age off by default — advisor toggles per client
 };
 
 // ─── Helper: compute age from DOB ─────────────────────────────────────────────
@@ -443,7 +492,7 @@ export default function QuoteToolPage() {
 
 A premium comparison has been generated for the following client:
 - Name: ${params.first_name || 'Prospect'} ${params.last_name || ''}
-- Gender: ${params.gender} | Age: ${params.age} (ALB) | DOB: ${params.date_of_birth || 'Not provided'}
+- Gender: ${params.gender} | Age: ${params.age} (ALB)${params.use_saved_age ? ` → Saved Age (ANB): ${effectiveAge(params)}` : ''} | DOB: ${params.date_of_birth || 'Not provided'}${params.use_saved_age ? ' | Basis: Saved Age (ANB — Age Nearest Birthday)' : ' | Basis: ALB (Age Last Birthday)'}
 - Health Class: ${params.health_class}
 - Face Amount: ${fmtFace(params.face_amount)} | Term: ${params.term_years} years
 - State of Issue: ${stateLabel}
@@ -527,7 +576,7 @@ Critical Illness ABR: ${carrier.abr.critical}
 Terminal Illness ABR: ${carrier.abr.terminal}
 
 Client Profile:
-Name: ${params.first_name || 'Prospect'} ${params.last_name || ''} | Gender: ${params.gender} | Age: ${params.age}
+Name: ${params.first_name || 'Prospect'} ${params.last_name || ''} | Gender: ${params.gender} | Age (ALB): ${params.age}${params.use_saved_age ? ` | Saved Age (ANB): ${effectiveAge(params)} (rating basis)` : ' | Basis: ALB'}
 Health Class: ${params.health_class} | Face Amount: ${fmtFace(params.face_amount)} | Term: ${params.term_years} years
 State of Issue: ${stateLabel}
 
@@ -640,7 +689,7 @@ Your task: return ONLY a valid JSON object — no prose, no explanation, no mark
 
 CLIENT PROFILE (Age Last Birthday — no saved-age adjustment):
   Gender: ${params.gender}
-  Age (ALB): ${params.age}
+  Age (ALB): ${params.age}${params.use_saved_age ? ` | Saved Age (ANB): ${effectiveAge(params)} ← USE THIS for premium calculation` : ''}
   Health Class: ${params.health_class}
   State of Issue: ${stateLabel}
   Face Amount: $${params.face_amount.toLocaleString()} (${fmtFace(params.face_amount)})
@@ -658,7 +707,7 @@ COMPARISON RULES:
 - Corebridge Financial: quote standalone based on published QoL Flex Term rates only.
 - All other carriers: compare as a peer group using published ${params.term_years}-year level term rates.
 - ABR scores are provided for carrier-ranking context; factor them into value assessment.
-- Use Age Last Birthday (ALB = ${params.age}) — do NOT apply nearest-birthday rounding.
+${params.use_saved_age ? `- SAVED AGE: Use Age Nearest Birthday (ANB = ${effectiveAge(params)}) as the rating age.` : `- Use Age Last Birthday (ALB = ${params.age}) — do NOT apply nearest-birthday rounding.`}
 
 OUTPUT: Return ONLY this JSON structure, with one key per carrier ID (${carrierIds}).
 Each value must be an object with "guaranteed_annual" (number) and "abr_rank" (number 1=best).
@@ -978,7 +1027,7 @@ CRITICAL: Output raw JSON only. First character must be '{'. Last character must
             <span><b>Client:</b> {params.first_name} {params.last_name}</span>
           )}
           <span><b>Gender:</b> {params.gender}</span>
-          <span><b>Age:</b> {params.age}</span>
+          <span><b>Age:</b> {params.age} (ALB){params.use_saved_age && <span className="text-blue-700 font-bold ml-1">Saved Age ANB: {effectiveAge(params)}</span>}</span>
           {params.date_of_birth && <span><b>DOB:</b> {params.date_of_birth}</span>}
           <span><b>Health Class:</b> {params.health_class}</span>
           <span><b>Face Amount:</b> {fmtFace(params.face_amount)}</span>
@@ -1095,6 +1144,22 @@ CRITICAL: Output raw JSON only. First character must be '{'. Last character must
                   }}
                 />
                 {formErrors.age && <p className="text-[10px] text-red-500 mt-0.5">{formErrors.age}</p>}
+                {/* ADDED: Saved Age checkbox — shows ANB when DOB is entered, else ALB+1 estimate */}
+                <label className="flex items-center gap-1.5 mt-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="accent-blue-600 w-3.5 h-3.5"
+                    checked={params.use_saved_age}
+                    onChange={(e) => setParams((p) => ({ ...p, use_saved_age: e.target.checked }))}
+                  />
+                  <span className="text-[10px] font-semibold text-slate-600">Saved Age</span>
+                  {params.use_saved_age && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                      ANB: {effectiveAge(params)}
+                      {!params.date_of_birth && <span className="text-orange-500 ml-1">(est.)</span>}
+                    </span>
+                  )}
+                </label>
               </div>
               {/* MODIFIED: State — mandatory field, shows required * and red border+error when not selected */}
               <div>
@@ -1192,7 +1257,7 @@ CRITICAL: Output raw JSON only. First character must be '{'. Last character must
 
             {/* Summary pill — MODIFIED: added State */}
             <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-slate-600 mb-4">
-              <span>👤 <b>{params.gender}</b>, Age <b>{params.age}</b></span>
+              <span>👤 <b>{params.gender}</b>, Age <b>{params.age}</b>{params.use_saved_age && <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">Saved Age ANB {effectiveAge(params)}</span>}</span>
               <span>❤️ <b>{params.health_class}</b></span>
               <span>💰 Face Amount: <b>{fmtFace(params.face_amount)}</b></span>
               <span>📅 <b>{params.term_years}-Year</b> Term</span>
@@ -1263,7 +1328,7 @@ CRITICAL: Output raw JSON only. First character must be '{'. Last character must
                     Premium Comparison — {quoteResults.length} Carrier{quoteResults.length !== 1 ? 's' : ''}
                   </h2>
                   <p className="text-blue-100 text-xs mt-0.5">
-                    {params.gender}, Age {params.age} · {params.health_class} · {fmtFace(params.face_amount)} Face Amount · {params.term_years}-Year Term
+                    {params.gender}, Age {params.age}{params.use_saved_age ? ` (Saved Age: ANB ${effectiveAge(params)})` : ' (ALB)'} · {params.health_class} · {fmtFace(params.face_amount)} Face Amount · {params.term_years}-Year Term
                     {params.state && ` · ${params.state}`}
                     {(params.first_name || params.last_name) && ` · ${params.first_name} ${params.last_name}`}
                   </p>
@@ -1445,6 +1510,9 @@ CRITICAL: Output raw JSON only. First character must be '{'. Last character must
                     <td colSpan={showABR ? 9 : 6} className="px-4 py-2.5 border border-slate-300 print:hidden">
                       <div className="flex flex-wrap gap-x-6 gap-y-1">
                         <span>Rates shown are <b>AI-computed Guaranteed Annual premiums</b> for illustrative purposes only.</span>
+                        {params.use_saved_age && (
+                          <span className="text-blue-700 font-semibold">Saved Age (ANB {effectiveAge(params)}) applied — premiums based on Age Nearest Birthday.</span>
+                        )}
                         <span>Actual premiums are subject to full underwriting and carrier approval.</span>
                         <span>ABR = Accelerated Death Benefit Rider (not a replacement for Long Term Care Insurance).</span>
                         {aiPremiumsError && <span className="text-orange-600">⚠ {aiPremiumsError}</span>}
