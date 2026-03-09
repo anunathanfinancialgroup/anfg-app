@@ -292,7 +292,7 @@ const DEFAULT_PARAMS: QuoteParams = {
   health_class: 'Preferred Non-Tobacco',
   face_amount: 1_000_000,
   term_years: 30,
-  state: '', // ADDED: state of issue — empty means not specified
+  state: 'TX', // MODIFIED: default state set to Texas
 };
 
 // ─── Helper: compute age from DOB ─────────────────────────────────────────────
@@ -337,10 +337,9 @@ export default function QuoteToolPage() {
   // ── State ──────────────────────────────────────────────────────────────────
   const [params, setParams] = useState<QuoteParams>({ ...DEFAULT_PARAMS });
 
-  // MODIFIED: initial selection excludes Corebridge — Corebridge is no longer a default provider.
-  // Users can still check Corebridge manually from the carrier list at any time.
+  // MODIFIED: all carriers selected by default — Corebridge included like every other provider
   const [selectedCarriers, setSelectedCarriers] = useState<Set<string>>(
-    new Set(CARRIERS.filter((c) => c.id !== 'corebridge').map((c) => c.id))
+    new Set(CARRIERS.map((c) => c.id))
   );
   const [quoteGenerated, setQuoteGenerated] = useState(false);
   const [showABR, setShowABR] = useState(true);
@@ -684,12 +683,8 @@ Return format (JSON object only, keys must be the carrier IDs listed: ${carrierI
   };
 
   const selectAllCarriers = () => setSelectedCarriers(new Set(CARRIERS.map((c) => c.id)));
-  // MODIFIED: clearAllCarriers no longer defaults to Corebridge (CARRIERS[0]).
-  // Falls back to the first non-Corebridge carrier (Lincoln) to keep minimum-1 invariant.
-  const clearAllCarriers = () => {
-    const firstNonCorebridge = CARRIERS.find((c) => c.id !== 'corebridge');
-    setSelectedCarriers(new Set([firstNonCorebridge ? firstNonCorebridge.id : CARRIERS[0].id]));
-  };
+  // MODIFIED: clearAllCarriers keeps minimum 1 carrier — defaults to first in list (Corebridge)
+  const clearAllCarriers = () => setSelectedCarriers(new Set([CARRIERS[0].id]));
 
   const handleDobChange = (dob: string) => {
     const age = ageFromDob(dob);
@@ -1188,11 +1183,6 @@ Return format (JSON object only, keys must be the carrier IDs listed: ${carrierI
                       Guaranteed Annual
                       {aiPremiumsLoading && <span className="ml-1 text-[9px] font-normal opacity-70">⏳</span>}
                     </th>
-                    {/* ADDED: Non-Guaranteed Annual (post-level ART rate year N+1, AI-computed) */}
-                    <th className="px-4 py-3 text-right whitespace-nowrap border border-blue-700 min-w-[130px]">
-                      Non-Gtd Annual
-                      <div className="text-[8px] font-normal opacity-80">(Yr {params.term_years + 1} ART Est.)</div>
-                    </th>
                     {/* all columns shown in print/PDF */}
                     <th className="px-4 py-3 text-right whitespace-nowrap border border-blue-700">Total ({params.term_years} yrs)</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap border border-blue-700">vs. Lowest</th>
@@ -1208,7 +1198,6 @@ Return format (JSON object only, keys must be the carrier IDs listed: ${carrierI
                     // ADDED: resolve AI-computed premiums for this carrier (or fall back to local engine)
                     const aiData = aiPremiums?.[r.id];
                     const guaranteedAnnual = aiData?.guaranteed_annual ?? (r.monthly * 12);
-                    const nonGuaranteedAnnual = aiData?.non_guaranteed_annual ?? null;
                     const guaranteedMonthly = guaranteedAnnual / 12;
 
                     // vs. Lowest uses guaranteed annual when AI data is available
@@ -1297,30 +1286,6 @@ Return format (JSON object only, keys must be the carrier IDs listed: ${carrierI
                           )}
                         </td>
 
-                        {/* ADDED: Non-Guaranteed Annual — post-level ART rate (year N+1, AI-computed) */}
-                        <td className="px-4 py-3 text-right whitespace-nowrap border border-slate-300">
-                          {aiPremiumsLoading ? (
-                            <span className="inline-flex items-center gap-1 text-slate-400 text-xs">
-                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                              </svg>
-                              loading
-                            </span>
-                          ) : nonGuaranteedAnnual !== null ? (
-                            <div className="text-right">
-                              <span className="font-semibold text-orange-700">{fmt(nonGuaranteedAnnual)}</span>
-                              {aiData && (
-                                <div className="text-[9px] text-orange-500 leading-tight">
-                                  +{(((nonGuaranteedAnnual - guaranteedAnnual) / guaranteedAnnual) * 100).toFixed(0)}% vs gtd
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-slate-400 text-xs italic">N/A</span>
-                          )}
-                        </td>
-
                         {/* Total — uses guaranteed annual × term years */}
                         <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap border border-slate-300">
                           {aiPremiumsLoading
@@ -1367,20 +1332,19 @@ Return format (JSON object only, keys must be the carrier IDs listed: ${carrierI
                   })}
                 </tbody>
 
-                {/* Summary footer — MODIFIED: colSpan updated (+1 for Non-Gtd Annual column) */}
+                {/* Summary footer */}
                 <tfoot>
                   <tr className="bg-slate-50 text-xs text-slate-500">
-                    <td colSpan={showABR ? 10 : 7} className="px-4 py-2.5 border border-slate-300 print:hidden">
+                    <td colSpan={showABR ? 9 : 6} className="px-4 py-2.5 border border-slate-300 print:hidden">
                       <div className="flex flex-wrap gap-x-6 gap-y-1">
-                        <span>Rates shown are <b>estimated monthly premiums</b> for illustrative purposes only.</span>
+                        <span>Rates shown are <b>AI-computed Guaranteed Annual premiums</b> for illustrative purposes only.</span>
                         <span>Actual premiums are subject to full underwriting and carrier approval.</span>
-                        <span>Non-Gtd Annual = estimated post-level ART rate for year {params.term_years + 1} (not contractually guaranteed).</span>
                         <span>ABR = Accelerated Death Benefit Rider (not a replacement for Long Term Care Insurance).</span>
                         {aiPremiumsError && <span className="text-orange-600">⚠ {aiPremiumsError}</span>}
                       </div>
                     </td>
-                    <td colSpan={showABR ? 10 : 7} className="hidden print:table-cell px-2 py-1.5 border border-slate-300 text-[8px] text-slate-500 italic">
-                      Guaranteed Annual = contractual level-term annual premium. Non-Gtd Annual = estimated Year {params.term_years + 1} ART renewal rate (not guaranteed). Actual rates subject to underwriting. ABR availability varies by carrier and state.
+                    <td colSpan={showABR ? 9 : 6} className="hidden print:table-cell px-2 py-1.5 border border-slate-300 text-[8px] text-slate-500 italic">
+                      Guaranteed Annual = contractual level-term annual premium. Actual rates subject to full underwriting. ABR availability varies by carrier and state.
                     </td>
                   </tr>
                 </tfoot>
