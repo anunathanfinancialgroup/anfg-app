@@ -426,24 +426,18 @@ export default function QuoteToolPage() {
 
       const selectedList = [...peerSelected, ...(corebridgeDef ? [{ ...corebridgeDef, monthly: cbMonthly }] : [])];
 
-      const peerSummary = peerSelected
-        .map((c, i) => {
-          const pts = abrScore(c.abr);
-          return `${i + 1}. ${c.carrier} (${c.product}) [PEER GROUP]
-   Monthly: $${c.monthly.toFixed(2)} | Annual: $${(c.monthly * 12).toFixed(2)} | Total (${params.term_years} yrs): $${(c.monthly * 12 * params.term_years).toFixed(2)}
-   ABR Score: ${pts}/5 | Chronic: ${c.abr.chronic} | Critical: ${c.abr.critical} | Terminal: ${c.abr.terminal}`;
-        })
-        .join('
-
-');
-
-      const cbSummary = corebridgeDef ? `
-
-${peerSelected.length + 1}. ${corebridgeDef.carrier} (${corebridgeDef.product}) [STANDALONE — do not rank against peer group]
-   Monthly: $${cbMonthly.toFixed(2)} | Annual: $${(cbMonthly * 12).toFixed(2)} | Total (${params.term_years} yrs): $${(cbMonthly * 12 * params.term_years).toFixed(2)}
-   ABR Score: ${abrScore(corebridgeDef.abr)}/5 | Chronic: ${corebridgeDef.abr.chronic} | Critical: ${corebridgeDef.abr.critical} | Terminal: ${corebridgeDef.abr.terminal}` : '';
-
-      const carrierSummary = peerSummary + cbSummary;
+      // MODIFIED: peer-only carrier summary — Corebridge excluded from comparison.
+      // Uses AI guaranteed_annual when already loaded, otherwise actuarial estimate.
+      // Generates rank based on fetched premium value (lowest guaranteed_annual = rank 1).
+      const peerSummaryLines = peerSelected.map((c, i) => {
+        const pts = abrScore(c.abr);
+        return [
+          `${i + 1}. ${c.carrier} (${c.product})`,
+          `   Monthly: $${c.monthly.toFixed(2)} | Annual: $${(c.monthly * 12).toFixed(2)} | Total (${params.term_years} yrs): $${(c.monthly * 12 * params.term_years).toFixed(2)}`,
+          `   ABR Score: ${pts}/5 | Chronic: ${c.abr.chronic} | Critical: ${c.abr.critical} | Terminal: ${c.abr.terminal}`,
+        ].join('\n');
+      });
+      const peerSummary = peerSummaryLines.join('\n\n');
 
       const prompt = `You are a licensed life insurance advisor assistant at AnNa Financial Group.
 
@@ -454,20 +448,20 @@ A premium comparison has been generated for the following client:
 - Face Amount: ${fmtFace(params.face_amount)} | Term: ${params.term_years} years
 - State of Issue: ${stateLabel}
 
-${selectedList.length} carrier(s) selected — peer group ranked by premium; Corebridge shown standalone:
+${peerSelected.length} carrier(s) selected for comparison (ranked lowest to highest by guaranteed annual premium):
 
-${carrierSummary}
+${peerSummary}
 
 Your task:
-Evaluate PEER GROUP carriers on equal footing — do not favor any specific carrier. Corebridge Financial is shown for reference and must be evaluated separately, not ranked against the peer group.
+Evaluate ALL carriers listed above on equal footing — do not favor any specific carrier over another.
 ${params.state ? `The client is in ${stateLabel}. Factor in any known state-specific considerations: carrier availability, state approval status, regulatory differences (e.g. NY requires DFS-approved products), or riders that may be restricted or enhanced in this state.` : ''}
 Based purely on the data above, provide a structured analysis with these four sections:
 
 Best Quote Recommendation:
-Name the single best-value carrier from the PEER GROUP and explain why in 2-3 sentences, weighing both premium and ABR score${params.state ? ` and state-specific availability in ${params.state}` : ''}. If multiple carriers are close in value, name the top 2 and explain the trade-off.
+Name the single best-value carrier from the list above and explain why in 2-3 sentences, weighing both monthly premium and ABR score${params.state ? ` and state-specific availability in ${params.state}` : ''}. If multiple carriers are close in value, name the top 2 and explain the trade-off.
 
 Premium Analysis:
-Identify the lowest-cost and highest-cost options in the peer group. Quantify the annual savings of choosing the lowest over the highest. Note any carriers that offer exceptional ABR coverage at a competitive price point.
+Identify the lowest-cost and highest-cost options. Quantify the annual savings of choosing the lowest over the highest. Note any carriers that offer exceptional ABR coverage at a competitive price point.
 
 Client Profile Insights:
 2-3 key insurance considerations specific to this client's age, health class, coverage amount (${fmtFace(params.face_amount)} / ${params.term_years}-year term)${params.state ? `, and state of issue (${params.state})` : ''}.
@@ -634,11 +628,9 @@ Use plain text only — no markdown symbols.`;
           `    "abr_score": ${abrPts},`,
           `    "abr_chronic": "${c.abr.chronic}",`,
           `    "abr_critical": "${c.abr.critical}",`,
-          `    "abr_terminal": "${c.abr.terminal}"${isCorebridge ? ',
-    "comparison_rule": "standalone only — do not rank against peer carriers"' : ''}`,
+          `    "abr_terminal": "${c.abr.terminal}"` + (isCorebridge ? ',\n    "comparison_rule": "standalone only — do not rank against peer carriers"' : ''),
           `  }`,
-        ].join('
-');
+        ].join('\n');
       });
 
       const carrierIds = allSelectedForPrompt.map((c) => `"${c.id}"`).join(', ');
@@ -660,8 +652,7 @@ CALIBRATION ANCHOR — verified Corebridge Winflex Web quote (March 2026):
   Use this to calibrate your Corebridge estimate proportionally for age ${params.age} vs 55.
 
 CARRIERS (${allSelectedForPrompt.length} selected — actuarial estimates provided for sanity-checking):
-${carrierListLines.join(',
-')}
+${carrierListLines.join(',\n')}
 
 COMPARISON RULES:
 - Corebridge Financial: quote standalone based on published QoL Flex Term rates only.
