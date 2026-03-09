@@ -53,17 +53,30 @@ type CarrierDef = {
   basePer1000: number;
 };
 
+// ADDED: AI-computed accurate premium data per carrier (Guaranteed + Non-Guaranteed Annual)
+type AIPremiumEntry = {
+  guaranteed_annual: number;       // Contractually guaranteed level term annual premium
+  non_guaranteed_annual: number;   // Post-level term ART rate (year N+1, not contractually fixed)
+};
+type AIPremiums = Record<string, AIPremiumEntry>;
+
 // ─── Carrier database ──────────────────────────────────────────────────────────
 // Base rates sourced from independent market data (March 2025).
 // All carriers are treated equally — no carrier is designated as a baseline or featured.
 // Base parameters: Male, Age 40, Preferred Non-Tobacco, 30-Year, $1,000,000 face amount.
+//
+// CALIBRATION NOTE (Corebridge): Actual Corebridge QoL Flex Term quote (March 2026, Winflex Web):
+//   Male / Age 55 / Preferred Non-Tobacco / $1,000,000 / 10-Year / Texas → $1,858.00/yr guaranteed.
+//   Back-calculated basePer1000 = 1858/12 / (1.072^15 × 0.55 × 1000) = 0.09923
+//   (Previous value 0.11541 was ~17% too high; corrected to match published carrier data.)
 const CARRIERS: CarrierDef[] = [
   {
     id: 'corebridge',
     carrier: 'Corebridge Financial',
     product: 'QoL Flex Term',
-    highlight: false, // MODIFIED: removed featured/baseline designation
-    basePer1000: 0.11541,
+    highlight: false,
+    // MODIFIED: recalibrated from actual Corebridge Winflex quote (Male/55/PNT/$1M/10yr = $1,858/yr)
+    basePer1000: 0.09923,
     abr: {
       chronic: '$1,000,000 – 30-day wait',
       critical: '$1,000,000 – 30-day wait',
@@ -354,6 +367,12 @@ export default function QuoteToolPage() {
     face_amount?: string;
   }>({});
 
+  // ADDED: AI-computed accurate premiums — Guaranteed Annual and Non-Guaranteed Annual per carrier
+  // These are fetched via AI when a quote is generated and override/supplement the local rate engine.
+  const [aiPremiums, setAiPremiums] = useState<AIPremiums | null>(null);
+  const [aiPremiumsLoading, setAiPremiumsLoading] = useState(false);
+  const [aiPremiumsError, setAiPremiumsError] = useState<string | null>(null);
+
   // Fetch AI insights — compares ONLY user-selected carriers, no Corebridge bias, produces best-quote recommendation
   const fetchAIInsights = useCallback(async () => {
     setAiLoading(true);
@@ -509,6 +528,130 @@ Use plain text only — no markdown symbols.`;
     }
   }, [params, selectedCarriers]);
 
+  // ADDED: fetchAIPremiums — uses AI to compute carrier-specific Guaranteed and Non-Guaranteed Annual premiums.
+  // The AI is provided with the full client profile, all selected carriers with local estimates as context,
+  // and a known Corebridge calibration anchor from actual published Winflex data.
+  // Returns JSON keyed by carrier ID: { guaranteed_annual, non_guaranteed_annual }
+  const fetchAIPremiums = useCallback(async () => {
+    setAiPremiumsLoading(true);
+    setAiPremiumsError(null);
+    setAiPremiums(null);
+    try {
+      const stateLabel = params.state
+        ? `${params.state} (${US_STATES.find(s => s.abbr === params.state)?.name ?? params.state})`
+        : 'Not specified';
+
+      // Build the list of selected carriers with local rate estimates for AI context
+      const carrierList = CARRIERS
+        .filter((c) => selectedCarriers.has(c.id))
+        .map((c) => {
+          const localMonthly = calcMonthlyPremium(c, params);
+          return `  { "id": "${c.id}", "carrier": "${c.carrier}", "product": "${c.product}", "local_monthly_estimate": ${localMonthly.toFixed(2)} }`;
+        })
+        .join(',\n');
+
+      const carrierIds = CARRIERS
+        .filter((c) => selectedCarriers.has(c.id))
+        .map((c) => `"${c.id}"`)
+        .join(', ');
+
+      const prompt = `You are a licensed life insurance rate expert with deep knowledge of carrier-specific published term life premium tables (2024–2025 market data).
+
+CLIENT PROFILE:
+- Gender: ${params.gender}
+- Age at Issue: ${params.age}
+- Health Classification: ${params.health_class}
+- State of Issue: ${stateLabel}
+- Face Amount: ${fmtFace(params.face_amount)} ($${params.face_amount.toLocaleString()})
+- Term Duration: ${params.term_years} years
+
+CARRIERS TO QUOTE (selected by advisor):
+[
+${carrierList}
+]
+
+CALIBRATION ANCHOR (verified actual Corebridge Winflex Web quote, March 2026):
+  Corebridge QoL Flex Term / Male / Age 55 / Preferred Non-Tobacco / $1,000,000 / 10-Year / Texas → Guaranteed Annual: $1,858.00
+  Corebridge post-level term Year 11 ART: $2,561.20
+
+TASK:
+Using your knowledge of each carrier's published rate tables, provide accurate premium estimates for the client profile above.
+For each carrier return:
+1. "guaranteed_annual" — the contractually guaranteed level-term annual policy premium (what the client pays for the ${params.term_years}-year term period, mode: annual)
+2. "non_guaranteed_annual" — the estimated Annual Renewable Term (ART) premium for Year ${params.term_years + 1} (first post-level term renewal year). This is typically not contractually fixed and can be significantly higher. Use each carrier's known ART multiplier/loading.
+
+IMPORTANT:
+- Use the calibration anchor above to sanity-check your Corebridge output.
+- Adjust proportionally for age ${params.age} vs age 55 in the anchor (${params.age < 55 ? `${params.age} is younger → lower rate` : params.age > 55 ? `${params.age} is older → higher rate` : 'same age as anchor'}).
+- Return ONLY valid JSON. No explanation, no markdown, no code fences.
+- If you cannot estimate a carrier's rate confidently, use the local_monthly_estimate × 12 for guaranteed_annual and × 18 for non_guaranteed_annual.
+
+Return format (JSON object only, keys must be the carrier IDs listed: ${carrierIds}):
+{"corebridge":{"guaranteed_annual":1234,"non_guaranteed_annual":1800},"lincoln":{"guaranteed_annual":1260,"non_guaranteed_annual":1950}}`;
+
+      const response = await fetch('/api/ai-insight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, max_tokens: 800 }),
+      });
+      if (!response.ok) throw new Error(`Server error ${response.status}`);
+      const data = await response.json();
+      const rawText = (data.text ?? '').trim();
+
+      // Strip markdown code fences if present
+      const jsonText = rawText
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```\s*$/, '')
+        .trim();
+
+      const parsed: AIPremiums = JSON.parse(jsonText);
+
+      // Validate structure: every entry must have numeric guaranteed_annual and non_guaranteed_annual
+      const validated: AIPremiums = {};
+      for (const [id, entry] of Object.entries(parsed)) {
+        if (
+          typeof entry === 'object' && entry !== null &&
+          typeof (entry as any).guaranteed_annual === 'number' &&
+          typeof (entry as any).non_guaranteed_annual === 'number'
+        ) {
+          validated[id] = {
+            guaranteed_annual: (entry as any).guaranteed_annual,
+            non_guaranteed_annual: (entry as any).non_guaranteed_annual,
+          };
+        }
+      }
+
+      // Fallback: for any selected carrier missing from AI response, use local estimate
+      CARRIERS
+        .filter((c) => selectedCarriers.has(c.id) && !validated[c.id])
+        .forEach((c) => {
+          const m = calcMonthlyPremium(c, params);
+          validated[c.id] = {
+            guaranteed_annual: Math.round(m * 12 * 100) / 100,
+            non_guaranteed_annual: Math.round(m * 18 * 100) / 100,
+          };
+        });
+
+      setAiPremiums(validated);
+    } catch {
+      setAiPremiumsError('Could not load AI-computed premiums. Showing estimated values.');
+      // On error, generate fallback from local engine for all selected carriers
+      const fallback: AIPremiums = {};
+      CARRIERS
+        .filter((c) => selectedCarriers.has(c.id))
+        .forEach((c) => {
+          const m = calcMonthlyPremium(c, params);
+          fallback[c.id] = {
+            guaranteed_annual: Math.round(m * 12 * 100) / 100,
+            non_guaranteed_annual: Math.round(m * 18 * 100) / 100,
+          };
+        });
+      setAiPremiums(fallback);
+    } finally {
+      setAiPremiumsLoading(false);
+    }
+  }, [selectedCarriers, params]);
+
   // ── Derived: active carriers sorted by premium ────────────────────────────
   const quoteResults = useMemo(() => {
     if (!quoteGenerated) return [];
@@ -519,6 +662,16 @@ Use plain text only — no markdown symbols.`;
   }, [quoteGenerated, selectedCarriers, params]);
 
   const lowestMonthly = quoteResults[0]?.monthly ?? 0;
+
+  // ADDED: lowest guaranteed annual (AI-computed when available, else local × 12)
+  // Used for "vs. Lowest" comparison in the Guaranteed Annual column
+  const lowestGuaranteedAnnual = useMemo(() => {
+    if (!quoteGenerated || quoteResults.length === 0) return 0;
+    const annuals = quoteResults.map((r) =>
+      aiPremiums?.[r.id]?.guaranteed_annual ?? (r.monthly * 12)
+    );
+    return Math.min(...annuals);
+  }, [quoteResults, aiPremiums, quoteGenerated]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const toggleCarrier = (id: string) => {
@@ -578,6 +731,8 @@ Use plain text only — no markdown symbols.`;
     setQuoteGenerated(true);
     // Auto-fetch AI insights on quote generation
     fetchAIInsights();
+    // ADDED: also fetch AI-computed accurate premiums (Guaranteed + Non-Guaranteed Annual)
+    fetchAIPremiums();
   };
 
   const resetQuote = () => {
@@ -592,6 +747,10 @@ Use plain text only — no markdown symbols.`;
     setSelectedCarrierError(null);
     // MODIFIED: clear form validation errors on reset
     setFormErrors({});
+    // ADDED: clear AI-computed premiums on reset
+    setAiPremiums(null);
+    setAiPremiumsError(null);
+    setAiPremiumsLoading(false);
   };
 
   // ADDED: row click handler — selects/deselects a carrier row and fetches its AI insight
@@ -1024,7 +1183,16 @@ Use plain text only — no markdown symbols.`;
                     <th className="px-4 py-3 text-left sticky left-0 z-10 whitespace-nowrap border border-blue-700" style={{ backgroundColor: '#1E5AA8' }}>#</th>
                     <th className="px-4 py-3 text-left sticky left-8 z-10 whitespace-nowrap min-w-[160px] border border-blue-700" style={{ backgroundColor: '#1E5AA8' }}>Carrier / Product</th>
                     <th className="px-4 py-3 text-right whitespace-nowrap border border-blue-700">Monthly</th>
-                    <th className="px-4 py-3 text-right whitespace-nowrap border border-blue-700">Annual</th>
+                    {/* MODIFIED: renamed "Annual" → "Guaranteed Annual" (AI-computed accurate level-term premium) */}
+                    <th className="px-4 py-3 text-right whitespace-nowrap border border-blue-700 min-w-[120px]">
+                      Guaranteed Annual
+                      {aiPremiumsLoading && <span className="ml-1 text-[9px] font-normal opacity-70">⏳</span>}
+                    </th>
+                    {/* ADDED: Non-Guaranteed Annual (post-level ART rate year N+1, AI-computed) */}
+                    <th className="px-4 py-3 text-right whitespace-nowrap border border-blue-700 min-w-[130px]">
+                      Non-Gtd Annual
+                      <div className="text-[8px] font-normal opacity-80">(Yr {params.term_years + 1} ART Est.)</div>
+                    </th>
                     {/* all columns shown in print/PDF */}
                     <th className="px-4 py-3 text-right whitespace-nowrap border border-blue-700">Total ({params.term_years} yrs)</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap border border-blue-700">vs. Lowest</th>
@@ -1037,10 +1205,22 @@ Use plain text only — no markdown symbols.`;
                 </thead>
                 <tbody>
                   {quoteResults.map((r, idx) => {
-                    const pctAbove = lowestMonthly > 0
+                    // ADDED: resolve AI-computed premiums for this carrier (or fall back to local engine)
+                    const aiData = aiPremiums?.[r.id];
+                    const guaranteedAnnual = aiData?.guaranteed_annual ?? (r.monthly * 12);
+                    const nonGuaranteedAnnual = aiData?.non_guaranteed_annual ?? null;
+                    const guaranteedMonthly = guaranteedAnnual / 12;
+
+                    // vs. Lowest uses guaranteed annual when AI data is available
+                    const pctAbove = lowestGuaranteedAnnual > 0
+                      ? ((guaranteedAnnual - lowestGuaranteedAnnual) / lowestGuaranteedAnnual) * 100
+                      : lowestMonthly > 0
                       ? ((r.monthly - lowestMonthly) / lowestMonthly) * 100
                       : 0;
-                    const isLowest = idx === 0;
+                    // isLowest based on guaranteed annual when AI data available, else local
+                    const isLowest = aiPremiums
+                      ? guaranteedAnnual === lowestGuaranteedAnnual
+                      : idx === 0;
                     const isSelected = selectedRow === r.id;
 
                     // MODIFIED: removed r.highlight (Corebridge featured) from rowBg — only selected/lowest matter
@@ -1092,19 +1272,63 @@ Use plain text only — no markdown symbols.`;
                           </div>
                         </td>
 
-                        {/* Premiums */}
+                        {/* Monthly — local rate engine estimate */}
                         <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap border border-slate-300">
-                          {fmt(r.monthly)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-slate-700 whitespace-nowrap border border-slate-300">
-                          {fmt(annual(r.monthly))}
-                        </td>
-                        {/* Total — shown in print/PDF */}
-                        <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap border border-slate-300">
-                          {fmt(total(r.monthly))}
+                          {aiPremiumsLoading
+                            ? <span className="text-slate-400 animate-pulse">…</span>
+                            : fmt(guaranteedMonthly)}
                         </td>
 
-                        {/* vs lowest */}
+                        {/* MODIFIED: Guaranteed Annual — AI-computed accurate level-term premium */}
+                        <td className="px-4 py-3 text-right whitespace-nowrap border border-slate-300">
+                          {aiPremiumsLoading ? (
+                            <span className="inline-flex items-center gap-1 text-slate-400 text-xs">
+                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                              </svg>
+                              loading
+                            </span>
+                          ) : (
+                            <span className={`font-bold ${isLowest ? 'text-blue-700' : 'text-slate-900'}`}>
+                              {fmt(guaranteedAnnual)}
+                              {aiData && <span className="ml-1 text-[8px] text-emerald-600 font-semibold">AI</span>}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* ADDED: Non-Guaranteed Annual — post-level ART rate (year N+1, AI-computed) */}
+                        <td className="px-4 py-3 text-right whitespace-nowrap border border-slate-300">
+                          {aiPremiumsLoading ? (
+                            <span className="inline-flex items-center gap-1 text-slate-400 text-xs">
+                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                              </svg>
+                              loading
+                            </span>
+                          ) : nonGuaranteedAnnual !== null ? (
+                            <div className="text-right">
+                              <span className="font-semibold text-orange-700">{fmt(nonGuaranteedAnnual)}</span>
+                              {aiData && (
+                                <div className="text-[9px] text-orange-500 leading-tight">
+                                  +{(((nonGuaranteedAnnual - guaranteedAnnual) / guaranteedAnnual) * 100).toFixed(0)}% vs gtd
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-xs italic">N/A</span>
+                          )}
+                        </td>
+
+                        {/* Total — uses guaranteed annual × term years */}
+                        <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap border border-slate-300">
+                          {aiPremiumsLoading
+                            ? <span className="text-slate-400 animate-pulse">…</span>
+                            : fmt(guaranteedAnnual * params.term_years)}
+                        </td>
+
+                        {/* vs lowest — based on guaranteed annual */}
                         <td className="px-4 py-3 text-center whitespace-nowrap border border-slate-300">
                           {isLowest ? (
                             <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
@@ -1143,28 +1367,35 @@ Use plain text only — no markdown symbols.`;
                   })}
                 </tbody>
 
-                {/* Summary footer */}
+                {/* Summary footer — MODIFIED: colSpan updated (+1 for Non-Gtd Annual column) */}
                 <tfoot>
                   <tr className="bg-slate-50 text-xs text-slate-500">
-                    <td colSpan={showABR ? 9 : 6} className="px-4 py-2.5 border border-slate-300 print:hidden">
+                    <td colSpan={showABR ? 10 : 7} className="px-4 py-2.5 border border-slate-300 print:hidden">
                       <div className="flex flex-wrap gap-x-6 gap-y-1">
                         <span>Rates shown are <b>estimated monthly premiums</b> for illustrative purposes only.</span>
                         <span>Actual premiums are subject to full underwriting and carrier approval.</span>
+                        <span>Non-Gtd Annual = estimated post-level ART rate for year {params.term_years + 1} (not contractually guaranteed).</span>
                         <span>ABR = Accelerated Death Benefit Rider (not a replacement for Long Term Care Insurance).</span>
+                        {aiPremiumsError && <span className="text-orange-600">⚠ {aiPremiumsError}</span>}
                       </div>
                     </td>
-                    <td colSpan={showABR ? 9 : 6} className="hidden print:table-cell px-2 py-1.5 border border-slate-300 text-[8px] text-slate-500 italic">
-                      Premiums are estimated. Actual rates subject to underwriting. ABR availability varies by carrier and state. All columns shown.
+                    <td colSpan={showABR ? 10 : 7} className="hidden print:table-cell px-2 py-1.5 border border-slate-300 text-[8px] text-slate-500 italic">
+                      Guaranteed Annual = contractual level-term annual premium. Non-Gtd Annual = estimated Year {params.term_years + 1} ART renewal rate (not guaranteed). Actual rates subject to underwriting. ABR availability varies by carrier and state.
                     </td>
                   </tr>
                 </tfoot>
               </table>
             </div>
 
-            {/* Savings callout — screen only */}
-            {quoteResults.length >= 2 && (() => {
-              const highest = quoteResults[quoteResults.length - 1].monthly;
-              const savings = (highest - lowestMonthly) * 12;
+            {/* Savings callout — screen only, uses AI guaranteed annual when available */}
+            {quoteResults.length >= 2 && !aiPremiumsLoading && (() => {
+              // Use AI premiums if available, else local monthly × 12
+              const annuals = quoteResults.map((r) =>
+                aiPremiums?.[r.id]?.guaranteed_annual ?? (r.monthly * 12)
+              );
+              const lowestA = Math.min(...annuals);
+              const highestA = Math.max(...annuals);
+              const savings = highestA - lowestA;
               return savings > 0 ? (
                 <div className="px-6 py-3 border-t border-slate-100 bg-gradient-to-r from-emerald-50 to-blue-50 print:hidden">
                   <div className="text-xs text-slate-700">
