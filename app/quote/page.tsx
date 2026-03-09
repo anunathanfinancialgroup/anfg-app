@@ -541,81 +541,145 @@ Keep each section to 2-4 sentences. Use plain text only — no markdown symbols 
   }, [selectedCarriers, params]);
 
   // Fetch AI insight for a single selected carrier row — compares against ALL other selected carriers
+  // FIXED: fetchSelectedCarrierInsights — complete rewrite with:
+  //   1. AbortController timeout (15s) — prevents silent hanging
+  //   2. catch (err: unknown) with real error surfaced — no more swallowed errors
+  //   3. Detailed error message shown in UI (HTTP status + server message)
+  //   4. Validates non-empty response text before setting insight state
+  //   5. Uses AI-computed premiums when available; falls back to actuarial
+  //   6. Prompt built via array.join — no literal-newline syntax issues
   const fetchSelectedCarrierInsights = useCallback(async (carrierId: string) => {
     const carrier = CARRIERS.find((c) => c.id === carrierId);
     if (!carrier) return;
-    const monthly = calcMonthlyPremium(carrier, params);
+
+    const ratingAge = effectiveAge(params);
+    const monthly   = calcMonthlyPremium(carrier, params);
     const annualPremium = monthly * 12;
-    const totalPremium = monthly * 12 * params.term_years;
+
     setSelectedCarrierLoading(true);
     setSelectedCarrierError(null);
     setSelectedCarrierInsight(null);
-    try {
-      // All other selected carriers with their premiums for comparison context
-      const otherSelected = CARRIERS
-        .filter((c) => selectedCarriers.has(c.id) && c.id !== carrierId)
-        .map((c) => {
-          const m = calcMonthlyPremium(c, params);
-          return `  - ${c.carrier} (${c.product}): $${m.toFixed(2)}/mo | Annual: $${(m * 12).toFixed(2)} | Chronic: ${c.abr.chronic} | Critical: ${c.abr.critical} | Terminal: ${c.abr.terminal}`;
-        })
-        .join('\n');
 
-      // MODIFIED: richer prompt — includes state for state-specific carrier availability + regulatory context
+    // Abort after 15 s — surfaces timeout clearly instead of hanging
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+
+    try {
       const stateLabel = params.state
         ? `${params.state} (${US_STATES.find(s => s.abbr === params.state)?.name ?? params.state})`
         : 'Not specified';
 
-      const prompt = `You are a licensed life insurance advisor assistant at AnNa Financial Group.
+      // Use AI-computed premium when already available, else actuarial estimate
+      const aiAnnual     = aiPremiums?.[carrierId]?.guaranteed_annual;
+      const displayMonthly = aiAnnual ? aiAnnual / 12 : monthly;
+      const displayAnnual  = aiAnnual ?? annualPremium;
+      const displayTotal   = displayAnnual * params.term_years;
+      const abrPts = abrScore(carrier.abr);
 
-The advisor has selected the following carrier for a deeper analysis:
+      // Other selected carriers for comparison — with AI premiums when available
+      const otherLines: string[] = CARRIERS
+        .filter((c) => selectedCarriers.has(c.id) && c.id !== carrierId)
+        .map((c) => {
+          const cAiAnnual = aiPremiums?.[c.id]?.guaranteed_annual;
+          const m = cAiAnnual ? cAiAnnual / 12 : calcMonthlyPremium(c, params);
+          const pts = abrScore(c.abr);
+          return [
+            `  - ${c.carrier} (${c.product})`,
+            `    Monthly: $${m.toFixed(2)} | Annual: $${(m * 12).toFixed(2)} | ABR Score: ${pts}/5`,
+            `    Chronic: ${c.abr.chronic} | Critical: ${c.abr.critical} | Terminal: ${c.abr.terminal}`,
+          ].join('\n');
+        });
+      const otherSelected = otherLines.length > 0 ? otherLines.join('\n\n') : '  (No other carriers selected)';
 
-Carrier: ${carrier.carrier} | Product: ${carrier.product}
-Monthly Premium: $${monthly.toFixed(2)} | Annual: $${annualPremium.toFixed(2)} | Total (${params.term_years} yrs): $${totalPremium.toFixed(2)}
-Chronic Illness ABR: ${carrier.abr.chronic}
-Critical Illness ABR: ${carrier.abr.critical}
-Terminal Illness ABR: ${carrier.abr.terminal}
+      // Build prompt as an array — avoids any literal-newline syntax issues
+      const promptParts: string[] = [
+        'You are a licensed life insurance advisor assistant at AnNa Financial Group.',
+        '',
+        'The advisor has selected the following carrier for a deeper analysis:',
+        '',
+        `Carrier: ${carrier.carrier} | Product: ${carrier.product}`,
+        `Monthly Premium: $${displayMonthly.toFixed(2)} | Annual: $${displayAnnual.toFixed(2)} | Total (${params.term_years} yrs): $${displayTotal.toFixed(2)}`,
+        `ABR Score: ${abrPts}/5`,
+        `Chronic Illness ABR: ${carrier.abr.chronic}`,
+        `Critical Illness ABR: ${carrier.abr.critical}`,
+        `Terminal Illness ABR: ${carrier.abr.terminal}`,
+        '',
+        'Client Profile:',
+        `Name: ${params.first_name || 'Prospect'} ${params.last_name || ''} | Gender: ${params.gender}`,
+        `Age (ALB): ${params.age}${params.use_saved_age ? ` | Saved Age (ANB): ${ratingAge} — rating basis` : ' | Basis: ALB'}`,
+        `Health Class: ${params.health_class} | Face Amount: ${fmtFace(params.face_amount)} | Term: ${params.term_years} years`,
+        `State of Issue: ${stateLabel}`,
+        '',
+        'Other selected carriers for comparison:',
+        otherSelected,
+        '',
+        'Evaluate this carrier objectively — do not favor any specific provider.',
+      ];
 
-Client Profile:
-Name: ${params.first_name || 'Prospect'} ${params.last_name || ''} | Gender: ${params.gender} | Age (ALB): ${params.age}${params.use_saved_age ? ` | Saved Age (ANB): ${effectiveAge(params)} (rating basis)` : ' | Basis: ALB'}
-Health Class: ${params.health_class} | Face Amount: ${fmtFace(params.face_amount)} | Term: ${params.term_years} years
-State of Issue: ${stateLabel}
+      if (params.state) {
+        promptParts.push(
+          `The client is in ${stateLabel}. Consider any known state-specific factors: carrier approval status, rider availability, or regulatory rules that may affect this product in ${params.state}.`
+        );
+      }
 
-Other selected carriers for comparison:
-${otherSelected || '  (No other carriers selected)'}
+      promptParts.push(
+        'Provide a focused analysis in exactly three labeled sections:',
+        '',
+        'Strengths:',
+        `2 sentences on what makes this carrier/product a strong option for this client, referencing premium, ABR score${params.state ? `, and state suitability (${params.state})` : ''}.`,
+        '',
+        'Considerations:',
+        `1-2 sentences on trade-offs, limitations, or reasons a client might prefer a different carrier${params.state ? `, including any state-specific limitations in ${params.state}` : ''}.`,
+        '',
+        'Key Talking Point:',
+        'One specific, precise question or statement the advisor should raise with the client about this carrier option.',
+        '',
+        'Use plain text only — no markdown symbols.'
+      );
 
-Evaluate this carrier objectively — do not favor any specific provider.
-${params.state ? `The client is in ${stateLabel}. Consider any known state-specific factors: carrier approval status, rider availability, or regulatory rules that may affect this product in ${params.state}.` : ''}
-Provide a focused analysis in exactly three labeled sections:
+      const prompt = promptParts.join('\n');
 
-Strengths:
-2 sentences on what makes this carrier/product a strong option for this specific client profile, referencing the premium, ABR benefits${params.state ? `, and state suitability (${params.state})` : ''}.
-
-Considerations:
-1-2 sentences on any trade-offs, limitations, or reasons a client might choose a different carrier from the list above${params.state ? `, including any state-specific limitations in ${params.state}` : ''}.
-
-Key Talking Point:
-One specific, precise question or statement the advisor should raise with the client about this carrier option.
-
-Use plain text only — no markdown symbols.`;
-
-      // Server-side API route
       const response = await fetch('/api/ai-insight', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, max_tokens: 1000 }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
+
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error ?? `Server error ${response.status}`);
+        // Extract the real server-side error message for debugging
+        let serverMsg = `HTTP ${response.status}`;
+        try {
+          const errData = await response.json();
+          serverMsg = errData.error ?? errData.message ?? serverMsg;
+        } catch { /* ignore JSON parse failure on error body */ }
+        throw new Error(serverMsg);
       }
+
       const data = await response.json();
-      setSelectedCarrierInsight((data.text ?? '').trim());
-    } catch {
-      setSelectedCarrierError('Could not load carrier insight.');
+      const text = ((data.text ?? data.content ?? '') as string).trim();
+
+      if (!text) throw new Error('Empty response from AI — please retry');
+
+      setSelectedCarrierInsight(text);
+
+    } catch (err: unknown) {
+      clearTimeout(timeout);
+      const msg = err instanceof Error ? err.message : String(err);
+      const isAbort = msg.toLowerCase().includes('abort') || msg.toLowerCase().includes('timeout');
+      // Show the real error in the UI — no more silent generic message
+      setSelectedCarrierError(
+        isAbort
+          ? 'Request timed out (15 s). Check your connection and retry.'
+          : `Could not load carrier insight: ${msg}`
+      );
+      console.error('[fetchSelectedCarrierInsights] error:', err);
     } finally {
       setSelectedCarrierLoading(false);
     }
-  }, [params, selectedCarriers]);
+  }, [params, selectedCarriers, aiPremiums]);
 
   // MODIFIED: fetchAIPremiums — fully rebuilt with:
   //   1. Actuarial engine pre-computed as guaranteed fallback (AI premiums ALWAYS populate)
