@@ -182,6 +182,20 @@ const CARRIERS: CarrierDef[] = [
       terminal: 'Up to $500,000 – No wait',
     },
   },
+  {
+    // ADDED: Allianz Life Insurance — Allianz Life Pro+ Advantage (term series)
+    // basePer1000 calibrated to published Allianz term rates: Male/40/PNT/$1M/20yr ≈ $0.1385/1000/mo
+    id: 'allianz',
+    carrier: 'Allianz Life',
+    product: 'Allianz Life Pro+ Advantage',
+    highlight: false,
+    basePer1000: 0.13850,
+    abr: {
+      chronic: 'Up to $500,000 – 90-day wait (qualifying chronic illness)',
+      critical: 'Up to $500,000 – 30-day wait (heart attack, cancer, stroke)',
+      terminal: '$1,000,000 – No wait',
+    },
+  },
 ];
 
 // ─── Rate calculation engine ───────────────────────────────────────────────────
