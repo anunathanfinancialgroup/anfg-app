@@ -389,6 +389,152 @@ function abrScore(abr: ABRBenefit): number {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// LOCAL CARRIER INSIGHT GENERATOR
+// Produces a meaningful 3-section analysis from carrier + quote data alone.
+// Used as the primary source (no API needed) — AI enhances when available.
+// ══════════════════════════════════════════════════════════════════════════════
+
+interface LocalInsightOptions {
+  carrier: CarrierDef;
+  params: QuoteParams;
+  displayMonthly: number;
+  displayAnnual: number;
+  peers: Array<{ carrier: CarrierDef; annual: number }>;
+}
+
+function generateLocalCarrierInsight(opts: LocalInsightOptions): string {
+  const { carrier, params, displayMonthly, displayAnnual, peers } = opts;
+  const abr = carrier.abr;
+  const abrPts = abrScore(abr);
+  const termYrs = params.term_years;
+  const face = fmtFace(params.face_amount);
+  const ratingAge = effectiveAge(params);
+  const ageBasis = params.use_saved_age ? `Saved Age (ANB ${ratingAge})` : `Age ${ratingAge} (ALB)`;
+
+  // — Premium context —
+  const sortedPeers = [...peers].sort((a, b) => a.annual - b.annual);
+  const lowestPeer = sortedPeers[0];
+  const highestPeer = sortedPeers[sortedPeers.length - 1];
+  const peerCount = peers.length;
+
+  const isLowest = peerCount === 0 || displayAnnual <= lowestPeer.annual;
+  const isHighest = peerCount > 0 && displayAnnual >= highestPeer.annual;
+
+  let premiumRank = '';
+  if (peerCount === 0) {
+    premiumRank = 'This is the only carrier selected for comparison.';
+  } else if (isLowest) {
+    premiumRank = `This is the lowest-cost option among the ${peerCount + 1} carriers compared, at $${displayAnnual.toFixed(2)}/yr.`;
+  } else if (isHighest) {
+    const diff = displayAnnual - lowestPeer.annual;
+    premiumRank = `At $${displayAnnual.toFixed(2)}/yr, this is the highest-priced option — $${diff.toFixed(2)}/yr more than the lowest-quoted carrier.`;
+  } else {
+    const lowestDiff = displayAnnual - lowestPeer.annual;
+    const rank = sortedPeers.findIndex(p => p.annual > displayAnnual) + 1;
+    premiumRank = `Ranked #${rank} of ${peerCount + 1} carriers at $${displayAnnual.toFixed(2)}/yr — $${lowestDiff.toFixed(2)}/yr above the lowest option.`;
+  }
+
+  // — ABR Strengths —
+  const abrStrengths: string[] = [];
+  if (abrAvailable(abr.chronic)) {
+    const fullFace = abr.chronic.includes('$1,000,000');
+    abrStrengths.push(
+      fullFace
+        ? `Full face amount ($1M) Chronic Illness rider — pays out up to $1,000,000 for qualifying chronic conditions.`
+        : `Chronic Illness ABR: ${abr.chronic}.`
+    );
+  }
+  if (abrAvailable(abr.critical)) {
+    const fullFace = abr.critical.includes('$1,000,000');
+    abrStrengths.push(
+      fullFace
+        ? `Full face amount ($1M) Critical Illness rider covers heart attack, cancer, and stroke.`
+        : `Critical Illness ABR: ${abr.critical}.`
+    );
+  }
+  if (abrAvailable(abr.terminal)) {
+    abrStrengths.push(`Terminal Illness ABR: ${abr.terminal} — accelerated benefit paid on terminal diagnosis.`);
+  }
+  if (abrStrengths.length === 0) {
+    abrStrengths.push('No Accelerated Benefit Riders (ABR) are available on this product.');
+  }
+
+  // — Key term context —
+  const totalCost = (displayAnnual * termYrs).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+
+  // — Profile-specific note —
+  let profileNote = '';
+  if (params.age >= 55) {
+    profileNote = `At ${ageBasis}, locking in a ${termYrs}-year level premium now avoids significant rate increases in future years.`;
+  } else if (params.age <= 35) {
+    profileNote = `At ${ageBasis}, a ${termYrs}-year level term secures coverage through the highest-earning and family-dependency years at a cost-effective rate.`;
+  } else {
+    profileNote = `${ageBasis} with ${params.health_class} puts this client in a strong underwriting tier for a ${termYrs}-year level term.`;
+  }
+
+  // — Health class talking point —
+  let healthNote = '';
+  if (params.health_class === 'Preferred Plus Non-Tobacco') {
+    healthNote = 'Preferred Plus Non-Tobacco is the highest health class — confirm medical history supports this rating before presenting to the client.';
+  } else if (params.health_class === 'Tobacco') {
+    healthNote = 'Tobacco-rated premiums are significantly higher. Ask the client if they plan to quit — a policy review after 2+ tobacco-free years may qualify for a better rate class.';
+  } else if (params.health_class === 'Standard Non-Tobacco') {
+    healthNote = 'Standard Non-Tobacco rating may indicate past health issues. Ask if the client has had any changes in health since the last exam — there may be room to improve the rate class.';
+  } else {
+    healthNote = `Preferred Non-Tobacco is a strong rating. Confirm the client's current health, prescriptions, and family history before application to protect this classification.`;
+  }
+
+  // ── Assemble the three sections ──────────────────────────────────────────────
+  const strengthsLines: string[] = [
+    `${carrier.carrier} (${carrier.product}) — ABR Score: ${abrPts}/5.`,
+    premiumRank,
+  ];
+  if (!isLowest && peerCount > 0) {
+    // Only highlight ABR as a differentiator if premium is not the lowest
+    strengthsLines.push(`The ABR suite${abrPts >= 4 ? ' is among the strongest in the comparison' : ''}: ${abrStrengths[0]}`);
+  } else {
+    strengthsLines.push(abrStrengths[0]);
+  }
+  if (abrStrengths.length > 1) strengthsLines.push(abrStrengths[1]);
+
+  const considerationsLines: string[] = [];
+  if (isHighest && peerCount > 0) {
+    const savings = (displayAnnual - lowestPeer.annual) * termYrs;
+    considerationsLines.push(
+      `Over the full ${termYrs}-year term, choosing this carrier costs $${savings.toLocaleString('en-US', { minimumFractionDigits: 2 })} more than the lowest-quoted option — the premium spread should be justified by ABR value or carrier stability preference.`
+    );
+  } else if (!isLowest && peerCount > 0) {
+    const savings = (displayAnnual - lowestPeer.annual) * termYrs;
+    considerationsLines.push(
+      `Over ${termYrs} years, this option costs $${savings.toLocaleString('en-US', { minimumFractionDigits: 2 })} more than the lowest-quoted carrier — evaluate whether the additional ABR coverage justifies the difference.`
+    );
+  }
+  if (abrPts === 0) {
+    considerationsLines.push('No ABRs are included — clients needing living-benefit protection should compare options that offer chronic or critical illness riders.');
+  }
+  if (considerationsLines.length === 0) {
+    considerationsLines.push(
+      `Total ${termYrs}-year cost is ${totalCost}. ${profileNote}`
+    );
+  }
+
+  const talkingPoint = healthNote;
+
+  const sections: string[] = [
+    'Strengths:',
+    strengthsLines.join(' '),
+    '',
+    'Considerations:',
+    considerationsLines.join(' '),
+    '',
+    'Key Talking Point:',
+    talkingPoint,
+  ];
+
+  return sections.join('\n');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════════════════
 export default function QuoteToolPage() {
@@ -541,26 +687,48 @@ Keep each section to 2-4 sentences. Use plain text only — no markdown symbols 
   }, [selectedCarriers, params]);
 
   // Fetch AI insight for a single selected carrier row — compares against ALL other selected carriers
-  // FIXED: fetchSelectedCarrierInsights — complete rewrite with:
-  //   1. AbortController timeout (15s) — prevents silent hanging
-  //   2. catch (err: unknown) with real error surfaced — no more swallowed errors
-  //   3. Detailed error message shown in UI (HTTP status + server message)
-  //   4. Validates non-empty response text before setting insight state
-  //   5. Uses AI-computed premiums when available; falls back to actuarial
-  //   6. Prompt built via array.join — no literal-newline syntax issues
+  // REWRITTEN: fetchSelectedCarrierInsights
+  // Strategy: generate a rich LOCAL insight immediately (always works, no API needed),
+  // then try the AI route to get an enhanced version. If the AI call fails for any
+  // reason (404, 503, timeout, missing key), the local insight is shown — the user
+  // always sees meaningful content.
   const fetchSelectedCarrierInsights = useCallback(async (carrierId: string) => {
     const carrier = CARRIERS.find((c) => c.id === carrierId);
     if (!carrier) return;
-
-    const ratingAge = effectiveAge(params);
-    const monthly   = calcMonthlyPremium(carrier, params);
-    const annualPremium = monthly * 12;
 
     setSelectedCarrierLoading(true);
     setSelectedCarrierError(null);
     setSelectedCarrierInsight(null);
 
-    // Abort after 15 s — surfaces timeout clearly instead of hanging
+    const ratingAge   = effectiveAge(params);
+    const monthly     = calcMonthlyPremium(carrier, params);
+    const aiAnnual    = aiPremiums?.[carrierId]?.guaranteed_annual;
+    const displayMonthly = aiAnnual ? aiAnnual / 12 : monthly;
+    const displayAnnual  = aiAnnual ?? monthly * 12;
+
+    // ── Step 1: Build and show local insight immediately ─────────────────────
+    // This runs synchronously — the user sees real content in milliseconds.
+    const peers = CARRIERS
+      .filter((c) => selectedCarriers.has(c.id) && c.id !== carrierId)
+      .map((c) => {
+        const cAiAnnual = aiPremiums?.[c.id]?.guaranteed_annual;
+        const annual    = cAiAnnual ?? calcMonthlyPremium(c, params) * 12;
+        return { carrier: c, annual };
+      });
+
+    const localInsight = generateLocalCarrierInsight({
+      carrier,
+      params,
+      displayMonthly,
+      displayAnnual,
+      peers,
+    });
+
+    // Show local insight right away — don't wait for AI
+    setSelectedCarrierInsight(localInsight);
+    setSelectedCarrierLoading(false); // show immediately; AI will replace if successful
+
+    // ── Step 2: Attempt AI enhancement (best-effort, 15 s timeout) ───────────
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
 
@@ -569,14 +737,9 @@ Keep each section to 2-4 sentences. Use plain text only — no markdown symbols 
         ? `${params.state} (${US_STATES.find(s => s.abbr === params.state)?.name ?? params.state})`
         : 'Not specified';
 
-      // Use AI-computed premium when already available, else actuarial estimate
-      const aiAnnual     = aiPremiums?.[carrierId]?.guaranteed_annual;
-      const displayMonthly = aiAnnual ? aiAnnual / 12 : monthly;
-      const displayAnnual  = aiAnnual ?? annualPremium;
-      const displayTotal   = displayAnnual * params.term_years;
       const abrPts = abrScore(carrier.abr);
+      const displayTotal = displayAnnual * params.term_years;
 
-      // Other selected carriers for comparison — with AI premiums when available
       const otherLines: string[] = CARRIERS
         .filter((c) => selectedCarriers.has(c.id) && c.id !== carrierId)
         .map((c) => {
@@ -591,7 +754,6 @@ Keep each section to 2-4 sentences. Use plain text only — no markdown symbols 
         });
       const otherSelected = otherLines.length > 0 ? otherLines.join('\n\n') : '  (No other carriers selected)';
 
-      // Build prompt as an array — avoids any literal-newline syntax issues
       const promptParts: string[] = [
         'You are a licensed life insurance advisor assistant at AnNa Financial Group.',
         '',
@@ -618,7 +780,7 @@ Keep each section to 2-4 sentences. Use plain text only — no markdown symbols 
 
       if (params.state) {
         promptParts.push(
-          `The client is in ${stateLabel}. Consider any known state-specific factors: carrier approval status, rider availability, or regulatory rules that may affect this product in ${params.state}.`
+          `The client is in ${stateLabel}. Consider state-specific factors: carrier approval status, rider availability, and regulatory rules that may affect this product in ${params.state}.`
         );
       }
 
@@ -626,15 +788,16 @@ Keep each section to 2-4 sentences. Use plain text only — no markdown symbols 
         'Provide a focused analysis in exactly three labeled sections:',
         '',
         'Strengths:',
-        `2 sentences on what makes this carrier/product a strong option for this client, referencing premium, ABR score${params.state ? `, and state suitability (${params.state})` : ''}.`,
+        `2-3 sentences on what makes this carrier/product a strong option for this client, referencing premium, ABR score${params.state ? `, and state suitability (${params.state})` : ''}.`,
         '',
         'Considerations:',
-        `1-2 sentences on trade-offs, limitations, or reasons a client might prefer a different carrier${params.state ? `, including any state-specific limitations in ${params.state}` : ''}.`,
+        `1-2 sentences on trade-offs, limitations, or reasons a client might prefer a different carrier${params.state ? `, including state-specific limitations in ${params.state}` : ''}.`,
         '',
         'Key Talking Point:',
-        'One specific, precise question or statement the advisor should raise with the client about this carrier option.',
+        'One specific, actionable question or statement the advisor should raise with the client about this carrier.',
         '',
-        'Use plain text only — no markdown symbols.'
+        'Use plain text only — no markdown symbols like **, ##, or bullet dashes.',
+        'Be specific to the client profile — avoid generic insurance boilerplate.'
       );
 
       const prompt = promptParts.join('\n');
@@ -649,36 +812,27 @@ Keep each section to 2-4 sentences. Use plain text only — no markdown symbols 
       clearTimeout(timeout);
 
       if (!response.ok) {
-        // Extract the real server-side error message for debugging
-        let serverMsg = `HTTP ${response.status}`;
-        try {
-          const errData = await response.json();
-          serverMsg = errData.error ?? errData.message ?? serverMsg;
-        } catch { /* ignore JSON parse failure on error body */ }
-        throw new Error(serverMsg);
+        // AI route unavailable — local insight already shown, silently keep it
+        console.warn(`[fetchSelectedCarrierInsights] AI route returned ${response.status} — showing local insight`);
+        return;
       }
 
       const data = await response.json();
       const text = ((data.text ?? data.content ?? '') as string).trim();
 
-      if (!text) throw new Error('Empty response from AI — please retry');
-
-      setSelectedCarrierInsight(text);
+      // Replace local insight with AI-enhanced version only if we got real content
+      if (text && text.length > 80) {
+        setSelectedCarrierInsight(text);
+      }
+      // else: keep the local insight already shown
 
     } catch (err: unknown) {
       clearTimeout(timeout);
-      const msg = err instanceof Error ? err.message : String(err);
-      const isAbort = msg.toLowerCase().includes('abort') || msg.toLowerCase().includes('timeout');
-      // Show the real error in the UI — no more silent generic message
-      setSelectedCarrierError(
-        isAbort
-          ? 'Request timed out (15 s). Check your connection and retry.'
-          : `Could not load carrier insight: ${msg}`
-      );
-      console.error('[fetchSelectedCarrierInsights] error:', err);
-    } finally {
-      setSelectedCarrierLoading(false);
+      // AI failed — local insight already shown, nothing more needed
+      console.warn('[fetchSelectedCarrierInsights] AI enhancement failed — local insight retained:', err);
     }
+    // NOTE: setSelectedCarrierLoading(false) already called after local insight above.
+    // No finally block needed here — loading was cleared after Step 1.
   }, [params, selectedCarriers, aiPremiums]);
 
   // MODIFIED: fetchAIPremiums — fully rebuilt with:
