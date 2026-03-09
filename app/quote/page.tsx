@@ -1,7 +1,7 @@
 // app/quote_tool/page.tsx
-// NEW FILE: Term Insurance Quote Tool
-// Generates instant premium comparisons across major term life insurance carriers.
-// Rate engine uses actuarial base rates derived from Corebridge Financial market data (March 2025).
+// Term Insurance Quote Tool
+// Generates instant premium comparisons across all user-selected term life insurance carriers.
+// Rate engine uses independent actuarial multipliers — no carrier is used as a baseline.
 
 'use client';
 
@@ -323,8 +323,11 @@ export default function QuoteToolPage() {
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [params, setParams] = useState<QuoteParams>({ ...DEFAULT_PARAMS });
+
+  // MODIFIED: initial selection excludes Corebridge — Corebridge is no longer a default provider.
+  // Users can still check Corebridge manually from the carrier list at any time.
   const [selectedCarriers, setSelectedCarriers] = useState<Set<string>>(
-    new Set(CARRIERS.map((c) => c.id))
+    new Set(CARRIERS.filter((c) => c.id !== 'corebridge').map((c) => c.id))
   );
   const [quoteGenerated, setQuoteGenerated] = useState(false);
   const [showABR, setShowABR] = useState(true);
@@ -341,6 +344,15 @@ export default function QuoteToolPage() {
   const [selectedCarrierInsight, setSelectedCarrierInsight] = useState<string | null>(null);
   const [selectedCarrierLoading, setSelectedCarrierLoading] = useState(false);
   const [selectedCarrierError, setSelectedCarrierError] = useState<string | null>(null);
+
+  // ADDED: form validation errors for mandatory fields (Age, State, Gender, Health Class, Face Amount)
+  const [formErrors, setFormErrors] = useState<{
+    age?: string;
+    state?: string;
+    gender?: string;
+    health_class?: string;
+    face_amount?: string;
+  }>({});
 
   // Fetch AI insights — compares ONLY user-selected carriers, no Corebridge bias, produces best-quote recommendation
   const fetchAIInsights = useCallback(async () => {
@@ -519,20 +531,52 @@ Use plain text only — no markdown symbols.`;
   };
 
   const selectAllCarriers = () => setSelectedCarriers(new Set(CARRIERS.map((c) => c.id)));
-  const clearAllCarriers  = () => setSelectedCarriers(new Set([CARRIERS[0].id]));
+  // MODIFIED: clearAllCarriers no longer defaults to Corebridge (CARRIERS[0]).
+  // Falls back to the first non-Corebridge carrier (Lincoln) to keep minimum-1 invariant.
+  const clearAllCarriers = () => {
+    const firstNonCorebridge = CARRIERS.find((c) => c.id !== 'corebridge');
+    setSelectedCarriers(new Set([firstNonCorebridge ? firstNonCorebridge.id : CARRIERS[0].id]));
+  };
 
   const handleDobChange = (dob: string) => {
     const age = ageFromDob(dob);
     setParams((p) => ({ ...p, date_of_birth: dob, age: age > 0 ? age : p.age }));
   };
 
+  // MODIFIED: generateQuote now validates all mandatory fields before proceeding.
+  // Mandatory: Age (18–75), State (must be selected), Gender (always set), Health Class (always set), Face Amount (always set).
   const generateQuote = () => {
-    if (params.age < 18 || params.age > 75) {
-      alert('Age must be between 18 and 75 for term life insurance.');
-      return;
+    const errors: typeof formErrors = {};
+
+    // Age is mandatory and must be in the valid range
+    if (!params.age || params.age < 18 || params.age > 75) {
+      errors.age = params.age < 18 || params.age > 75
+        ? 'Age must be between 18 and 75'
+        : 'Age is required';
     }
+    // State is mandatory — must not be empty
+    if (!params.state) {
+      errors.state = 'State of issue is required';
+    }
+    // Gender, Health Class, Face Amount always have defaults so they are always valid,
+    // but we still mark them as required visually. Only flag if somehow blank.
+    if (!params.gender) {
+      errors.gender = 'Gender is required';
+    }
+    if (!params.health_class) {
+      errors.health_class = 'Health class is required';
+    }
+    if (!params.face_amount || params.face_amount <= 0) {
+      errors.face_amount = 'Face amount is required';
+    }
+
+    setFormErrors(errors);
+
+    // Block quote generation if any mandatory field has an error
+    if (Object.keys(errors).length > 0) return;
+
     setQuoteGenerated(true);
-    // ADDED: auto-fetch AI insights on quote generation
+    // Auto-fetch AI insights on quote generation
     fetchAIInsights();
   };
 
@@ -546,6 +590,8 @@ Use plain text only — no markdown symbols.`;
     setSelectedRow(null);
     setSelectedCarrierInsight(null);
     setSelectedCarrierError(null);
+    // MODIFIED: clear form validation errors on reset
+    setFormErrors({});
   };
 
   // ADDED: row click handler — selects/deselects a carrier row and fetches its AI insight
@@ -739,7 +785,7 @@ Use plain text only — no markdown symbols.`;
           <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
             <h2 className="text-sm font-bold text-slate-800 mb-4">Quote Parameters</h2>
 
-            {/* Personal info — MODIFIED: added State field, grid extended to 5 cols */}
+            {/* Personal info — MODIFIED: Age and State are mandatory fields (marked with *) */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">First Name</label>
@@ -770,71 +816,104 @@ Use plain text only — no markdown symbols.`;
                   onChange={(e) => handleDobChange(e.target.value)}
                 />
               </div>
+              {/* MODIFIED: Age — mandatory field, shows required * and red border+error when invalid */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
                   Age {params.date_of_birth && <span className="text-blue-500">(auto)</span>}
+                  <span className="text-red-500 ml-0.5">*</span>
                 </label>
                 <input
                   type="number"
                   min={18}
                   max={75}
-                  className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                  className={`w-full rounded-lg border px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 ${formErrors.age ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                   value={params.age}
-                  onChange={(e) => setParams((p) => ({ ...p, age: parseInt(e.target.value) || 0 }))}
+                  onChange={(e) => {
+                    setParams((p) => ({ ...p, age: parseInt(e.target.value) || 0 }));
+                    setFormErrors((fe) => ({ ...fe, age: undefined }));
+                  }}
                 />
+                {formErrors.age && <p className="text-[10px] text-red-500 mt-0.5">{formErrors.age}</p>}
               </div>
-              {/* ADDED: State of Issue dropdown */}
+              {/* MODIFIED: State — mandatory field, shows required * and red border+error when not selected */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">State</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  State<span className="text-red-500 ml-0.5">*</span>
+                </label>
                 <select
-                  className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 bg-white"
+                  className={`w-full rounded-lg border px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 bg-white ${formErrors.state ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                   value={params.state}
-                  onChange={(e) => setParams((p) => ({ ...p, state: e.target.value }))}
+                  onChange={(e) => {
+                    setParams((p) => ({ ...p, state: e.target.value }));
+                    setFormErrors((fe) => ({ ...fe, state: undefined }));
+                  }}
                 >
                   <option value="">— Select State —</option>
                   {US_STATES.map((s) => (
                     <option key={s.abbr} value={s.abbr}>{s.abbr} — {s.name}</option>
                   ))}
                 </select>
+                {formErrors.state && <p className="text-[10px] text-red-500 mt-0.5">{formErrors.state}</p>}
               </div>
             </div>
 
-            {/* Insurance parameters */}
+            {/* Insurance parameters — MODIFIED: Gender, Health Class, Face Amount are mandatory (marked with *) */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              {/* Gender — mandatory, always has a default so no runtime error expected */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Gender</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Gender<span className="text-red-500 ml-0.5">*</span>
+                </label>
                 <select
-                  className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 bg-white"
+                  className={`w-full rounded-lg border px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 bg-white ${formErrors.gender ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                   value={params.gender}
-                  onChange={(e) => setParams((p) => ({ ...p, gender: e.target.value as Gender }))}
+                  onChange={(e) => {
+                    setParams((p) => ({ ...p, gender: e.target.value as Gender }));
+                    setFormErrors((fe) => ({ ...fe, gender: undefined }));
+                  }}
                 >
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                 </select>
+                {formErrors.gender && <p className="text-[10px] text-red-500 mt-0.5">{formErrors.gender}</p>}
               </div>
+              {/* Health Class — mandatory, always has a default */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Health Class</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Health Class<span className="text-red-500 ml-0.5">*</span>
+                </label>
                 <select
-                  className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 bg-white"
+                  className={`w-full rounded-lg border px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 bg-white ${formErrors.health_class ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                   value={params.health_class}
-                  onChange={(e) => setParams((p) => ({ ...p, health_class: e.target.value as HealthClass }))}
+                  onChange={(e) => {
+                    setParams((p) => ({ ...p, health_class: e.target.value as HealthClass }));
+                    setFormErrors((fe) => ({ ...fe, health_class: undefined }));
+                  }}
                 >
                   {HEALTH_CLASSES.map((h) => (
                     <option key={h} value={h}>{h}</option>
                   ))}
                 </select>
+                {formErrors.health_class && <p className="text-[10px] text-red-500 mt-0.5">{formErrors.health_class}</p>}
               </div>
+              {/* Face Amount — mandatory, always has a default */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Face Amount</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Face Amount<span className="text-red-500 ml-0.5">*</span>
+                </label>
                 <select
-                  className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 bg-white"
+                  className={`w-full rounded-lg border px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 bg-white ${formErrors.face_amount ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                   value={params.face_amount}
-                  onChange={(e) => setParams((p) => ({ ...p, face_amount: parseInt(e.target.value) }))}
+                  onChange={(e) => {
+                    setParams((p) => ({ ...p, face_amount: parseInt(e.target.value) }));
+                    setFormErrors((fe) => ({ ...fe, face_amount: undefined }));
+                  }}
                 >
                   {FACE_OPTIONS.map((f) => (
                     <option key={f} value={f}>{fmtFace(f)}</option>
                   ))}
                 </select>
+                {formErrors.face_amount && <p className="text-[10px] text-red-500 mt-0.5">{formErrors.face_amount}</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Term Duration</label>
@@ -862,16 +941,24 @@ Use plain text only — no markdown symbols.`;
               )}
             </div>
 
-            {/* Action buttons */}
+            {/* Action buttons — MODIFIED: Generate Quote disabled when mandatory fields are missing */}
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={generateQuote}
-                disabled={params.age < 18 || params.age > 75}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#1E5AA8] text-white font-semibold px-5 py-2 text-sm hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                🔍 Generate Quote
-              </button>
+              <div className="flex flex-col gap-0.5">
+                <button
+                  type="button"
+                  onClick={generateQuote}
+                  disabled={params.age < 18 || params.age > 75 || !params.state}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#1E5AA8] text-white font-semibold px-5 py-2 text-sm hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  🔍 Generate Quote
+                </button>
+                {/* ADDED: mandatory hint shown when button is blocked */}
+                {(!params.state || params.age < 18 || params.age > 75) && (
+                  <span className="text-[10px] text-red-500 ml-1">
+                    {!params.state ? 'Select a state to continue' : 'Age must be 18–75'}
+                  </span>
+                )}
+              </div>
               {quoteGenerated && (
                 <>
                   <button
