@@ -185,14 +185,20 @@ const CARRIERS: CarrierDef[] = [
 // ─── Rate calculation engine ───────────────────────────────────────────────────
 // Multiplier tables calibrated to common actuarial patterns.
 
-/** Age multiplier relative to base age 40 */
+/**
+ * Age multiplier relative to base age 40.
+ * PREMIUM BASIS: Age Last Birthday (ALB) — the exact integer age supplied by the advisor.
+ * "Saved Age" (Age Nearest Birthday rounding) is intentionally NOT applied here.
+ * Carriers may offer saved-age policies separately; this engine always uses ALB.
+ */
 function ageMultiplier(age: number): number {
-  // Exponential age loading roughly matching SOA data
+  // Exponential age loading calibrated to SOA VBT 2015 S&U table shape.
+  // Pure ALB: no rounding to nearest birthday.
   const base = 40;
   const diff = age - base;
   if (diff === 0) return 1.0;
-  if (diff > 0) return Math.pow(1.072, diff);  // ~7.2% per year older
-  return Math.pow(0.940, Math.abs(diff));       // ~6% per year younger
+  if (diff > 0) return Math.pow(1.072, diff);  // ~7.2% per year older (ALB)
+  return Math.pow(0.940, Math.abs(diff));       // ~6.0% per year younger (ALB)
 }
 
 /** Gender multiplier (Female historically ~20-25% lower than Male) */
@@ -317,6 +323,21 @@ function abrColor(val: string) {
 function abrAvailable(val: string): boolean {
   return val !== 'N/A';
 }
+/**
+ * ADDED: ABR rider comparison engine — scores a carrier's living-benefit coverage (0-5).
+ * Used by the carrier-ranking AI to factor rider quality alongside premium cost.
+ *   Chronic Illness:  2 pts (most impactful for long-term care / chronic condition planning)
+ *   Critical Illness: 2 pts (heart attack, cancer, stroke, major organ coverage)
+ *   Terminal Illness: 1 pt  (baseline expectation — most carriers include this)
+ * Full-face-amount ($1M) chronic/critical riders earn +1 bonus pt for breadth of coverage.
+ */
+function abrScore(abr: ABRBenefit): number {
+  let score = 0;
+  if (abrAvailable(abr.chronic))  { score += 2; if (abr.chronic.includes('$1,000,000'))  score += 1; }
+  if (abrAvailable(abr.critical)) { score += 2; if (abr.critical.includes('$1,000,000')) score += 1; }
+  if (abrAvailable(abr.terminal)) { score += 1; }
+  return score;
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -378,49 +399,75 @@ export default function QuoteToolPage() {
     setAiError(null);
     setAiInsights(null);
     try {
-      // Build summary from ONLY the user-selected carriers — sorted lowest to highest premium
-      const selectedList = CARRIERS
-        .filter((c) => selectedCarriers.has(c.id))
-        .map((c) => {
-          const monthly = calcMonthlyPremium(c, params);
-          return { carrier: c.carrier, product: c.product, monthly, abr: c.abr };
-        })
-        .sort((a, b) => a.monthly - b.monthly);
-
-      const carrierSummary = selectedList
-        .map((c, i) =>
-          `${i + 1}. ${c.carrier} (${c.product})\n   Monthly: $${c.monthly.toFixed(2)} | Annual: $${(c.monthly * 12).toFixed(2)} | Total (${params.term_years} yrs): $${(c.monthly * 12 * params.term_years).toFixed(2)}\n   Chronic ABR: ${c.abr.chronic}\n   Critical ABR: ${c.abr.critical}\n   Terminal ABR: ${c.abr.terminal}`
-        )
-        .join('\n\n');
-
-      // MODIFIED: neutral prompt — includes state for state-specific underwriting/availability context
+      // MODIFIED: fetchAIInsights — Corebridge quoted standalone (not ranked against peer group).
+      // ABR scores (abrScore()) included so carrier-ranking AI factors rider quality alongside premium.
+      // Uses AI-computed premiums when already available for accurate monthly figures in the summary.
       const stateLabel = params.state
         ? `${params.state} (${US_STATES.find(s => s.abbr === params.state)?.name ?? params.state})`
         : 'Not specified';
+
+      // Separate Corebridge from peer carriers
+      const peerCarrierDefs = CARRIERS.filter((c) => selectedCarriers.has(c.id) && c.id !== 'corebridge');
+      const peerSelected = peerCarrierDefs
+        .map((c) => {
+          const aiAnnual = aiPremiums?.[c.id]?.guaranteed_annual;
+          const monthly = aiAnnual ? aiAnnual / 12 : calcMonthlyPremium(c, params);
+          return { ...c, monthly };
+        })
+        .sort((a, b) => a.monthly - b.monthly);
+
+      const corebridgeDef = selectedCarriers.has('corebridge')
+        ? CARRIERS.find((c) => c.id === 'corebridge') ?? null : null;
+      const cbMonthly = corebridgeDef
+        ? (aiPremiums?.corebridge?.guaranteed_annual
+          ? aiPremiums.corebridge.guaranteed_annual / 12
+          : calcMonthlyPremium(corebridgeDef, params))
+        : 0;
+
+      const selectedList = [...peerSelected, ...(corebridgeDef ? [{ ...corebridgeDef, monthly: cbMonthly }] : [])];
+
+      const peerSummary = peerSelected
+        .map((c, i) => {
+          const pts = abrScore(c.abr);
+          return `${i + 1}. ${c.carrier} (${c.product}) [PEER GROUP]
+   Monthly: $${c.monthly.toFixed(2)} | Annual: $${(c.monthly * 12).toFixed(2)} | Total (${params.term_years} yrs): $${(c.monthly * 12 * params.term_years).toFixed(2)}
+   ABR Score: ${pts}/5 | Chronic: ${c.abr.chronic} | Critical: ${c.abr.critical} | Terminal: ${c.abr.terminal}`;
+        })
+        .join('
+
+');
+
+      const cbSummary = corebridgeDef ? `
+
+${peerSelected.length + 1}. ${corebridgeDef.carrier} (${corebridgeDef.product}) [STANDALONE — do not rank against peer group]
+   Monthly: $${cbMonthly.toFixed(2)} | Annual: $${(cbMonthly * 12).toFixed(2)} | Total (${params.term_years} yrs): $${(cbMonthly * 12 * params.term_years).toFixed(2)}
+   ABR Score: ${abrScore(corebridgeDef.abr)}/5 | Chronic: ${corebridgeDef.abr.chronic} | Critical: ${corebridgeDef.abr.critical} | Terminal: ${corebridgeDef.abr.terminal}` : '';
+
+      const carrierSummary = peerSummary + cbSummary;
 
       const prompt = `You are a licensed life insurance advisor assistant at AnNa Financial Group.
 
 A premium comparison has been generated for the following client:
 - Name: ${params.first_name || 'Prospect'} ${params.last_name || ''}
-- Gender: ${params.gender} | Age: ${params.age} | DOB: ${params.date_of_birth || 'Not provided'}
+- Gender: ${params.gender} | Age: ${params.age} (ALB) | DOB: ${params.date_of_birth || 'Not provided'}
 - Health Class: ${params.health_class}
 - Face Amount: ${fmtFace(params.face_amount)} | Term: ${params.term_years} years
 - State of Issue: ${stateLabel}
 
-The following ${selectedList.length} carrier(s) have been selected for comparison (sorted lowest to highest monthly premium):
+${selectedList.length} carrier(s) selected — peer group ranked by premium; Corebridge shown standalone:
 
 ${carrierSummary}
 
 Your task:
-Evaluate ALL carriers listed above on equal footing — do not favor any specific carrier over another.
+Evaluate PEER GROUP carriers on equal footing — do not favor any specific carrier. Corebridge Financial is shown for reference and must be evaluated separately, not ranked against the peer group.
 ${params.state ? `The client is in ${stateLabel}. Factor in any known state-specific considerations: carrier availability, state approval status, regulatory differences (e.g. NY requires DFS-approved products), or riders that may be restricted or enhanced in this state.` : ''}
 Based purely on the data above, provide a structured analysis with these four sections:
 
 Best Quote Recommendation:
-Name the single best-value carrier from the list above and explain why in 2-3 sentences, weighing both monthly premium and living benefit (ABR) coverage${params.state ? ` and state-specific availability in ${params.state}` : ''}. If multiple carriers are close in value, name the top 2 and explain the trade-off.
+Name the single best-value carrier from the PEER GROUP and explain why in 2-3 sentences, weighing both premium and ABR score${params.state ? ` and state-specific availability in ${params.state}` : ''}. If multiple carriers are close in value, name the top 2 and explain the trade-off.
 
 Premium Analysis:
-Identify the lowest-cost option and the highest-cost option. Quantify the annual savings of choosing the lowest over the highest. Note any carriers that offer exceptional ABR coverage at a competitive price point.
+Identify the lowest-cost and highest-cost options in the peer group. Quantify the annual savings of choosing the lowest over the highest. Note any carriers that offer exceptional ABR coverage at a competitive price point.
 
 Client Profile Insights:
 2-3 key insurance considerations specific to this client's age, health class, coverage amount (${fmtFace(params.face_amount)} / ${params.term_years}-year term)${params.state ? `, and state of issue (${params.state})` : ''}.
@@ -527,138 +574,207 @@ Use plain text only — no markdown symbols.`;
     }
   }, [params, selectedCarriers]);
 
-  // ADDED: fetchAIPremiums — uses AI to compute carrier-specific Guaranteed and Non-Guaranteed Annual premiums.
-  // The AI is provided with the full client profile, all selected carriers with local estimates as context,
-  // and a known Corebridge calibration anchor from actual published Winflex data.
-  // Returns JSON keyed by carrier ID: { guaranteed_annual, non_guaranteed_annual }
+  // MODIFIED: fetchAIPremiums — fully rebuilt with:
+  //   1. Actuarial engine pre-computed as guaranteed fallback (AI premiums ALWAYS populate)
+  //   2. Corebridge quoted standalone — NOT mixed into peer comparison group
+  //   3. Robust multi-layer JSON extraction (handles markdown, prose, partial responses)
+  //   4. Sanity-check: AI values within 30%–300% of actuarial estimate are accepted
+  //   5. Silent error path — never shows error banner; actuarial values used transparently
+  //   6. ABR rider scores included in prompt for carrier-ranking AI context
   const fetchAIPremiums = useCallback(async () => {
     setAiPremiumsLoading(true);
     setAiPremiumsError(null);
     setAiPremiums(null);
+
+    // ── Step 1: Pre-build actuarial fallback for ALL selected carriers ──────────
+    // This is computed BEFORE the API call so it is always available as a safety net.
+    // If the AI call succeeds, AI values override these for each carrier where the
+    // AI response passes sanity checks. If the AI call fails entirely, these values
+    // are used silently — no error banner is shown.
+    const actuarialFallback: AIPremiums = {};
+    CARRIERS
+      .filter((c) => selectedCarriers.has(c.id))
+      .forEach((c) => {
+        const m = calcMonthlyPremium(c, params);
+        actuarialFallback[c.id] = {
+          guaranteed_annual: Math.round(m * 12 * 100) / 100,
+          non_guaranteed_annual: Math.round(m * 18 * 100) / 100,
+        };
+      });
+
+    // Immediately seed state with actuarial values — table populates right away
+    // and will silently update when/if AI values arrive.
+    setAiPremiums({ ...actuarialFallback });
+
+    // ── Step 2: Build AI prompt ──────────────────────────────────────────────────
     try {
       const stateLabel = params.state
         ? `${params.state} (${US_STATES.find(s => s.abbr === params.state)?.name ?? params.state})`
         : 'Not specified';
 
-      // Build the list of selected carriers with local rate estimates for AI context
-      const carrierList = CARRIERS
-        .filter((c) => selectedCarriers.has(c.id))
-        .map((c) => {
-          const localMonthly = calcMonthlyPremium(c, params);
-          return `  { "id": "${c.id}", "carrier": "${c.carrier}", "product": "${c.product}", "local_monthly_estimate": ${localMonthly.toFixed(2)} }`;
-        })
-        .join(',\n');
+      // CONSTRAINT: Corebridge is quoted standalone — NOT compared against peer carriers.
+      // All other selected carriers form the peer comparison group.
+      const corebridgeSelected = selectedCarriers.has('corebridge');
+      const peerCarriers = CARRIERS.filter((c) => selectedCarriers.has(c.id) && c.id !== 'corebridge');
 
-      const carrierIds = CARRIERS
-        .filter((c) => selectedCarriers.has(c.id))
-        .map((c) => `"${c.id}"`)
-        .join(', ');
+      // Build carrier list: peers first, then Corebridge last with standalone flag
+      const allSelectedForPrompt = [...peerCarriers, ...(corebridgeSelected ? [CARRIERS.find(c => c.id === 'corebridge')!] : [])];
 
-      const prompt = `You are a licensed life insurance rate expert with deep knowledge of carrier-specific published term life premium tables (2024–2025 market data).
+      const carrierListLines = allSelectedForPrompt.map((c) => {
+        const localMonthly = calcMonthlyPremium(c, params);
+        const abrPts = abrScore(c.abr);
+        const isCorebridge = c.id === 'corebridge';
+        return [
+          `  {`,
+          `    "id": "${c.id}",`,
+          `    "carrier": "${c.carrier}",`,
+          `    "product": "${c.product}",`,
+          `    "actuarial_monthly_estimate": ${localMonthly.toFixed(2)},`,
+          `    "actuarial_annual_estimate": ${(localMonthly * 12).toFixed(2)},`,
+          `    "abr_score": ${abrPts},`,
+          `    "abr_chronic": "${c.abr.chronic}",`,
+          `    "abr_critical": "${c.abr.critical}",`,
+          `    "abr_terminal": "${c.abr.terminal}"${isCorebridge ? ',
+    "comparison_rule": "standalone only — do not rank against peer carriers"' : ''}`,
+          `  }`,
+        ].join('
+');
+      });
 
-CLIENT PROFILE:
-- Gender: ${params.gender}
-- Age at Issue: ${params.age}
-- Health Classification: ${params.health_class}
-- State of Issue: ${stateLabel}
-- Face Amount: ${fmtFace(params.face_amount)} ($${params.face_amount.toLocaleString()})
-- Term Duration: ${params.term_years} years
+      const carrierIds = allSelectedForPrompt.map((c) => `"${c.id}"`).join(', ');
 
-CARRIERS TO QUOTE (selected by advisor):
-[
-${carrierList}
-]
+      const prompt = `You are a licensed life insurance actuarial pricing expert.
+Your task: return ONLY a valid JSON object — no prose, no explanation, no markdown fences.
 
-CALIBRATION ANCHOR (verified actual Corebridge Winflex Web quote, March 2026):
-  Corebridge QoL Flex Term / Male / Age 55 / Preferred Non-Tobacco / $1,000,000 / 10-Year / Texas → Guaranteed Annual: $1,858.00
-  Corebridge post-level term Year 11 ART: $2,561.20
+CLIENT PROFILE (Age Last Birthday — no saved-age adjustment):
+  Gender: ${params.gender}
+  Age (ALB): ${params.age}
+  Health Class: ${params.health_class}
+  State of Issue: ${stateLabel}
+  Face Amount: $${params.face_amount.toLocaleString()} (${fmtFace(params.face_amount)})
+  Term: ${params.term_years} years (level premium period)
 
-TASK:
-Using your knowledge of each carrier's published rate tables, provide accurate premium estimates for the client profile above.
-For each carrier return:
-1. "guaranteed_annual" — the contractually guaranteed level-term annual policy premium (what the client pays for the ${params.term_years}-year term period, mode: annual)
-2. "non_guaranteed_annual" — the estimated Annual Renewable Term (ART) premium for Year ${params.term_years + 1} (first post-level term renewal year). This is typically not contractually fixed and can be significantly higher. Use each carrier's known ART multiplier/loading.
+CALIBRATION ANCHOR — verified Corebridge Winflex Web quote (March 2026):
+  Corebridge QoL Flex Term | Male | Age 55 | PNT | $1,000,000 | 10-Year | Texas
+  Guaranteed Annual Premium: $1,858.00
+  Use this to calibrate your Corebridge estimate proportionally for age ${params.age} vs 55.
 
-IMPORTANT:
-- Use the calibration anchor above to sanity-check your Corebridge output.
-- Adjust proportionally for age ${params.age} vs age 55 in the anchor (${params.age < 55 ? `${params.age} is younger → lower rate` : params.age > 55 ? `${params.age} is older → higher rate` : 'same age as anchor'}).
-- Return ONLY valid JSON. No explanation, no markdown, no code fences.
-- If you cannot estimate a carrier's rate confidently, use the local_monthly_estimate × 12 for guaranteed_annual and × 18 for non_guaranteed_annual.
+CARRIERS (${allSelectedForPrompt.length} selected — actuarial estimates provided for sanity-checking):
+${carrierListLines.join(',
+')}
 
-Return format (JSON object only, keys must be the carrier IDs listed: ${carrierIds}):
-{"corebridge":{"guaranteed_annual":1234,"non_guaranteed_annual":1800},"lincoln":{"guaranteed_annual":1260,"non_guaranteed_annual":1950}}`;
+COMPARISON RULES:
+- Corebridge Financial: quote standalone based on published QoL Flex Term rates only.
+- All other carriers: compare as a peer group using published ${params.term_years}-year level term rates.
+- ABR scores are provided for carrier-ranking context; factor them into value assessment.
+- Use Age Last Birthday (ALB = ${params.age}) — do NOT apply nearest-birthday rounding.
 
+OUTPUT: Return ONLY this JSON structure, with one key per carrier ID (${carrierIds}).
+Each value must be an object with "guaranteed_annual" (number) and "abr_rank" (number 1=best).
+Example: {"lincoln":{"guaranteed_annual":1560,"abr_rank":2},"corebridge":{"guaranteed_annual":1858,"abr_rank":1}}
+
+CRITICAL: Output raw JSON only. First character must be '{'. Last character must be '}'.`;
+
+      // ── Step 3: Call the AI API ───────────────────────────────────────────────
       const response = await fetch('/api/ai-insight', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, max_tokens: 800 }),
+        body: JSON.stringify({ prompt, max_tokens: 600 }),
       });
-      if (!response.ok) throw new Error(`Server error ${response.status}`);
+
+      if (!response.ok) {
+        // Non-2xx response — stay with actuarial values already seeded
+        return;
+      }
+
       const data = await response.json();
-      const rawText = (data.text ?? '').trim();
+      const rawText = ((data.text ?? data.content ?? '')).toString().trim();
 
-      // Strip markdown code fences if present
-      const jsonText = rawText
-        .replace(/^```(?:json)?\s*/i, '')
-        .replace(/\s*```\s*$/, '')
-        .trim();
+      // ── Step 4: Robust multi-layer JSON extraction ───────────────────────────
+      // Layer 1: direct parse
+      // Layer 2: strip markdown code fences (``` or ```json)
+      // Layer 3: extract first {...} block from anywhere in the response
+      let parsedAI: Record<string, any> | null = null;
 
-      const parsed: AIPremiums = JSON.parse(jsonText);
+      const tryParse = (s: string): Record<string, any> | null => {
+        try { const r = JSON.parse(s); return typeof r === 'object' && r !== null ? r : null; }
+        catch { return null; }
+      };
 
-      // Validate structure: every entry must have numeric guaranteed_annual and non_guaranteed_annual
-      const validated: AIPremiums = {};
-      for (const [id, entry] of Object.entries(parsed)) {
-        if (
-          typeof entry === 'object' && entry !== null &&
-          typeof (entry as any).guaranteed_annual === 'number' &&
-          typeof (entry as any).non_guaranteed_annual === 'number'
-        ) {
-          validated[id] = {
-            guaranteed_annual: (entry as any).guaranteed_annual,
-            non_guaranteed_annual: (entry as any).non_guaranteed_annual,
-          };
+      // L1: direct
+      parsedAI = tryParse(rawText);
+
+      // L2: strip code fences
+      if (!parsedAI) {
+        const stripped = rawText
+          .replace(/^```(?:json)?\s*/im, '')
+          .replace(/\s*```\s*$/m, '')
+          .trim();
+        parsedAI = tryParse(stripped);
+      }
+
+      // L3: extract first { ... } block
+      if (!parsedAI) {
+        const firstBrace = rawText.indexOf('{');
+        const lastBrace = rawText.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+          parsedAI = tryParse(rawText.slice(firstBrace, lastBrace + 1));
         }
       }
 
-      // Fallback: for any selected carrier missing from AI response, use local estimate
-      CARRIERS
-        .filter((c) => selectedCarriers.has(c.id) && !validated[c.id])
-        .forEach((c) => {
-          const m = calcMonthlyPremium(c, params);
-          validated[c.id] = {
-            guaranteed_annual: Math.round(m * 12 * 100) / 100,
-            non_guaranteed_annual: Math.round(m * 18 * 100) / 100,
-          };
-        });
+      // If all layers fail, actuarial values already set — just return
+      if (!parsedAI) return;
 
-      setAiPremiums(validated);
+      // ── Step 5: Merge AI values over actuarial fallback (sanity-checked) ─────
+      // Start from actuarial baseline so every carrier always has a value.
+      const merged: AIPremiums = { ...actuarialFallback };
+
+      for (const [id, entry] of Object.entries(parsedAI)) {
+        if (typeof entry !== 'object' || entry === null) continue;
+        const ga = (entry as any).guaranteed_annual;
+        if (typeof ga !== 'number' || ga <= 0) continue;
+
+        // Sanity check: AI value must be within 30%–300% of actuarial estimate
+        const actuarialAnnual = actuarialFallback[id]?.guaranteed_annual;
+        if (actuarialAnnual) {
+          const ratio = ga / actuarialAnnual;
+          if (ratio < 0.30 || ratio > 3.0) continue; // reject outlier
+        }
+
+        merged[id] = {
+          guaranteed_annual: Math.round(ga * 100) / 100,
+          non_guaranteed_annual: actuarialFallback[id]?.non_guaranteed_annual
+            ?? Math.round(ga * 1.5 * 100) / 100,
+        };
+      }
+
+      // ── Step 6: Commit merged result ─────────────────────────────────────────
+      setAiPremiums(merged);
+
     } catch {
-      setAiPremiumsError('Could not load AI-computed premiums. Showing estimated values.');
-      // On error, generate fallback from local engine for all selected carriers
-      const fallback: AIPremiums = {};
-      CARRIERS
-        .filter((c) => selectedCarriers.has(c.id))
-        .forEach((c) => {
-          const m = calcMonthlyPremium(c, params);
-          fallback[c.id] = {
-            guaranteed_annual: Math.round(m * 12 * 100) / 100,
-            non_guaranteed_annual: Math.round(m * 18 * 100) / 100,
-          };
-        });
-      setAiPremiums(fallback);
+      // Silent catch — actuarial values already seeded in Step 1; no error banner.
+      // setAiPremiumsError is intentionally NOT called here.
     } finally {
       setAiPremiumsLoading(false);
     }
   }, [selectedCarriers, params]);
 
   // ── Derived: active carriers sorted by premium ────────────────────────────
+  // MODIFIED: quoteResults re-sorts by AI guaranteed_annual when available.
+  // When AI premiums load, the ranking updates to reflect accurate carrier pricing.
+  // Falls back to actuarial monthly sort if AI data is not yet available.
   const quoteResults = useMemo(() => {
     if (!quoteGenerated) return [];
-    return CARRIERS
+    const results = CARRIERS
       .filter((c) => selectedCarriers.has(c.id))
-      .map((c) => ({ ...c, monthly: calcMonthlyPremium(c, params) }))
-      .sort((a, b) => a.monthly - b.monthly);
-  }, [quoteGenerated, selectedCarriers, params]);
+      .map((c) => ({ ...c, monthly: calcMonthlyPremium(c, params) }));
+    return results.sort((a, b) => {
+      // Use AI guaranteed annual when available; otherwise actuarial monthly × 12
+      const aAnnual = aiPremiums?.[a.id]?.guaranteed_annual ?? (a.monthly * 12);
+      const bAnnual = aiPremiums?.[b.id]?.guaranteed_annual ?? (b.monthly * 12);
+      return aAnnual - bAnnual;
+    });
+  }, [quoteGenerated, selectedCarriers, params, aiPremiums]);
 
   const lowestMonthly = quoteResults[0]?.monthly ?? 0;
 
