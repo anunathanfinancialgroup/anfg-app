@@ -1,5 +1,3 @@
-
-
 "use client"; //    GAP: <span style={{ color: Gap >= 0 ? '#15803d' : '#dc2626' }}>{fmt(Gap)}</span>
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -612,7 +610,8 @@ export default function FNAPage() {
   const ltcManualRef    = useRef(false);
   const [data, setData] = useState<FNAData>(initialData);
   const [assets, setAssets] = useState<AssetsData>(initialAssets);
-  const [activeTab, setActiveTab] = useState<'goals' | 'assets' | 'liabilities' | 'createPlan'>('goals');
+  // ── ADDED: summary tab added to activeTab union type ──────────────────────
+  const [activeTab, setActiveTab] = useState<'goals' | 'assets' | 'liabilities' | 'createPlan' | 'summary'>('goals');
   const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -635,7 +634,15 @@ export default function FNAPage() {
   const [clientInfoMessage, setClientInfoMessage] = useState("");
   const [clientInfoMessageType, setClientInfoMessageType] = useState<'success' | 'error'>('success');
 
-  // ── Compound interest helpers ──────────────────────────────────────────────
+  // ── ADDED: State for Summary tab AI generation ───────────────────────────
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryGoals, setSummaryGoals] = useState<string>('');
+  const [summaryAssets, setSummaryAssets] = useState<string>('');
+  const [summaryLiabilities, setSummaryLiabilities] = useState<string>('');
+  const [summaryHealthInsurance, setSummaryHealthInsurance] = useState<string>('');
+  const [summaryError, setSummaryError] = useState<string>('');
+
+  // ── ADDED: Compound interest helpers ──────────────────────────────────────
   const yearsToRetirement = useMemo(() => {
     const retAge = data.plannedRetirementAge;
     if (data.dob) {
@@ -3001,6 +3008,8 @@ Example format:
             { key: 'assets',      label: '💰 Assets' },
             { key: 'liabilities', label: '💳 Liabilities' },
             { key: 'createPlan',  label: '📋 Create Plan' },
+            // ── ADDED: Summary tab ──────────────────────────────────────────
+            { key: 'summary',     label: '📊 Summary' },
           ] as const).map(({ key: tab, label }) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`flex-1 px-3 py-1.5 rounded font-semibold text-xs transition-all ${activeTab === tab ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'}`}>
@@ -4131,6 +4140,565 @@ Example format:
                     )}
                   </>
                 )}
+              </div>
+
+              <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ Disclaimer: For Education Purpose Only. We Do Not Provide Any Legal Or Tax Advice</div>
+            </div>
+          );
+        })()}
+
+        {/* ════════════════════════════════════════ SUMMARY TAB ══════════════
+            ADDED: New Summary tab — Pie charts for Goals, Assets, Liabilities
+            plus AI-generated professional summaries and Health Insurance advice.
+            All computations are derived from existing state — no API changes.
+        ═══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === 'summary' && (() => {
+          // ── Currency formatter ─────────────────────────────────────────────
+          const fmtC = (n: number) =>
+            n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+          const toN = (v: any) => { const n = parseFloat(String(v ?? '').replace(/[$,\s]/g, '')); return Number.isFinite(n) ? n : 0; };
+
+          // ── Goals & Planning breakdown ────────────────────────────────────
+          const goalSlices = [
+            { label: 'College Planning',   value: data.child1CollegeAmount + data.child2CollegeAmount,  color: '#3B82F6' },
+            { label: 'Wedding Planning',   value: data.child1WeddingAmount + data.child2WeddingAmount,  color: '#EC4899' },
+            { label: 'Retirement Income',  value: data.totalRetirementIncome,                           color: '#10B981' },
+            { label: 'Healthcare',         value: data.healthcareExpenses + data.longTermCare,          color: '#EF4444' },
+            { label: 'Life Goals',         value: data.travelBudget + data.vacationHome + data.charity + data.otherGoals, color: '#F59E0B' },
+            { label: 'Legacy & Support',   value: data.familyLegacy + data.headstartFund + data.familySupport,           color: '#8B5CF6' },
+          ].filter(s => s.value > 0);
+
+          // ── Assets breakdown ──────────────────────────────────────────────
+          const retirementAssets = (assets.r1_present||0)+(assets.r2_present||0)+(assets.r3_present||0)+(assets.r4_present||0)+(assets.r5_present||0)+(assets.r6_present||0)+(assets.r7_present||0);
+          const realEstateAssets = (assets.e1_present||0)+(assets.e2_present||0)+(assets.e3_present||0)+(assets.e4_present||0);
+          const stocksAssets     = (assets.s1_present||0)+(assets.s2_present||0)+(assets.s3_present||0)+(assets.s4_present||0)+(assets.s5_present||0)+(assets.s6_present||0)+(assets.s7_present||0);
+          const insuranceAssets  = (assets.f1_present||0)+(assets.f2_present||0)+(assets.f3_present||0)+(assets.f7_present||0);
+          const collegeAssets    = (assets.c1_present||0);
+          const foreignAssets    = (assets.x1_present||0)+(assets.x2_present||0);
+          const assetSlices = [
+            { label: 'Retirement Accts', value: retirementAssets, color: '#3B82F6' },
+            { label: 'Real Estate',      value: realEstateAssets, color: '#10B981' },
+            { label: 'Stocks & Income',  value: stocksAssets,     color: '#F59E0B' },
+            { label: 'Insurance/HSA',    value: insuranceAssets,  color: '#EC4899' },
+            { label: 'College (529)',     value: collegeAssets,    color: '#8B5CF6' },
+            { label: 'Foreign Assets',   value: foreignAssets,    color: '#14B8A6' },
+          ].filter(s => s.value > 0);
+
+          // ── Liabilities breakdown ─────────────────────────────────────────
+          // Group liabilityRows by liability_type
+          const liabMap: Record<string, number> = {};
+          liabilityRows.forEach(r => {
+            const t = String(r.liability_type || 'Other');
+            liabMap[t] = (liabMap[t] || 0) + toN(r.balance);
+          });
+          const liabColors = ['#EF4444','#F97316','#EAB308','#84CC16','#06B6D4','#6366F1','#EC4899','#8B5CF6','#14B8A6','#F59E0B'];
+          const liabSlices = Object.entries(liabMap)
+            .filter(([, v]) => v > 0)
+            .map(([label, value], i) => ({ label, value, color: liabColors[i % liabColors.length] }));
+
+          // ── SVG Pie Chart component ───────────────────────────────────────
+          // Pure SVG — no external library. Renders a simple donut pie chart.
+          const PieChart = ({
+            slices, size = 180, title, total,
+          }: {
+            slices: { label: string; value: number; color: string }[];
+            size?: number;
+            title: string;
+            total: number;
+          }) => {
+            if (slices.length === 0 || total === 0) {
+              return (
+                <div className="flex flex-col items-center" style={{ minWidth: size }}>
+                  <div className="text-xs font-bold mb-2 text-gray-700 text-center">{title}</div>
+                  <div className="flex items-center justify-center rounded-full bg-gray-100 border-2 border-dashed border-gray-300 text-gray-400 text-xs"
+                    style={{ width: size, height: size }}>
+                    No data
+                  </div>
+                </div>
+              );
+            }
+            const cx = size / 2, cy = size / 2, r = size * 0.38, ri = size * 0.22;
+            let angle = -Math.PI / 2;
+            const paths: React.ReactNode[] = [];
+            slices.forEach((s, i) => {
+              const pct = s.value / total;
+              const sweep = pct * 2 * Math.PI;
+              const x1 = cx + r * Math.cos(angle);
+              const y1 = cy + r * Math.sin(angle);
+              const x2 = cx + r * Math.cos(angle + sweep);
+              const y2 = cy + r * Math.sin(angle + sweep);
+              const ix1 = cx + ri * Math.cos(angle);
+              const iy1 = cy + ri * Math.sin(angle);
+              const ix2 = cx + ri * Math.cos(angle + sweep);
+              const iy2 = cy + ri * Math.sin(angle + sweep);
+              const large = sweep > Math.PI ? 1 : 0;
+              const d = `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${ri} ${ri} 0 ${large} 0 ${ix1} ${iy1} Z`;
+              paths.push(
+                <path key={i} d={d} fill={s.color} stroke="#fff" strokeWidth="1.5">
+                  <title>{s.label}: {fmtC(s.value)} ({(pct * 100).toFixed(1)}%)</title>
+                </path>
+              );
+              angle += sweep;
+            });
+            return (
+              <div className="flex flex-col items-center" style={{ minWidth: size }}>
+                <div className="text-xs font-bold mb-1 text-gray-700 text-center">{title}</div>
+                <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+                  {paths}
+                  {/* Center label */}
+                  <text x={cx} y={cy - 6} textAnchor="middle" fontSize="9" fill="#374151" fontWeight="bold">Total</text>
+                  <text x={cx} y={cy + 7} textAnchor="middle" fontSize="8" fill="#6B7280">{fmtC(total)}</text>
+                </svg>
+                {/* Legend */}
+                <div className="mt-2 w-full space-y-0.5" style={{ maxWidth: size + 20 }}>
+                  {slices.map((s, i) => (
+                    <div key={i} className="flex items-center gap-1.5 text-xs">
+                      <span className="inline-block rounded-sm flex-shrink-0" style={{ width: 10, height: 10, backgroundColor: s.color }} />
+                      <span className="text-gray-600 truncate" style={{ maxWidth: size - 30 }}>{s.label}</span>
+                      <span className="ml-auto text-gray-800 font-medium whitespace-nowrap">{fmtC(s.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          };
+
+          // ── Totals for pie charts ─────────────────────────────────────────
+          const totalGoals    = goalSlices.reduce((s, x) => s + x.value, 0);
+          const totalAssetAmt = assetSlices.reduce((s, x) => s + x.value, 0);
+          const totalLiabAmt  = liabSlices.reduce((s, x) => s + x.value, 0);
+
+          // ── AI Summary generator ──────────────────────────────────────────
+          const generateAISummary = async () => {
+            if (!data.clientId || !data.clientName) {
+              setSummaryError('Please select a client first.');
+              return;
+            }
+            setSummaryLoading(true);
+            setSummaryError('');
+            setSummaryGoals('');
+            setSummaryAssets('');
+            setSummaryLiabilities('');
+            setSummaryHealthInsurance('');
+
+            const clientFirst = data.clientName?.split(' ')[0] || 'the client';
+            const spouseFirst = data.spouseName?.split(' ')[0] || null;
+            const hasSpouse   = !!data.spouseName;
+            const totalLiabilities = liabilityRows.reduce((s, r) => s + toN(r.balance), 0);
+            const projectedAssets  = totalProjected;
+            const Gap = data.totalRequirement - projectedAssets - totalLiabilities;
+
+            // Build a compact but rich financial profile for the AI
+            const profile = {
+              name: data.clientName,
+              spouse: data.spouseName || null,
+              age: data.currentAge,
+              retirementAge: data.plannedRetirementAge,
+              yearsToRetirement: yearsToRetirement,
+              city: data.city, state: data.state,
+              goals: {
+                collegePlanning:  data.child1CollegeAmount + data.child2CollegeAmount,
+                weddingPlanning:  data.child1WeddingAmount + data.child2WeddingAmount,
+                retirementIncome: data.totalRetirementIncome,
+                healthcare:       data.healthcareExpenses + data.longTermCare,
+                lifeGoals:        data.travelBudget + data.vacationHome + data.charity + data.otherGoals,
+                legacy:           data.familyLegacy + data.headstartFund + data.familySupport,
+                totalRequirement: data.totalRequirement,
+              },
+              assets: {
+                retirementAccounts: retirementAssets,
+                realEstate:         realEstateAssets,
+                stocksAndIncome:    stocksAssets,
+                insuranceAndHSA:    insuranceAssets,
+                collegeSavings:     collegeAssets,
+                foreignAssets:      foreignAssets,
+                totalPresent:       totalPresent,
+                totalProjected:     projectedAssets,
+              },
+              liabilities: {
+                totalBalance:       totalLiabilities,
+                breakdown:          liabMap,
+              },
+              insurance: {
+                lifeInsWork:            assets.f1_present || 0,
+                lifeInsOutside:         assets.f2_present || 0,
+                lifeInsOutsideHim:      assets.f2_him,
+                lifeInsOutsideHer:      assets.f2_her,
+                cashValueLI:            assets.f3_present || 0,
+                cashValueLIHim:         assets.f3_him,
+                cashValueLIHer:         assets.f3_her,
+                stdLtdHim:              assets.f5_him,
+                stdLtdHer:              assets.f5_her,
+                ltcHim:                 assets.f6_him,
+                ltcHer:                 assets.f6_her,
+                hsa:                    assets.f7_present || 0,
+                mortgageProtection:     assets.f8_him || assets.f8_her,
+                // Health Insurance is a key focus — assess gap/need
+                hasHealthInsurance:     (assets.f1_present > 0) || assets.f2_him || assets.f2_her,
+              },
+              netWorth:   totalPresent - totalLiabilities,
+              gap:        Gap,
+              haveWill:   data.haveWill,
+              hasSpouse,
+            };
+
+            const systemPrompt = `You are a professional licensed financial advisor writing a personalized financial summary for a client. 
+Your tone is warm, professional, encouraging, and actionable. Address the client by first name.
+You must return a valid JSON object with exactly these four string keys:
+{
+  "goals": "...",
+  "assets": "...",
+  "liabilities": "...",
+  "healthInsurance": "..."
+}
+Each value must be a detailed paragraph (3-5 sentences) with professional financial advice. Do NOT use markdown or bullet points inside the strings — plain text only. Keep each section concise but impactful.
+- "goals": Summarize the client's planning goals and provide professional insight on priorities and any gaps.
+- "assets": Summarize the client's asset picture, highlight strengths, weaknesses, and diversification advice.
+- "liabilities": Summarize liabilities, debt-to-asset ratio, and strategies for debt reduction or management.
+- "healthInsurance": Provide a dedicated AI-powered recommendation on the importance of health insurance for the client and their family, including specific product types (employer-sponsored, private, HSA-eligible HDHP, supplemental, critical illness riders) that would benefit them based on their profile. Be specific about why coverage gaps are dangerous given their financial situation.
+Return ONLY the JSON object — no preamble, no explanation, no markdown fences.`;
+
+            try {
+              const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  model: 'claude-sonnet-4-20250514',
+                  max_tokens: 1800,
+                  system: systemPrompt,
+                  messages: [
+                    {
+                      role: 'user',
+                      content: `Generate a comprehensive financial summary for this client profile: ${JSON.stringify(profile, null, 2)}`
+                    }
+                  ],
+                }),
+              });
+              if (!response.ok) throw new Error(`API error: ${response.status}`);
+              const apiData = await response.json();
+              const rawText = (apiData.content || [])
+                .filter((b: any) => b.type === 'text')
+                .map((b: any) => b.text)
+                .join('');
+              const clean = rawText.replace(/```json|```/g, '').trim();
+              const parsed = JSON.parse(clean);
+              if (parsed.goals)          setSummaryGoals(parsed.goals);
+              if (parsed.assets)         setSummaryAssets(parsed.assets);
+              if (parsed.liabilities)    setSummaryLiabilities(parsed.liabilities);
+              if (parsed.healthInsurance) setSummaryHealthInsurance(parsed.healthInsurance);
+            } catch (err: any) {
+              // ── Fallback to static summaries if API fails ─────────────────
+              const $ = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 });
+              setSummaryGoals(
+                `${clientFirst}, your total planning requirement is ${$(data.totalRequirement)}, reflecting a comprehensive set of financial goals spanning retirement, healthcare, college, and legacy planning. ` +
+                `Retirement income planning represents your largest commitment at ${$(data.totalRetirementIncome)}, which is appropriate given the need for sustainable income over your ${data.retirementYears}-year retirement horizon. ` +
+                `Healthcare planning of ${$(data.healthcareExpenses + data.longTermCare)} is also wisely included — medical costs remain one of the top threats to retirement security. ` +
+                `Consider reviewing your goals annually with your advisor to ensure they keep pace with life changes and inflation.`
+              );
+              setSummaryAssets(
+                `${clientFirst}, your current total assets stand at ${$(totalPresent)}, with a projected value of ${$(projectedAssets)} at retirement age ${data.plannedRetirementAge} at a ${data.calculatedInterestPercentage}% growth rate. ` +
+                (retirementAssets > 0 ? `Retirement accounts represent ${$(retirementAssets)} of your asset base — a strong foundation. ` : '') +
+                (stocksAssets > 0 ? `Your stocks and income assets of ${$(stocksAssets)} provide additional growth potential. ` : '') +
+                (Gap > 0 ? `A funding gap of ${$(Gap)} remains — increasing contributions or optimizing investment allocations can help close this shortfall before retirement.` : `You are currently on track to meet your retirement goals, which is an excellent position.`)
+              );
+              setSummaryLiabilities(
+                totalLiabilities > 0
+                  ? `${clientFirst}, your total liabilities are ${$(totalLiabilities)}, representing a debt-to-asset ratio of ${((totalLiabilities / Math.max(totalPresent, 1)) * 100).toFixed(0)}%. ` +
+                    `Prioritize high-interest debt elimination using the debt avalanche method to free up cash flow for savings and investments. ` +
+                    `As your net worth is ${$(totalPresent - totalLiabilities)}, structured debt repayment will significantly improve your financial resilience. ` +
+                    `Consult your advisor about refinancing opportunities to reduce interest costs while maintaining liquidity.`
+                  : `${clientFirst}, you have no recorded liabilities — this is an excellent financial position that provides maximum flexibility for wealth building and investment. ` +
+                    `Maintaining a debt-free or low-debt profile allows you to direct maximum cash flow toward achieving your ${$(data.totalRequirement)} planning requirement.`
+              );
+              setSummaryHealthInsurance(
+                `Health insurance is one of the most critical and often underestimated components of a comprehensive financial plan, ${clientFirst}. ` +
+                `A single major medical event — hospitalization, surgery, or chronic illness — can cost tens of thousands of dollars and rapidly deplete retirement savings built over decades. ` +
+                `For ${hasSpouse ? `you and ${spouseFirst}` : 'you'}, ensuring robust health coverage means evaluating employer-sponsored plans for premium efficiency, HSA-eligible High-Deductible Health Plans (HDHPs) that provide triple tax advantages (tax-deductible contributions, tax-free growth, tax-free withdrawals for medical expenses), and supplemental policies such as critical illness or hospital indemnity insurance to cover gaps. ` +
+                `${(assets.f7_present || 0) === 0 ? `You currently have no HSA balance recorded — an HSA is one of the most powerful tax-advantaged accounts available and should be a priority. ` : `Your HSA balance of ${$(assets.f7_present)} is a great start — maximize annual HSA contributions to build a healthcare safety net. `}` +
+                `Speak with your advisor about a coordinated health + life + disability protection strategy that shields your family's financial future from health-related setbacks.`
+              );
+            } finally {
+              setSummaryLoading(false);
+            }
+          };
+
+          // ── Render ─────────────────────────────────────────────────────────
+          return (
+            <div className="space-y-4">
+
+              {/* ── Header ────────────────────────────────────────────────── */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h3 className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: COLORS.headerBg }}>
+                    📊 FNA Summary — {data.clientName || 'No Client Selected'}
+                  </h3>
+                  <button
+                    onClick={generateAISummary}
+                    disabled={summaryLoading || !data.clientId}
+                    className="px-3 py-1.5 text-xs font-semibold rounded text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: summaryLoading ? '#6B7280' : '#1D4ED8' }}>
+                    {summaryLoading ? '🤖 Generating AI Summary…' : '🤖 Generate AI Summary'}
+                  </button>
+                </div>
+                {summaryError && (
+                  <div className="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">{summaryError}</div>
+                )}
+                {!data.clientId && (
+                  <p className="mt-2 text-xs text-amber-600">⚠️ Please select a client to view their summary.</p>
+                )}
+              </div>
+
+              {/* ── PIE CHARTS ROW ─────────────────────────────────────────── */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <h3 className="text-xs font-bold px-2 py-0.5 rounded mb-4" style={{ backgroundColor: COLORS.headerBg }}>
+                  🥧 Financial Distribution Overview
+                </h3>
+                <div className="flex flex-wrap justify-around gap-8">
+                  {/* Goals & Planning Pie */}
+                  <PieChart
+                    slices={goalSlices}
+                    total={totalGoals}
+                    size={200}
+                    title="🎯 Goals & Planning"
+                  />
+                  {/* Assets Pie */}
+                  <PieChart
+                    slices={assetSlices}
+                    total={totalAssetAmt}
+                    size={200}
+                    title="💰 Assets (Present Value)"
+                  />
+                  {/* Liabilities Pie */}
+                  <PieChart
+                    slices={liabSlices}
+                    total={totalLiabAmt}
+                    size={200}
+                    title="💳 Liabilities (Balance)"
+                  />
+                </div>
+              </div>
+
+              {/* ── AI SUMMARY SECTIONS ────────────────────────────────────── */}
+
+              {/* Goals & Planning Summary */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <h3 className="text-xs font-bold px-2 py-0.5 rounded mb-3 flex items-center gap-2" style={{ backgroundColor: COLORS.headerBg }}>
+                  🎯 Goals & Planning — AI Summary
+                  {summaryLoading && <span className="text-blue-500 font-normal animate-pulse text-xs">Generating…</span>}
+                </h3>
+                {summaryGoals ? (
+                  <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                    <p className="text-xs text-gray-700 leading-relaxed">{summaryGoals}</p>
+                  </div>
+                ) : (
+                  /* Goals breakdown table shown before AI is generated */
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse border border-gray-200">
+                      <thead>
+                        <tr style={{ backgroundColor: COLORS.headerBg }}>
+                          <th className="border border-gray-300 px-3 py-1.5 text-left font-bold">Goal Area</th>
+                          <th className="border border-gray-300 px-3 py-1.5 text-right font-bold">Amount</th>
+                          <th className="border border-gray-300 px-3 py-1.5 text-right font-bold">% of Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {goalSlices.length === 0 ? (
+                          <tr><td colSpan={3} className="px-3 py-4 text-gray-400 italic text-center">No goals entered yet.</td></tr>
+                        ) : goalSlices.map((s, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <td className="border border-gray-200 px-3 py-1.5">
+                              <span className="inline-block w-2.5 h-2.5 rounded-full mr-2 align-middle" style={{ backgroundColor: s.color }} />
+                              {s.label}
+                            </td>
+                            <td className="border border-gray-200 px-3 py-1.5 text-right font-medium">{fmtC(s.value)}</td>
+                            <td className="border border-gray-200 px-3 py-1.5 text-right text-gray-500">
+                              {totalGoals > 0 ? ((s.value / totalGoals) * 100).toFixed(1) : '0.0'}%
+                            </td>
+                          </tr>
+                        ))}
+                        {totalGoals > 0 && (
+                          <tr className="font-bold" style={{ backgroundColor: COLORS.lightYellowBg }}>
+                            <td className="border border-gray-300 px-3 py-1.5">💰 Total Planning Requirement</td>
+                            <td className="border border-gray-300 px-3 py-1.5 text-right text-green-700">{fmtC(data.totalRequirement)}</td>
+                            <td className="border border-gray-300 px-3 py-1.5 text-right">100%</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                    <p className="text-xs text-gray-400 italic mt-2">Click "Generate AI Summary" for a professional analysis.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Assets Summary */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <h3 className="text-xs font-bold px-2 py-0.5 rounded mb-3 flex items-center gap-2" style={{ backgroundColor: COLORS.headerBg }}>
+                  💰 Assets — AI Summary
+                  {summaryLoading && <span className="text-blue-500 font-normal animate-pulse text-xs">Generating…</span>}
+                </h3>
+                {summaryAssets ? (
+                  <div className="p-3 bg-green-50 border border-green-100 rounded-lg">
+                    <p className="text-xs text-gray-700 leading-relaxed">{summaryAssets}</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse border border-gray-200">
+                      <thead>
+                        <tr style={{ backgroundColor: COLORS.headerBg }}>
+                          <th className="border border-gray-300 px-3 py-1.5 text-left font-bold">Asset Category</th>
+                          <th className="border border-gray-300 px-3 py-1.5 text-right font-bold">Present Value</th>
+                          <th className="border border-gray-300 px-3 py-1.5 text-right font-bold">% of Assets</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assetSlices.length === 0 ? (
+                          <tr><td colSpan={3} className="px-3 py-4 text-gray-400 italic text-center">No assets entered yet.</td></tr>
+                        ) : assetSlices.map((s, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <td className="border border-gray-200 px-3 py-1.5">
+                              <span className="inline-block w-2.5 h-2.5 rounded-full mr-2 align-middle" style={{ backgroundColor: s.color }} />
+                              {s.label}
+                            </td>
+                            <td className="border border-gray-200 px-3 py-1.5 text-right font-medium">{fmtC(s.value)}</td>
+                            <td className="border border-gray-200 px-3 py-1.5 text-right text-gray-500">
+                              {totalAssetAmt > 0 ? ((s.value / totalAssetAmt) * 100).toFixed(1) : '0.0'}%
+                            </td>
+                          </tr>
+                        ))}
+                        {totalAssetAmt > 0 && (
+                          <tr className="font-bold" style={{ backgroundColor: COLORS.lightYellowBg }}>
+                            <td className="border border-gray-300 px-3 py-1.5">💰 Total Assets (Present)</td>
+                            <td className="border border-gray-300 px-3 py-1.5 text-right text-green-700">{fmtC(totalAssetAmt)}</td>
+                            <td className="border border-gray-300 px-3 py-1.5 text-right">100%</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                    <p className="text-xs text-gray-400 italic mt-2">Click "Generate AI Summary" for a professional analysis.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Liabilities Summary */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <h3 className="text-xs font-bold px-2 py-0.5 rounded mb-3 flex items-center gap-2" style={{ backgroundColor: COLORS.headerBg }}>
+                  💳 Liabilities — AI Summary
+                  {summaryLoading && <span className="text-blue-500 font-normal animate-pulse text-xs">Generating…</span>}
+                </h3>
+                {summaryLiabilities ? (
+                  <div className="p-3 bg-red-50 border border-red-100 rounded-lg">
+                    <p className="text-xs text-gray-700 leading-relaxed">{summaryLiabilities}</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse border border-gray-200">
+                      <thead>
+                        <tr style={{ backgroundColor: COLORS.headerBg }}>
+                          <th className="border border-gray-300 px-3 py-1.5 text-left font-bold">Liability Type</th>
+                          <th className="border border-gray-300 px-3 py-1.5 text-right font-bold">Balance</th>
+                          <th className="border border-gray-300 px-3 py-1.5 text-right font-bold">% of Liabilities</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {liabSlices.length === 0 ? (
+                          <tr><td colSpan={3} className="px-3 py-4 text-gray-400 italic text-center">No liabilities recorded.</td></tr>
+                        ) : liabSlices.map((s, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <td className="border border-gray-200 px-3 py-1.5">
+                              <span className="inline-block w-2.5 h-2.5 rounded-full mr-2 align-middle" style={{ backgroundColor: s.color }} />
+                              {s.label}
+                            </td>
+                            <td className="border border-gray-200 px-3 py-1.5 text-right font-medium text-red-600">{fmtC(s.value)}</td>
+                            <td className="border border-gray-200 px-3 py-1.5 text-right text-gray-500">
+                              {totalLiabAmt > 0 ? ((s.value / totalLiabAmt) * 100).toFixed(1) : '0.0'}%
+                            </td>
+                          </tr>
+                        ))}
+                        {totalLiabAmt > 0 && (
+                          <tr className="font-bold" style={{ backgroundColor: '#FEE2E2' }}>
+                            <td className="border border-gray-300 px-3 py-1.5">💳 Total Liabilities</td>
+                            <td className="border border-gray-300 px-3 py-1.5 text-right text-red-700">{fmtC(totalLiabAmt)}</td>
+                            <td className="border border-gray-300 px-3 py-1.5 text-right">100%</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                    <p className="text-xs text-gray-400 italic mt-2">Click "Generate AI Summary" for a professional analysis.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* ── HEALTH INSURANCE AI RECOMMENDATION ─────────────────────── */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <h3 className="text-xs font-bold px-2 py-0.5 rounded mb-3 flex items-center gap-2" style={{ backgroundColor: '#DBEAFE' }}>
+                  🏥 Health Insurance — AI-Powered Recommendation
+                  {summaryLoading && <span className="text-blue-500 font-normal animate-pulse text-xs">Generating…</span>}
+                </h3>
+
+                {/* Always show health insurance status cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                  {[
+                    { label: 'Life Ins at Work',    chk: (assets.f1_present || 0) > 0,  val: assets.f1_present > 0 ? fmtC(assets.f1_present) : 'Not covered' },
+                    { label: 'Life Ins Outside',     chk: assets.f2_him || assets.f2_her, val: assets.f2_present > 0 ? fmtC(assets.f2_present) : 'Not covered' },
+                    { label: 'HSA Account',          chk: (assets.f7_present || 0) > 0,  val: assets.f7_present > 0 ? fmtC(assets.f7_present) : 'No HSA' },
+                    { label: 'Mortgage Protection',  chk: assets.f8_him || assets.f8_her, val: (assets.f8_him || assets.f8_her) ? 'Covered' : 'Not covered' },
+                  ].map(({ label, chk, val }) => (
+                    <div key={label} className={`rounded p-2 border text-center text-xs ${chk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                      <div className="font-semibold text-gray-600 mb-0.5 leading-tight">{label}</div>
+                      <div className={`font-bold ${chk ? 'text-green-700' : 'text-red-600'}`}>
+                        {chk ? '✅' : '⚠️'} {val}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* AI Health Insurance Recommendation */}
+                {summaryHealthInsurance ? (
+                  <div className="p-3 rounded-lg border-l-4 border-blue-500 bg-blue-50">
+                    <div className="flex items-start gap-2">
+                      <span className="text-lg flex-shrink-0">🤖</span>
+                      <p className="text-xs text-gray-700 leading-relaxed">{summaryHealthInsurance}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-lg border border-dashed border-blue-300 bg-blue-50 text-xs text-blue-700">
+                    <div className="flex items-start gap-2">
+                      <span className="text-base flex-shrink-0">💡</span>
+                      <div>
+                        <p className="font-semibold mb-1">Why Health Insurance Planning Matters</p>
+                        <p className="text-gray-600 leading-relaxed">
+                          A single uninsured medical event — hospitalization, cancer treatment, or long-term illness — can cost
+                          $50,000–$500,000 and completely derail even the most robust financial plan. Proper health coverage,
+                          including an HSA, critical illness riders, and supplemental policies, forms the protective foundation
+                          that keeps every other financial goal intact.
+                        </p>
+                        <p className="text-gray-500 mt-1 italic">Click "Generate AI Summary" for a personalized AI recommendation based on {data.clientName || "the client"}'s specific profile.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── NET WORTH SNAPSHOT ────────────────────────────────────────── */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <h3 className="text-xs font-bold px-2 py-0.5 rounded mb-3" style={{ backgroundColor: COLORS.headerBg }}>
+                  📈 Financial Snapshot
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    { label: 'Total Assets (Present)',    value: fmtC(totalPresent),          color: 'text-green-700', bg: 'bg-green-50 border-green-200' },
+                    { label: 'Total Liabilities',         value: fmtC(totalLiabAmt),          color: 'text-red-700',   bg: 'bg-red-50 border-red-200' },
+                    { label: 'Net Worth',                 value: fmtC(totalPresent - totalLiabAmt), color: (totalPresent - totalLiabAmt) >= 0 ? 'text-green-700' : 'text-red-700', bg: (totalPresent - totalLiabAmt) >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' },
+                    { label: `Projected @ ${data.plannedRetirementAge}`, value: fmtC(totalProjected), color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200' },
+                    { label: 'Total Planning Req.',       value: fmtC(data.totalRequirement), color: 'text-blue-700',  bg: 'bg-blue-50 border-blue-200' },
+                    { label: `GAP @ Age ${data.plannedRetirementAge}`,   value: fmtC(data.totalRequirement - totalProjected - totalLiabAmt), color: (data.totalRequirement - totalProjected - totalLiabAmt) <= 0 ? 'text-green-700' : 'text-red-700', bg: (data.totalRequirement - totalProjected - totalLiabAmt) <= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' },
+                  ].map(({ label, value, color, bg }) => (
+                    <div key={label} className={`rounded-lg p-3 border text-center ${bg}`}>
+                      <div className="text-xs text-gray-500 mb-1 leading-tight">{label}</div>
+                      <div className={`font-bold text-sm ${color}`}>{value}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="bg-black text-white text-center py-1.5 rounded text-xs">⚠️ Disclaimer: For Education Purpose Only. We Do Not Provide Any Legal Or Tax Advice</div>
