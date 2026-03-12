@@ -1404,7 +1404,7 @@ Field requirements (each 4-6 sentences, plain text, professional Life Insurance 
 - "assets": Assess total assets, projected growth, and diversification. Identify whether retirement accounts, real estate, and liquid assets are balanced. Note the role of tax-free cash value (IUL/Whole Life) vs taxable accounts. Highlight any coverage or funding gaps.
 - "liabilities": Evaluate the debt picture and debt-to-asset ratio. Recommend priority payoff strategy. Explain how Mortgage Protection Insurance or a Term policy with a return-of-premium rider can eliminate debt risk for the family. Encourage debt elimination as a path to increased premium capacity.
 - "healthInsurance": Address the importance of health coverage from a licensed insurance perspective. Cover employer group coverage gaps, HSA-eligible HDHP plans, critical illness insurance, and hospital indemnity riders. Explain how a serious illness without adequate coverage liquidates retirement assets. Be specific about which coverage gaps exist for this client.
-- "lifeInsurance": This is the most important section. Generate 4-6 compelling, data-backed FACTS about life insurance (Term and/or Permanent) tailored to this client's age, family situation, and financial profile. Use statistics (e.g., "1 in 4 working Americans will experience a disability before retirement," "70% of families would feel financial impact within one month of losing a breadwinner," "the average cost of a 20-year $500,000 Term policy for a healthy 35-year-old is under $30/month"). Explain the difference between Term and Permanent (IUL) and WHY this client specifically would benefit. Include a recommendation on face amount relative to their income and debt load. Make it educational, engaging, and motivating — the goal is for the client to understand and value life insurance.
+- "lifeInsurance": This is the most important section. Generate exactly 5 compelling, data-backed FACTS about life insurance (Term and/or Permanent) tailored to this client's age, family situation, and financial profile. Each fact MUST be on its own line separated by a newline character (\n). Format each line as: "• FACT [N] — [Bold Label]: [2-3 sentence explanation with a statistic]". Example line format: "• FACT 1 — Income Replacement: 70% of families would feel the financial impact within one month of losing a breadwinner. A 20-year $500,000 Term policy for a healthy 35-year-old costs under $30/month — less than a daily coffee. Your recommended coverage is 10-12x your annual household income." Use statistics and tailor each fact to this specific client. Cover: income replacement face amount, Term vs Permanent (IUL) comparison, tax-free advantages, living benefit riders, and cost of waiting. The final line should be a call-to-action recommendation. The string value must contain newline characters (\n) between each bullet — do NOT return a flat paragraph.
 
 Return ONLY the JSON object.`;
 
@@ -1477,13 +1477,14 @@ Return ONLY the JSON object.`;
         `A Critical Illness rider or standalone policy adds a lump-sum benefit upon diagnosis of a covered illness, ensuring your retirement accounts remain untouched during a health crisis.`
       );
       setSummaryLifeInsurance(
-        `${clientFirst}, here are powerful facts about life insurance that every family should know: ` +
-        `FACT 1 — Income Replacement: The standard income replacement guideline is 10-12x your annual income as a life insurance face amount; for a household earning ${$s(assets.s6_present || 0)}/year, that means a recommended death benefit of ${$s((assets.s6_present || 100000) * 10)}–${$s((assets.s6_present || 100000) * 12)}, ensuring your family maintains their lifestyle for a decade. ` +
-        `FACT 2 — Term vs. Permanent: A 20-year $500,000 Term policy for a healthy ${data.currentAge || 35}-year-old typically costs $25–$45/month — less than a daily coffee. However, Term expires with no cash value; a Permanent IUL policy of the same face amount builds significant tax-free cash value that can fund retirement income, education, or emergencies. ` +
-        `FACT 3 — The Tax-Free Advantage: Unlike 401(k) and IRA withdrawals, life insurance death benefits and policy loans are 100% income-tax-free to beneficiaries and to you — making a properly-funded IUL policy one of the most powerful tax-advantaged vehicles available. ` +
-        `FACT 4 — Living Benefits: Modern Permanent Life policies include living benefit riders — Chronic Illness, Critical Illness, and Terminal Illness accelerated death benefit riders — allowing you to access your death benefit TAX-FREE while still living if diagnosed with a qualifying condition. ` +
-        `FACT 5 — The Cost of Waiting: Life insurance premiums are based on age and health — the younger and healthier you are when you apply, the lower your rate for life. Every year you delay could increase your annual premium by 8–12% or result in an uninsurable condition. ` +
-        `I strongly recommend a formal life insurance needs analysis as your next step — please schedule a meeting with your advisor to review Term and IUL options specific to your family's protection and wealth-building goals.`
+        [
+          `• FACT 1 — Income Replacement: 70% of families would feel the financial impact within one month of losing a breadwinner. The standard guideline is 10–12× annual household income as a death benefit face amount. For a household with a ${data.currentAge || 35}-year planning horizon, that means ensuring ${fmtC((assets.s6_present || 100000) * 10)}–${fmtC((assets.s6_present || 100000) * 12)} in coverage is in force today.`,
+          `• FACT 2 — Term vs. Permanent (IUL): A 20-year $500,000 Term policy for a healthy ${data.currentAge || 35}-year-old costs approximately $25–$45/month — less than a daily coffee. However, Term expires with zero residual value. A Permanent IUL policy of the same face amount builds significant tax-free cash value that can fund retirement income, education, or emergencies — making it both a protection tool and a wealth-building vehicle.`,
+          `• FACT 3 — The Triple Tax Advantage: Unlike 401(k) and IRA withdrawals, IUL death benefits and policy loans are 100% income-tax-free to beneficiaries and to you. This "triple tax advantage" (tax-deductible contributions in some structures, tax-deferred growth, tax-free distributions) makes a properly-funded IUL one of the most powerful tax-advantaged retirement vehicles available — especially powerful given today's historically low tax environment.`,
+          `• FACT 4 — Living Benefit Riders: Modern Permanent Life policies include Chronic Illness, Critical Illness, and Terminal Illness accelerated death benefit riders at no additional cost. These riders allow you to access a portion of your death benefit TAX-FREE while still living if diagnosed with a qualifying condition — protecting your retirement accounts from being liquidated during a health crisis.`,
+          `• FACT 5 — The Cost of Waiting: Life insurance premiums are locked at the age and health classification at the time of application. Every year you delay increases your annual premium by 8–12% or risks an uninsurable condition due to health changes. Applying today locks in your lowest possible rate for life — delaying by just 5 years on a $500,000 policy can cost an additional $15,000–$30,000 in cumulative premiums over a 20-year term.`,
+          `• RECOMMENDATION: Based on your current financial profile, I recommend scheduling a formal Life Insurance Needs Analysis to review both Term and Indexed Universal Life (IUL) options. Your advisor will determine the optimal face amount, policy structure, and rider package specific to your family's protection and wealth-building goals.`,
+        ].join('\n')
       );
       summaryClientIdRef.current = data.clientId;
     } finally {
@@ -2915,40 +2916,133 @@ Example format:
 
       // ══════════════════════════════════════════════════════════════════════
       // ADDED: AI-Generated Financial Summary pages in the PDF
-      // Renders summaryGoals, summaryAssets, summaryLiabilities,
-      // summaryHealthInsurance, and summaryLifeInsurance as a new PDF section.
-      // Only rendered if AI summaries have been generated (non-empty strings).
+      // Goals/Assets/Liabilities/Health Insurance → paragraph text.
+      // Life Insurance → bullet-point list (one bullet per newline).
       // ══════════════════════════════════════════════════════════════════════
-      const pdfSummaries = [
+      const pdfSummaryParagraphs = [
         { title: 'Financial Goals & Planning — Summary', text: summaryGoals,          bdr: GRN,  bg: [232,252,232] as [number,number,number] },
         { title: 'Assets — Summary',                    text: summaryAssets,          bdr: NAVY, bg: LGRAY },
         { title: 'Liabilities — Summary',               text: summaryLiabilities,     bdr: RED,  bg: [255,240,240] as [number,number,number] },
         { title: 'Health Insurance — Recommendation',   text: summaryHealthInsurance, bdr: [0,120,180] as [number,number,number], bg: [230,244,255] as [number,number,number] },
-        { title: 'Life Insurance — Key Facts & Recommendations', text: summaryLifeInsurance, bdr: [100,40,180] as [number,number,number], bg: [244,238,255] as [number,number,number] },
       ].filter(s => s.text && s.text.trim().length > 20);
 
-      if (pdfSummaries.length > 0) {
+      if (pdfSummaryParagraphs.length > 0 || (summaryLifeInsurance && summaryLifeInsurance.trim().length > 20)) {
         doc.addPage(); y = topBar('Financial Summary'); pgFoot();
         doc.setFont(FONT,'bold'); doc.setFontSize(13); doc.setTextColor(...NAVY);
         doc.text('Personalized Financial Summary', M, y + 20); y += 38;
 
-        pdfSummaries.forEach(sec => {
+        // ── Paragraph sections (Goals, Assets, Liabilities, Health Ins) ──────
+        pdfSummaryParagraphs.forEach(sec => {
           const lines = doc.splitTextToSize(S(sec.text), TW - 22);
           const boxH  = lines.length * 11 + 28;
           if (y + boxH + 12 > PH - 40) {
             doc.addPage(); y = topBar('Financial Summary (cont.)') + 28; pgFoot();
           }
-          // Section box
           doc.setFillColor(...sec.bg); doc.rect(M, y, TW, boxH, 'F');
           doc.setFillColor(...sec.bdr); doc.rect(M, y, 5, boxH, 'F');
-          // Section title
           doc.setFont(FONT,'bold'); doc.setFontSize(8.5); doc.setTextColor(...sec.bdr);
           doc.text(S(sec.title), M + 12, y + 14);
-          // Body text
           doc.setFont(FONT,'normal'); doc.setFontSize(8); doc.setTextColor(...BLACK);
           doc.text(lines, M + 12, y + 26);
           y += boxH + 10;
         });
+
+        // ── Life Insurance — bullet-point list ────────────────────────────────
+        if (summaryLifeInsurance && summaryLifeInsurance.trim().length > 20) {
+          const liaBdr: [number,number,number] = [100,40,180];
+          const liaBg:  [number,number,number] = [244,238,255];
+
+          // Parse bullet lines: split on \n, strip leading "• " if present
+          const bulletLines = summaryLifeInsurance
+            .split('\n')
+            .map((l: string) => l.trim().replace(/^[•\-–]\s*/, ''))
+            .filter((l: string) => l.length > 0);
+
+          // Pre-calculate total box height: title + each wrapped bullet
+          const BULLET_INDENT = 18; // x-offset for bullet body text
+          const BULLET_X = M + 12;
+          const lineH = 11;
+          const bulletWrapped = bulletLines.map((bl: string) =>
+            doc.splitTextToSize(S(bl), TW - BULLET_INDENT - 14)
+          );
+          const totalBulletLines = bulletWrapped.reduce((s: number, wl: string[]) => s + wl.length, 0);
+          const boxH = totalBulletLines * lineH + bulletLines.length * 5 + 34; // title + spacing
+
+          if (y + boxH + 12 > PH - 40) {
+            doc.addPage(); y = topBar('Financial Summary (cont.)') + 28; pgFoot();
+          }
+
+          // Draw background box
+          doc.setFillColor(...liaBg); doc.rect(M, y, TW, boxH, 'F');
+          doc.setFillColor(...liaBdr); doc.rect(M, y, 5, boxH, 'F');
+
+          // Section title
+          doc.setFont(FONT,'bold'); doc.setFontSize(8.5); doc.setTextColor(...liaBdr);
+          doc.text('Life Insurance — Key Facts & Recommendations', M + 12, y + 14);
+          let by = y + 26;
+
+          // Draw each bullet
+          bulletLines.forEach((bl: string, bi: number) => {
+            const wrapped: string[] = bulletWrapped[bi];
+            // Check if this bullet needs a new page mid-list
+            const itemH = wrapped.length * lineH + 5;
+            if (by + itemH > PH - 40) {
+              doc.addPage(); y = topBar('Financial Summary (cont.)') + 28; pgFoot();
+              // Re-draw the section bg on the new page is not needed — just continue
+              by = y + 8;
+            }
+            // Detect FACT prefix for bold label
+            const factM = bl.match(/^(FACT\s+\d+\s*[—–-]\s*[^:]+:)\s*(.*)/s);
+            const recM  = bl.match(/^(RECOMMENDATION:)\s*(.*)/si);
+
+            // Bullet dot
+            doc.setFont(FONT,'bold'); doc.setFontSize(9); doc.setTextColor(...liaBdr);
+            doc.text('\u2022', BULLET_X, by + lineH * 0.7);
+
+            if (factM) {
+              // Bold label on first wrapped line, normal text continues
+              const label       = S(factM[1]) + ' ';
+              const bodyText    = S(factM[2]);
+              const labelWidth  = doc.getTextWidth(label);
+              const bodyWrapped: string[] = doc.splitTextToSize(bodyText, TW - BULLET_INDENT - 14 - labelWidth);
+
+              doc.setFont(FONT,'bold'); doc.setFontSize(8); doc.setTextColor(...liaBdr);
+              doc.text(label, BULLET_X + 8, by + lineH * 0.75);
+              doc.setFont(FONT,'normal'); doc.setTextColor(...BLACK);
+              // First line: after the label
+              if (bodyWrapped.length > 0) {
+                doc.text(bodyWrapped[0], BULLET_X + 8 + labelWidth, by + lineH * 0.75);
+                // Remaining wrapped lines
+                for (let wi = 1; wi < bodyWrapped.length; wi++) {
+                  by += lineH;
+                  doc.text(bodyWrapped[wi], BULLET_X + 8, by + lineH * 0.75);
+                }
+              }
+            } else if (recM) {
+              const label    = '\u2605 ' + S(recM[1]) + ' ';
+              const bodyText = S(recM[2]);
+              const labelW   = doc.getTextWidth(label);
+              const bodyW: string[] = doc.splitTextToSize(bodyText, TW - BULLET_INDENT - 14 - labelW);
+              doc.setFont(FONT,'bold'); doc.setFontSize(8); doc.setTextColor([80,0,160] as any);
+              doc.text(label, BULLET_X + 8, by + lineH * 0.75);
+              doc.setFont(FONT,'normal'); doc.setTextColor(...BLACK);
+              if (bodyW.length > 0) {
+                doc.text(bodyW[0], BULLET_X + 8 + labelW, by + lineH * 0.75);
+                for (let wi = 1; wi < bodyW.length; wi++) { by += lineH; doc.text(bodyW[wi], BULLET_X + 8, by + lineH * 0.75); }
+              }
+            } else {
+              // Plain bullet line
+              doc.setFont(FONT,'normal'); doc.setFontSize(8); doc.setTextColor(...BLACK);
+              const plainW: string[] = doc.splitTextToSize(S(bl), TW - BULLET_INDENT - 14);
+              plainW.forEach((pw: string, pi: number) => {
+                doc.text(pw, BULLET_X + 8, by + lineH * 0.75 + pi * lineH);
+              });
+              by += (plainW.length - 1) * lineH;
+            }
+            by += lineH + 5; // gap between bullets
+          });
+          y = by + 6;
+        }
       }
 
       // ══════════════════════════════════════════════════════════════════════
@@ -4772,8 +4866,33 @@ Example format:
                   ))}
                 </div>
                 {summaryLifeInsurance ? (
+                  // CHANGED: Parse newline-separated bullet facts into a proper <ul> list
                   <div className="p-3 rounded-lg border-l-4 border-purple-500 bg-purple-50">
-                    <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{summaryLifeInsurance}</p>
+                    <ul className="space-y-2">
+                      {summaryLifeInsurance
+                        .split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line.length > 0)
+                        .map((line, i) => {
+                          // Strip leading bullet character if present (AI may include "• ")
+                          const clean = line.replace(/^[•\-–]\s*/, '');
+                          // Bold the "FACT N — Label:" prefix
+                          const factMatch = clean.match(/^(FACT\s+\d+\s*[—–-]\s*[^:]+:)\s*(.*)/s);
+                          const recMatch  = clean.match(/^(RECOMMENDATION:)\s*(.*)/si);
+                          return (
+                            <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
+                              <span className="mt-0.5 flex-shrink-0 text-purple-500 font-bold">•</span>
+                              <span className="leading-relaxed">
+                                {factMatch ? (
+                                  <><strong className="text-purple-800">{factMatch[1]}</strong> {factMatch[2]}</>
+                                ) : recMatch ? (
+                                  <><strong className="text-purple-900">⭐ {recMatch[1]}</strong> {recMatch[2]}</>
+                                ) : clean}
+                              </span>
+                            </li>
+                          );
+                        })}
+                    </ul>
                   </div>
                 ) : (
                   <div className="p-3 rounded-lg border border-dashed border-purple-300 bg-purple-50 text-xs text-purple-700">
