@@ -3023,7 +3023,7 @@ Example format:
               const bodyText = S(recM[2]);
               const labelW   = doc.getTextWidth(label);
               const bodyW: string[] = doc.splitTextToSize(bodyText, TW - BULLET_INDENT - 14 - labelW);
-              doc.setFont(FONT,'bold'); doc.setFontSize(8); doc.setTextColor([80,0,160] as any);
+              doc.setFont(FONT,'bold'); doc.setFontSize(8); doc.setTextColor(80, 0, 160);
               doc.text(label, BULLET_X + 8, by + lineH * 0.75);
               doc.setFont(FONT,'normal'); doc.setTextColor(...BLACK);
               if (bodyW.length > 0) {
