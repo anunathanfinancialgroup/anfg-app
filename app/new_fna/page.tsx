@@ -2958,15 +2958,25 @@ Example format:
             .map((l: string) => l.trim().replace(/^[•\-–]\s*/, ''))
             .filter((l: string) => l.length > 0);
 
-          // Pre-calculate total box height: title + each wrapped bullet
-          const BULLET_INDENT = 18; // x-offset for bullet body text
+          // Pre-calculate total box height: title + label line + body lines + gaps
+          const BULLET_INDENT = 18;
           const BULLET_X = M + 12;
           const lineH = 11;
-          const bulletWrapped = bulletLines.map((bl: string) =>
-            doc.splitTextToSize(S(bl), TW - BULLET_INDENT - 14)
-          );
-          const totalBulletLines = bulletWrapped.reduce((s: number, wl: string[]) => s + wl.length, 0);
-          const boxH = totalBulletLines * lineH + bulletLines.length * 5 + 34; // title + spacing
+          const BODY_WIDTH_PRE = TW - (M + 10 + 10 - M) - 6; // matches BODY_X offset below
+
+          const bulletWrapped = bulletLines.map((bl: string) => {
+            const factM = bl.match(/^(?:FACT\s+\d+\s*[—–-]\s*[^:]+:)\s*(.*)/s);
+            const recM  = bl.match(/^(?:RECOMMENDATION:)\s*(.*)/si);
+            const body  = factM ? factM[1] : recM ? recM[1] : bl;
+            return doc.splitTextToSize(S(body), BODY_WIDTH_PRE);
+          });
+          // Each bullet = optional label line (1) + body lines + 6pt gap
+          const totalBulletLines = bulletWrapped.reduce((s: number, wl: string[], i: number) => {
+            const bl = bulletLines[i];
+            const hasLabel = /^FACT\s+\d+|^RECOMMENDATION:/i.test(bl);
+            return s + wl.length + (hasLabel ? 1 : 0);
+          }, 0);
+          const boxH = totalBulletLines * lineH + bulletLines.length * 6 + 34;
 
           if (y + boxH + 12 > PH - 40) {
             doc.addPage(); y = topBar('Financial Summary (cont.)') + 28; pgFoot();
@@ -2981,65 +2991,52 @@ Example format:
           doc.text('Life Insurance — Key Facts & Recommendations', M + 12, y + 14);
           let by = y + 26;
 
-          // Draw each bullet
+          // Draw each bullet — label on its own line, body text below indented
+          // This avoids the narrow-width wrapping issue caused by inline label+body
+          const BODY_X      = BULLET_X + 10; // indented body text x
+          const BODY_WIDTH  = TW - (BODY_X - M) - 6; // full available width for body
+
           bulletLines.forEach((bl: string, bi: number) => {
-            const wrapped: string[] = bulletWrapped[bi];
-            // Check if this bullet needs a new page mid-list
-            const itemH = wrapped.length * lineH + 5;
-            if (by + itemH > PH - 40) {
-              doc.addPage(); y = topBar('Financial Summary (cont.)') + 28; pgFoot();
-              // Re-draw the section bg on the new page is not needed — just continue
-              by = y + 8;
-            }
-            // Detect FACT prefix for bold label
+            // Detect FACT / RECOMMENDATION prefixes
             const factM = bl.match(/^(FACT\s+\d+\s*[—–-]\s*[^:]+:)\s*(.*)/s);
             const recM  = bl.match(/^(RECOMMENDATION:)\s*(.*)/si);
 
-            // Bullet dot
-            doc.setFont(FONT,'bold'); doc.setFontSize(9); doc.setTextColor(...liaBdr);
-            doc.text('\u2022', BULLET_X, by + lineH * 0.7);
+            const label    = factM ? factM[1] : recM ? 'RECOMMENDATION:' : '';
+            const bodyText = factM ? factM[2] : recM ? recM[2] : bl;
 
-            if (factM) {
-              // Bold label on first wrapped line, normal text continues
-              const label       = S(factM[1]) + ' ';
-              const bodyText    = S(factM[2]);
-              const labelWidth  = doc.getTextWidth(label);
-              const bodyWrapped: string[] = doc.splitTextToSize(bodyText, TW - BULLET_INDENT - 14 - labelWidth);
+            // Wrap body at full body width
+            const bodyWrapped: string[] = doc.splitTextToSize(S(bodyText), BODY_WIDTH);
+            // Height = (optional label line) + body lines + gap
+            const labelH = label ? lineH : 0;
+            const itemH  = labelH + bodyWrapped.length * lineH + 6;
 
-              doc.setFont(FONT,'bold'); doc.setFontSize(8); doc.setTextColor(...liaBdr);
-              doc.text(label, BULLET_X + 8, by + lineH * 0.75);
-              doc.setFont(FONT,'normal'); doc.setTextColor(...BLACK);
-              // First line: after the label
-              if (bodyWrapped.length > 0) {
-                doc.text(bodyWrapped[0], BULLET_X + 8 + labelWidth, by + lineH * 0.75);
-                // Remaining wrapped lines
-                for (let wi = 1; wi < bodyWrapped.length; wi++) {
-                  by += lineH;
-                  doc.text(bodyWrapped[wi], BULLET_X + 8, by + lineH * 0.75);
-                }
-              }
-            } else if (recM) {
-              const label    = '\u2605 ' + S(recM[1]) + ' ';
-              const bodyText = S(recM[2]);
-              const labelW   = doc.getTextWidth(label);
-              const bodyW: string[] = doc.splitTextToSize(bodyText, TW - BULLET_INDENT - 14 - labelW);
-              doc.setFont(FONT,'bold'); doc.setFontSize(8); doc.setTextColor(80, 0, 160);
-              doc.text(label, BULLET_X + 8, by + lineH * 0.75);
-              doc.setFont(FONT,'normal'); doc.setTextColor(...BLACK);
-              if (bodyW.length > 0) {
-                doc.text(bodyW[0], BULLET_X + 8 + labelW, by + lineH * 0.75);
-                for (let wi = 1; wi < bodyW.length; wi++) { by += lineH; doc.text(bodyW[wi], BULLET_X + 8, by + lineH * 0.75); }
-              }
-            } else {
-              // Plain bullet line
-              doc.setFont(FONT,'normal'); doc.setFontSize(8); doc.setTextColor(...BLACK);
-              const plainW: string[] = doc.splitTextToSize(S(bl), TW - BULLET_INDENT - 14);
-              plainW.forEach((pw: string, pi: number) => {
-                doc.text(pw, BULLET_X + 8, by + lineH * 0.75 + pi * lineH);
-              });
-              by += (plainW.length - 1) * lineH;
+            // Page break if needed
+            if (by + itemH > PH - 40) {
+              doc.addPage(); y = topBar('Financial Summary (cont.)') + 28; pgFoot();
+              by = y + 8;
             }
-            by += lineH + 5; // gap between bullets
+
+            // Bullet dot
+            doc.setFont(FONT, 'bold'); doc.setFontSize(9);
+            doc.setTextColor(recM ? 80 : liaBdr[0], recM ? 0 : liaBdr[1], recM ? 160 : liaBdr[2]);
+            doc.text('\u2022', BULLET_X, by + lineH * 0.75);
+
+            // Bold label line (if present)
+            if (label) {
+              doc.setFont(FONT, 'bold'); doc.setFontSize(8);
+              doc.setTextColor(recM ? 80 : liaBdr[0], recM ? 0 : liaBdr[1], recM ? 160 : liaBdr[2]);
+              doc.text(S(label), BODY_X, by + lineH * 0.75);
+              by += lineH;
+            }
+
+            // Body text lines — normal weight, full width
+            doc.setFont(FONT, 'normal'); doc.setFontSize(8); doc.setTextColor(...BLACK);
+            bodyWrapped.forEach((line: string) => {
+              doc.text(line, BODY_X, by + lineH * 0.75);
+              by += lineH;
+            });
+
+            by += 6; // gap between bullets
           });
           y = by + 6;
         }
