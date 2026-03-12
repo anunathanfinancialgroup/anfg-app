@@ -2933,17 +2933,27 @@ Example format:
 
         // ── Paragraph sections (Goals, Assets, Liabilities, Health Ins) ──────
         pdfSummaryParagraphs.forEach(sec => {
-          const lines = doc.splitTextToSize(S(sec.text), TW - 22);
-          const boxH  = lines.length * 11 + 28;
+          // FIXED: set body font BEFORE splitTextToSize so jsPDF measures wrapping
+          // at the actual 8pt render size, not a leftover larger size from prior sections.
+          doc.setFont(FONT, 'normal'); doc.setFontSize(8);
+          const TEXT_X = M + 12;
+          const TEXT_W = TW - 12 - 6; // indent (12) + right padding (6)
+          const lines  = doc.splitTextToSize(S(sec.text), TEXT_W);
+          const lineH  = 11;
+          const boxH   = lines.length * lineH + 28;
           if (y + boxH + 12 > PH - 40) {
             doc.addPage(); y = topBar('Financial Summary (cont.)') + 28; pgFoot();
           }
           doc.setFillColor(...sec.bg); doc.rect(M, y, TW, boxH, 'F');
           doc.setFillColor(...sec.bdr); doc.rect(M, y, 5, boxH, 'F');
-          doc.setFont(FONT,'bold'); doc.setFontSize(8.5); doc.setTextColor(...sec.bdr);
-          doc.text(S(sec.title), M + 12, y + 14);
-          doc.setFont(FONT,'normal'); doc.setFontSize(8); doc.setTextColor(...BLACK);
-          doc.text(lines, M + 12, y + 26);
+          // Title line
+          doc.setFont(FONT, 'bold'); doc.setFontSize(8.5); doc.setTextColor(...sec.bdr);
+          doc.text(S(sec.title), TEXT_X, y + 14);
+          // Body — explicit per-line render to match lineH used in boxH
+          doc.setFont(FONT, 'normal'); doc.setFontSize(8); doc.setTextColor(...BLACK);
+          lines.forEach((line: string, li: number) => {
+            doc.text(line, TEXT_X, y + 26 + li * lineH);
+          });
           y += boxH + 10;
         });
 
