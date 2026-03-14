@@ -3173,16 +3173,23 @@ Example format:
         y=trow([S(r[0]),yn(r[1]),yn(r[2]),pv>0?$f(pv):'',pj>0?$f(pj):(pv>0?'N/A':'')],y,aC,false,i%2===0?LGRAY:undefined);
       });
       if(y>PH-44){doc.addPage();y=topBar('Assets (cont.)')+28;pgFoot();}
-      // Assets totals row
+      // Assets totals row — Present + Projected
       doc.setFillColor(...LBLUE); doc.rect(M,y,TW,TBL_H+2,'F');
       doc.setFont(FONT,'bold'); doc.setFontSize(8.5); doc.setTextColor(...NAVY);
       doc.text('TOTAL ASSETS', M+5, y+(TBL_H+2)*0.7);
-      // Present total under 4th col
       const pvX = M+aC[0]+aC[1]+aC[2];
       doc.text($f(totalPresent), pvX+aC[3]-5, y+(TBL_H+2)*0.7, {align:'right'});
-      // Projected total under 5th col
       doc.text($f(totalProjected), M+TW-5, y+(TBL_H+2)*0.7, {align:'right'});
-      doc.setTextColor(...BLACK); y+=TBL_H+2+14;
+      doc.setTextColor(...BLACK); y+=TBL_H+2+4;
+
+      // ADDED: Retirement Value row — growth of projected assets THROUGH the retirement period
+      const retRowH = TBL_H + 2;
+      doc.setFillColor(220, 238, 255); doc.rect(M, y, TW, retRowH, 'F');
+      doc.setFont(FONT, 'bold'); doc.setFontSize(8); doc.setTextColor(60, 30, 140);
+      const retVlabel = S(`Retirement Value ${data.plannedRetirementAge} to ${data.plannedRetirementAge + (data.retirementYears||0)} (${data.calculatedInterestPercentage}%) for ${data.retirementYears||0} yrs`);
+      doc.text(retVlabel, M + 5, y + retRowH * 0.7);
+      doc.text(S($f(totalRetirement)), M + TW - 5, y + retRowH * 0.7, {align: 'right'});
+      doc.setTextColor(...BLACK); y += retRowH + 14;
 
       // ══════════════════════════════════════════════════════════════════════
       // PAGE 6 — Liabilities (always new page)
@@ -3220,6 +3227,31 @@ Example format:
       doc.setFont(FONT,'bold'); doc.setFontSize(8.5); doc.setTextColor(...gapBdr);
       doc.text(Gap>0?'SHORTFALL - Additional planning needed to meet retirement goals':'SURPLUS - Projected assets exceed total planning requirements', M+12, y+46);
       doc.setTextColor(...BLACK); y+=64;
+
+      // ADDED: Retirement Period GAP box
+      // Formula: Retirement Value (assets grown THROUGH retirement) − Total Retirement Income Needed
+      const retGapVal  = totalRetirement - data.totalRetirementIncome;
+      const retGapSurp = retGapVal >= 0;
+      const retGapBg:  [number,number,number] = retGapSurp ? [230,250,236] : [255,238,238];
+      const retGapBdr: [number,number,number] = retGapSurp ? GRN : RED;
+      if (y > PH - 82) { doc.addPage(); y = topBar() + 28; pgFoot(); }
+      doc.setFillColor(...retGapBg); doc.rect(M, y, TW, 64, 'F');
+      doc.setFillColor(...retGapBdr); doc.rect(M, y, 5, 64, 'F');
+      doc.setFont(FONT, 'bold'); doc.setFontSize(10); doc.setTextColor(...BLACK);
+      doc.text(S(`GAP from ${data.plannedRetirementAge} to ${data.plannedRetirementAge + (data.retirementYears||0)} (${data.calculatedInterestPercentage}%) for ${data.retirementYears||0} yrs:`), M + 12, y + 16);
+      doc.setTextColor(...retGapBdr);
+      doc.text(S($f(retGapVal)), PW - M - 8, y + 16, {align: 'right'});
+      doc.setTextColor(...BLACK);
+      doc.setFont(FONT, 'normal'); doc.setFontSize(7.5);
+      doc.text(S(`= Retirement Value (${$f(totalRetirement)}) - Total Retirement Income Needed (${$f(data.totalRetirementIncome)})`), M + 12, y + 32);
+      doc.setFont(FONT, 'bold'); doc.setFontSize(7.5); doc.setTextColor(...retGapBdr);
+      doc.text(S(retGapSurp
+        ? `SURPLUS - Retirement assets exceed income needed over the ${data.retirementYears||0}-year retirement period`
+        : `SHORTFALL - Retirement assets fall short of income needed over the ${data.retirementYears||0}-year retirement period`
+      ), M + 12, y + 46);
+      doc.setFont(FONT, 'normal'); doc.setFontSize(7); doc.setTextColor(80, 80, 80);
+      doc.text('Recommendation: An Indexed Annuity or IUL with guaranteed income rider eliminates longevity risk.', M + 12, y + 58);
+      doc.setTextColor(...BLACK); y += 74;
 
       // ══════════════════════════════════════════════════════════════════════
       // PAGE 7 — Financial Goals & Planning
@@ -3547,7 +3579,7 @@ Example format:
           doc.setFont(FONT, 'normal'); doc.setFontSize(7); doc.setTextColor(200, 240, 220);
         });
         doc.setTextColor(...BLACK);
-        y += snapH + 8;
+        y += snapH + 16; // ADDED: extra line space after Key Numbers bar
 
         // ── Paragraph body ──────────────────────────────────────────────────
         doc.setFont(FONT, 'normal'); doc.setFontSize(8);
@@ -5312,7 +5344,7 @@ Example format:
                   const DIV_H    = 20;   // px per group-divider row
                   const BAR_H    = 9;    // px per individual bar
                   const GAP      = 2;    // px between bars in same group
-                  const svgW     = LABEL_W + BAR_AREA + 95; // +95 for value labels
+                  const svgW     = LABEL_W + BAR_AREA + 130; // +130 for per-bar value labels
                   const totalH   = allRows.reduce((s, r) => s + (r.divider ? DIV_H : ROW_H), 0);
                   const svgH     = totalH + 56; // +56 for top axis area
 
@@ -5365,11 +5397,24 @@ Example format:
                           {bW.proj > 0    && <rect x={LABEL_W} y={y0 + 2 + BAR_H + GAP} width={bW.proj} height={BAR_H} fill={COLORS_CHART.proj} rx="2" />}
                           {/* Retirement bar (purple) — only if > 0 */}
                           {bW.ret > 0     && <rect x={LABEL_W} y={y0 + 2 + (BAR_H + GAP) * 2} width={bW.ret} height={BAR_H} fill={COLORS_CHART.ret} rx="2" />}
-                          {/* Max value label */}
-                          {maxRowVal > 0 && (
-                            <text x={LABEL_W + Math.max(bW.present, bW.proj, bW.ret) + 4}
-                              y={y0 + ROW_H / 2} dominantBaseline="middle"
-                              fontSize="8" fill="#6B7280">{fmt(maxRowVal)}</text>
+                          {/* ADDED: individual value label at end of each bar */}
+                          {bW.present > 0 && (
+                            <text x={LABEL_W + bW.present + 3} y={y0 + 2 + BAR_H * 0.75}
+                              dominantBaseline="middle" fontSize="7.5" fill={COLORS_CHART.present} fontWeight="600">
+                              {fmt(row.present)}
+                            </text>
+                          )}
+                          {bW.proj > 0 && (
+                            <text x={LABEL_W + bW.proj + 3} y={y0 + 2 + BAR_H + GAP + BAR_H * 0.75}
+                              dominantBaseline="middle" fontSize="7.5" fill={COLORS_CHART.proj} fontWeight="600">
+                              {fmt(row.proj)}
+                            </text>
+                          )}
+                          {bW.ret > 0 && (
+                            <text x={LABEL_W + bW.ret + 3} y={y0 + 2 + (BAR_H + GAP) * 2 + BAR_H * 0.75}
+                              dominantBaseline="middle" fontSize="7.5" fill={COLORS_CHART.ret} fontWeight="600">
+                              {fmt(row.ret)}
+                            </text>
                           )}
                         </g>
                       );
@@ -5381,9 +5426,6 @@ Example format:
                     <div className="mb-4">
                       <div className="text-xs font-bold text-gray-700 mb-2">
                         📊 Asset Growth Chart
-                        <span className="font-normal text-gray-500 ml-1">
-                          — Retirement Planning &amp; Stocks / Income rows (shown when Present Value &gt; 0)
-                        </span>
                       </div>
                       {/* Legend */}
                       <div className="flex gap-5 mb-3 flex-wrap">
@@ -5719,20 +5761,30 @@ Example format:
                 <h3 className="text-xs font-bold px-2 py-0.5 rounded mb-3" style={{ backgroundColor: COLORS.headerBg }}>
                   📈 Financial Snapshot
                 </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {[
-                    { label: 'Total Assets (Present)', value: fmtC(totalPresent), color: 'text-green-700', bg: 'bg-green-50 border-green-200' },
-                    { label: 'Total Liabilities',      value: fmtC(totalLiabAmt), color: 'text-red-700',   bg: 'bg-red-50 border-red-200' },
-                    { label: 'Net Worth',               value: fmtC(totalPresent - totalLiabAmt), color: (totalPresent - totalLiabAmt) >= 0 ? 'text-green-700' : 'text-red-700', bg: (totalPresent - totalLiabAmt) >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' },
-                    { label: `Projected @ ${data.plannedRetirementAge}`, value: fmtC(totalProjected), color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200' },
-                    { label: 'Total Planning Req.',    value: fmtC(data.totalRequirement), color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
-                    { label: `GAP @ Age ${data.plannedRetirementAge}`, value: fmtC(data.totalRequirement - totalProjected - totalLiabAmt), color: (data.totalRequirement - totalProjected - totalLiabAmt) <= 0 ? 'text-green-700' : 'text-red-700', bg: (data.totalRequirement - totalProjected - totalLiabAmt) <= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' },
-                  ].map(({ label, value, color, bg }) => (
-                    <div key={label} className={`rounded-lg p-3 border text-center ${bg}`}>
-                      <div className="text-xs text-gray-500 mb-1 leading-tight">{label}</div>
-                      <div className={`font-bold text-sm ${color}`}>{value}</div>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {(() => {
+                    // ADDED: new retirement-period GAP
+                    // Formula: Retirement Value (totalRetirement) - Total Retirement Income Needed
+                    const retGap = totalRetirement - data.totalRetirementIncome;
+                    const snapCards = [
+                      { label: 'Total Assets (Present)', value: fmtC(totalPresent), color: 'text-green-700', bg: 'bg-green-50 border-green-200' },
+                      { label: 'Total Liabilities',      value: fmtC(totalLiabAmt), color: 'text-red-700',   bg: 'bg-red-50 border-red-200' },
+                      { label: 'Net Worth',               value: fmtC(totalPresent - totalLiabAmt), color: (totalPresent - totalLiabAmt) >= 0 ? 'text-green-700' : 'text-red-700', bg: (totalPresent - totalLiabAmt) >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' },
+                      { label: `Projected @ ${data.plannedRetirementAge}`, value: fmtC(totalProjected), color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200' },
+                      { label: 'Total Planning Req.',    value: fmtC(data.totalRequirement), color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
+                      { label: `GAP @ Age ${data.plannedRetirementAge}`, value: fmtC(data.totalRequirement - totalProjected - totalLiabAmt), color: (data.totalRequirement - totalProjected - totalLiabAmt) <= 0 ? 'text-green-700' : 'text-red-700', bg: (data.totalRequirement - totalProjected - totalLiabAmt) <= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' },
+                      // ADDED: Retirement Value through end of retirement period
+                      { label: `Retirement Value ${data.plannedRetirementAge}→${data.plannedRetirementAge + (data.retirementYears||0)}`, value: fmtC(totalRetirement), color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200' },
+                      // ADDED: GAP from retirement period  =  Ret Value - Total Retirement Income Needed
+                      { label: `GAP ${data.plannedRetirementAge}→${data.plannedRetirementAge + (data.retirementYears||0)} (Ret. Value − Income Needed)`, value: fmtC(retGap), color: retGap >= 0 ? 'text-green-700' : 'text-red-700', bg: retGap >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' },
+                    ];
+                    return snapCards.map(({ label, value, color, bg }) => (
+                      <div key={label} className={`rounded-lg p-3 border text-center ${bg}`}>
+                        <div className="text-xs text-gray-500 mb-1 leading-tight">{label}</div>
+                        <div className={`font-bold text-sm ${color}`}>{value}</div>
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
 
