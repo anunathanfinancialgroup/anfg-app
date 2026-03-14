@@ -1593,9 +1593,8 @@ export default function FNAPage() {
       ];
       const astResults = await Promise.allSettled(astSaves);
       const astErrs = astResults
-        .filter((r): r is PromiseRejectedResult | { status: 'fulfilled'; value: { error: any } } =>
-          r.status === 'rejected' || (r as any).value?.error != null)
-        .map((r, i) => `table[${i}]: ${r.status === 'rejected' ? r.reason : (r as any).value.error?.message}`);
+        .filter(r => r.status === 'rejected' || (r as any).value?.error != null)
+        .map((r, i) => `table[${i}]: ${r.status === 'rejected' ? (r as PromiseRejectedResult).reason : (r as any).value.error?.message}`);
       if (astErrs.length > 0) console.warn('Some fna_ast_* saves had errors (non-fatal):', astErrs);
 
       showMessage('✅ FNA saved successfully!', 'success');
