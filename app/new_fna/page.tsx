@@ -138,26 +138,26 @@ interface FNAData {
 // Full asset state — all sections from the Excel sheet
 interface AssetsData {
   // ── RETIREMENT PLANNING (USA) ───────────────────────────────────────────
-  r1_him: boolean; r1_her: boolean; r1_notes: string; r1_present: number; r1_proj: number; // 401K/403B – calc+edit
+  r1_him: boolean; r1_her: boolean; r1_notes: string; r1_present: number; r1_proj: number; r1_ret: number; // 401K/403B
   r2_him: boolean; r2_her: boolean; r2_notes: string; r2_present: number; // Company Match – N/A proj
-  r3_him: boolean; r3_her: boolean; r3_notes: string; r3_present: number; r3_proj: number; // Max Funding – editable proj
-  r4_him: boolean; r4_her: boolean; r4_notes: string; r4_present: number; r4_proj: number; // Previous 401K – calc+edit
-  r5_him: boolean; r5_her: boolean; r5_notes: string; r5_present: number; r5_proj: number; // Traditional IRA – calc+edit
-  r6_him: boolean; r6_her: boolean; r6_notes: string; r6_present: number; r6_proj: number; // Roth IRA – annuity+edit
-  r7_him: boolean; r7_her: boolean; r7_notes: string; r7_present: number; r7_proj: number; // ESPP/RSU – calc+edit
+  r3_him: boolean; r3_her: boolean; r3_notes: string; r3_present: number; r3_proj: number; r3_ret: number; // Max Funding
+  r4_him: boolean; r4_her: boolean; r4_notes: string; r4_present: number; r4_proj: number; r4_ret: number; // Previous 401K
+  r5_him: boolean; r5_her: boolean; r5_notes: string; r5_present: number; r5_proj: number; r5_ret: number; // Traditional IRA
+  r6_him: boolean; r6_her: boolean; r6_notes: string; r6_present: number; r6_proj: number; r6_ret: number; // Roth IRA
+  r7_him: boolean; r7_her: boolean; r7_notes: string; r7_present: number; r7_proj: number; r7_ret: number; // ESPP/RSU
   // ── REAL ESTATE (USA) – manual projected ───────────────────────────────
   e1_him: boolean; e1_her: boolean; e1_notes: string; e1_present: number; e1_proj: number;
   e2_him: boolean; e2_her: boolean; e2_notes: string; e2_present: number; e2_proj: number;
   e3_him: boolean; e3_her: boolean; e3_notes: string; e3_present: number; e3_proj: number;
   e4_him: boolean; e4_her: boolean; e4_notes: string; e4_present: number; e4_proj: number;
   // ── STOCKS | BUSINESS | INCOME (USA) ───────────────────────────────────
-  s1_him: boolean; s1_her: boolean; s1_notes: string; s1_present: number; s1_proj: number; // Stocks/MFs – calc+edit
-  s2_him: boolean; s2_her: boolean; s2_notes: string; s2_present: number; s2_proj: number; // Business – manual
-  s3_him: boolean; s3_her: boolean; s3_notes: string; s3_present: number; s3_proj: number; // Alt Investments – calc+edit
-  s4_him: boolean; s4_her: boolean; s4_notes: string; s4_present: number; s4_proj: number; // CDs – calc+edit
-  s5_him: boolean; s5_her: boolean; s5_notes: string; s5_present: number; s5_proj: number; // Cash in Bank – calc+edit
-  s6_him: boolean; s6_her: boolean; s6_notes: string; s6_present: number; s6_proj: number; // Annual Income – editable proj
-  s7_him: boolean; s7_her: boolean; s7_notes: string; s7_present: number; s7_proj: number; // Annual Savings – manual
+  s1_him: boolean; s1_her: boolean; s1_notes: string; s1_present: number; s1_proj: number; s1_ret: number; // Stocks/MFs
+  s2_him: boolean; s2_her: boolean; s2_notes: string; s2_present: number; s2_proj: number; s2_ret: number; // Business
+  s3_him: boolean; s3_her: boolean; s3_notes: string; s3_present: number; s3_proj: number; s3_ret: number; // Alt Investments
+  s4_him: boolean; s4_her: boolean; s4_notes: string; s4_present: number; s4_proj: number; s4_ret: number; // CDs
+  s5_him: boolean; s5_her: boolean; s5_notes: string; s5_present: number; s5_proj: number; s5_ret: number; // Cash in Bank
+  s6_him: boolean; s6_her: boolean; s6_notes: string; s6_present: number; s6_proj: number; s6_ret: number; // Annual Income
+  s7_him: boolean; s7_her: boolean; s7_notes: string; s7_present: number; s7_proj: number; s7_ret: number; // Annual Savings
   // ── FAMILY PROTECTION & INSURANCE ──────────────────────────────────────
   f1_him: boolean; f1_her: boolean; f1_notes: string; f1_present: number; // Life Ins Work – N/A proj
   f2_him: boolean; f2_her: boolean; f2_notes: string; f2_present: number; f2_proj: number; // Life Ins Outside – manual
@@ -207,24 +207,24 @@ const initialData: FNAData = {
 };
 
 const initialAssets: AssetsData = {
-  r1_him:false, r1_her:false, r1_notes:"", r1_present:0, r1_proj:0,
+  r1_him:false, r1_her:false, r1_notes:"", r1_present:0, r1_proj:0, r1_ret:0,
   r2_him:false, r2_her:false, r2_notes:"", r2_present:0,
-  r3_him:false, r3_her:false, r3_notes:"", r3_present:0, r3_proj:0,
-  r4_him:false, r4_her:false, r4_notes:"", r4_present:0, r4_proj:0,
-  r5_him:false, r5_her:false, r5_notes:"", r5_present:0, r5_proj:0,
-  r6_him:false, r6_her:false, r6_notes:"", r6_present:0, r6_proj:0,
-  r7_him:false, r7_her:false, r7_notes:"", r7_present:0, r7_proj:0,
+  r3_him:false, r3_her:false, r3_notes:"", r3_present:0, r3_proj:0, r3_ret:0,
+  r4_him:false, r4_her:false, r4_notes:"", r4_present:0, r4_proj:0, r4_ret:0,
+  r5_him:false, r5_her:false, r5_notes:"", r5_present:0, r5_proj:0, r5_ret:0,
+  r6_him:false, r6_her:false, r6_notes:"", r6_present:0, r6_proj:0, r6_ret:0,
+  r7_him:false, r7_her:false, r7_notes:"", r7_present:0, r7_proj:0, r7_ret:0,
   e1_him:false, e1_her:false, e1_notes:"", e1_present:0, e1_proj:0,
   e2_him:false, e2_her:false, e2_notes:"", e2_present:0, e2_proj:0,
   e3_him:false, e3_her:false, e3_notes:"", e3_present:0, e3_proj:0,
   e4_him:false, e4_her:false, e4_notes:"", e4_present:0, e4_proj:0,
-  s1_him:false, s1_her:false, s1_notes:"", s1_present:0, s1_proj:0,
-  s2_him:false, s2_her:false, s2_notes:"", s2_present:0, s2_proj:0,
-  s3_him:false, s3_her:false, s3_notes:"", s3_present:0, s3_proj:0,
-  s4_him:false, s4_her:false, s4_notes:"", s4_present:0, s4_proj:0,
-  s5_him:false, s5_her:false, s5_notes:"", s5_present:0, s5_proj:0,
-  s6_him:false, s6_her:false, s6_notes:"", s6_present:0, s6_proj:0,
-  s7_him:false, s7_her:false, s7_notes:"", s7_present:0, s7_proj:0,
+  s1_him:false, s1_her:false, s1_notes:"", s1_present:0, s1_proj:0, s1_ret:0,
+  s2_him:false, s2_her:false, s2_notes:"", s2_present:0, s2_proj:0, s2_ret:0,
+  s3_him:false, s3_her:false, s3_notes:"", s3_present:0, s3_proj:0, s3_ret:0,
+  s4_him:false, s4_her:false, s4_notes:"", s4_present:0, s4_proj:0, s4_ret:0,
+  s5_him:false, s5_her:false, s5_notes:"", s5_present:0, s5_proj:0, s5_ret:0,
+  s6_him:false, s6_her:false, s6_notes:"", s6_present:0, s6_proj:0, s6_ret:0,
+  s7_him:false, s7_her:false, s7_notes:"", s7_present:0, s7_proj:0, s7_ret:0,
   f1_him:false, f1_her:false, f1_notes:"", f1_present:0,
   f2_him:false, f2_her:false, f2_notes:"", f2_present:0, f2_proj:0,
   f3_him:false, f3_her:false, f3_notes:"", f3_present:0, f3_proj:0,
@@ -1007,6 +1007,7 @@ export default function FNAPage() {
           loaded.r1_notes = astRet.current_401k_notes || '';
           loaded.r1_present = Number(astRet.current_401k_present_value) || 0;
           loaded.r1_proj  = Number(astRet.current_401k_projected_value) || 0;
+          loaded.r1_ret   = Number(astRet.current_401k_retirement_value) || 0;
           // r2 – Company Match
           loaded.r2_him   = toBool(astRet.company_match_him);
           loaded.r2_her   = toBool(astRet.company_match_her);
@@ -1018,30 +1019,35 @@ export default function FNAPage() {
           loaded.r3_notes = astRet.max_funding_notes || '';
           loaded.r3_present = Number(astRet.max_funding_present_value) || 0;
           loaded.r3_proj  = Number(astRet.max_funding_projected_value) || 0;
+          loaded.r3_ret   = Number(astRet.max_funding_retirement_value) || 0;
           // r4 – Previous 401K / Rollover
           loaded.r4_him   = toBool(astRet.rollover_401k_him);
           loaded.r4_her   = toBool(astRet.rollover_401k_her);
           loaded.r4_notes = astRet.rollover_401k_notes || '';
           loaded.r4_present = Number(astRet.rollover_401k_present_value) || 0;
           loaded.r4_proj  = Number(astRet.rollover_401k_projected_value) || 0;
+          loaded.r4_ret   = Number(astRet.rollover_401k_retirement_value) || 0;
           // r5 – Traditional IRA / SEP-IRA
           loaded.r5_him   = toBool(astRet.traditional_ira_him);
           loaded.r5_her   = toBool(astRet.traditional_ira_her);
           loaded.r5_notes = astRet.traditional_ira_notes || '';
           loaded.r5_present = Number(astRet.traditional_ira_present_value) || 0;
           loaded.r5_proj  = Number(astRet.traditional_ira_projected_value) || 0;
+          loaded.r5_ret   = Number(astRet.traditional_ira_retirement_value) || 0;
           // r6 – Roth IRA / Roth 401K
           loaded.r6_him   = toBool(astRet.roth_ira_him);
           loaded.r6_her   = toBool(astRet.roth_ira_her);
           loaded.r6_notes = astRet.roth_ira_notes || '';
           loaded.r6_present = Number(astRet.roth_ira_present_value) || 0;
           loaded.r6_proj  = Number(astRet.roth_ira_projected_value) || 0;
+          loaded.r6_ret   = Number(astRet.roth_ira_retirement_value) || 0;
           // r7 – ESPP / RSU / Annuities / Pension
           loaded.r7_him   = toBool(astRet.espp_rsu_him);
           loaded.r7_her   = toBool(astRet.espp_rsu_her);
           loaded.r7_notes = astRet.espp_rsu_notes || '';
           loaded.r7_present = Number(astRet.espp_rsu_present_value) || 0;
           loaded.r7_proj  = Number(astRet.espp_rsu_projected_value) || 0;
+          loaded.r7_ret   = Number(astRet.espp_rsu_retirement_value) || 0;
         }
         // s1–s7 — Stocks | Business | Income
         if (astInc) {
@@ -1050,36 +1056,43 @@ export default function FNAPage() {
           loaded.s1_notes = astInc.stocks_notes || '';
           loaded.s1_present = Number(astInc.stocks_present_value) || 0;
           loaded.s1_proj  = Number(astInc.stocks_projected_value) || 0;
+          loaded.s1_ret   = Number(astInc.stocks_retirement_value) || 0;
           loaded.s2_him   = toBool(astInc.business_him);
           loaded.s2_her   = toBool(astInc.business_her);
           loaded.s2_notes = astInc.business_notes || '';
           loaded.s2_present = Number(astInc.business_present_value) || 0;
           loaded.s2_proj  = Number(astInc.business_projected_value) || 0;
+          loaded.s2_ret   = Number(astInc.business_retirement_value) || 0;
           loaded.s3_him   = toBool(astInc.alternative_inv_him);
           loaded.s3_her   = toBool(astInc.alternative_inv_her);
           loaded.s3_notes = astInc.alternative_inv_notes || '';
           loaded.s3_present = Number(astInc.alternative_inv_present_value) || 0;
           loaded.s3_proj  = Number(astInc.alternative_inv_projected_value) || 0;
+          loaded.s3_ret   = Number(astInc.alternative_inv_retirement_value) || 0;
           loaded.s4_him   = toBool(astInc.cds_him);
           loaded.s4_her   = toBool(astInc.cds_her);
           loaded.s4_notes = astInc.cds_notes || '';
           loaded.s4_present = Number(astInc.cds_present_value) || 0;
           loaded.s4_proj  = Number(astInc.cds_projected_value) || 0;
+          loaded.s4_ret   = Number(astInc.cds_retirement_value) || 0;
           loaded.s5_him   = toBool(astInc.cash_emergency_him);
           loaded.s5_her   = toBool(astInc.cash_emergency_her);
           loaded.s5_notes = astInc.cash_emergency_notes || '';
           loaded.s5_present = Number(astInc.cash_emergency_present_value) || 0;
           loaded.s5_proj  = Number(astInc.cash_emergency_projected_value) || 0;
+          loaded.s5_ret   = Number(astInc.cash_emergency_retirement_value) || 0;
           loaded.s6_him   = toBool(astInc.annual_income_him);
           loaded.s6_her   = toBool(astInc.annual_income_her);
           loaded.s6_notes = astInc.annual_income_notes || '';
           loaded.s6_present = Number(astInc.annual_income_amount) || 0;
           loaded.s6_proj  = Number(astInc.annual_savings_projected) || 0;
+          loaded.s6_ret   = Number(astInc.annual_income_retirement_value) || 0;
           loaded.s7_him   = toBool(astInc.annual_savings_him);
           loaded.s7_her   = toBool(astInc.annual_savings_her);
           loaded.s7_notes = astInc.annual_savings_notes || '';
           loaded.s7_present = Number(astInc.annual_savings_amount) || 0;
           loaded.s7_proj  = Number(astInc.annual_savings_projected) || 0;
+          loaded.s7_ret   = Number(astInc.annual_savings_retirement_value) || 0;
         }
         // e1–e4 — Real Estate
         if (astRE) {
@@ -1414,7 +1427,7 @@ export default function FNAPage() {
           current_401k_notes: assets.r1_notes,
           current_401k_present_value: assets.r1_present,
           current_401k_projected_value: assets.r1_proj || autoProj(assets.r1_present),
-          current_401k_retirement_value: autoRetirementValue(assets.r1_proj || autoProj(assets.r1_present)),
+          current_401k_retirement_value: assets.r1_ret || autoRetirementValue(assets.r1_proj || autoProj(assets.r1_present)),
           // r2 – Company Match
           company_match_him: assets.r2_him,
           company_match_her: assets.r2_her,
@@ -1425,32 +1438,32 @@ export default function FNAPage() {
           max_funding_her: assets.r3_her,
           max_funding_notes: assets.r3_notes,
           max_funding_present_value: assets.r3_present,
-          max_funding_retirement_value: autoRetirementValue(assets.r3_proj),
+          max_funding_retirement_value: assets.r3_ret || autoRetirementValue(assets.r3_proj),
           max_funding_projected_value: assets.r3_proj,
           // r4 – Previous 401K / Rollover
           rollover_401k_him: assets.r4_him,
           rollover_401k_her: assets.r4_her,
           rollover_401k_notes: assets.r4_notes,
           rollover_401k_present_value: assets.r4_present,
-          rollover_401k_retirement_value: autoRetirementValue(assets.r4_proj || autoProj(assets.r4_present)),
+          rollover_401k_retirement_value: assets.r4_ret || autoRetirementValue(assets.r4_proj || autoProj(assets.r4_present)),
           // r5 – Traditional IRA / SEP-IRA
           traditional_ira_him: assets.r5_him,
           traditional_ira_her: assets.r5_her,
           traditional_ira_notes: assets.r5_notes,
           traditional_ira_present_value: assets.r5_present,
-          traditional_ira_retirement_value: autoRetirementValue(assets.r5_proj || autoProj(assets.r5_present)),
+          traditional_ira_retirement_value: assets.r5_ret || autoRetirementValue(assets.r5_proj || autoProj(assets.r5_present)),
           // r6 – Roth IRA / Roth 401K
           roth_ira_him: assets.r6_him,
           roth_ira_her: assets.r6_her,
           roth_ira_notes: assets.r6_notes,
           roth_ira_present_value: assets.r6_present,
-          roth_ira_retirement_value: autoRetirementValue(assets.r6_proj || autoAnnuityProj(assets.r6_present)),
+          roth_ira_retirement_value: assets.r6_ret || autoRetirementValue(assets.r6_proj || autoAnnuityProj(assets.r6_present)),
           // r7 – ESPP / RSU / Annuities / Pension
           espp_rsu_him: assets.r7_him,
           espp_rsu_her: assets.r7_her,
           espp_rsu_notes: assets.r7_notes,
           espp_rsu_present_value: assets.r7_present,
-          espp_rsu_retirement_value: autoRetirementValue(assets.r7_proj || autoProj(assets.r7_present)),
+          espp_rsu_retirement_value: assets.r7_ret || autoRetirementValue(assets.r7_proj || autoProj(assets.r7_present)),
         }),
         // ── fna_ast_income (s1–s7) ───────────────────────────────────────────
         supabase.from('fna_ast_income').insert({
@@ -1461,44 +1474,48 @@ export default function FNAPage() {
           stocks_notes: assets.s1_notes,
           stocks_present_value: assets.s1_present,
           stocks_projected_value: assets.s1_proj || autoProj(assets.s1_present),
-          stocks_retirement_value: autoRetirementValue(assets.s1_proj || autoProj(assets.s1_present)),
+          stocks_retirement_value: assets.s1_ret || autoRetirementValue(assets.s1_proj || autoProj(assets.s1_present)),
           // s2 – Business
           business_him: assets.s2_him,
           business_her: assets.s2_her,
           business_notes: assets.s2_notes,
           business_present_value: assets.s2_present,
           business_projected_value: assets.s2_proj,
-          business_retirement_value: autoRetirementValue(assets.s2_proj),
+          business_retirement_value: assets.s2_ret || autoRetirementValue(assets.s2_proj),
           // s3 – Alternative Investments
           alternative_inv_him: assets.s3_him,
           alternative_inv_her: assets.s3_her,
           alternative_inv_notes: assets.s3_notes,
           alternative_inv_present_value: assets.s3_present,
           alternative_inv_projected_value: assets.s3_proj || autoProj(assets.s3_present),
-          alternative_inv_retirement_value: autoRetirementValue(assets.s3_proj || autoProj(assets.s3_present)),
+          alternative_inv_retirement_value: assets.s3_ret || autoRetirementValue(assets.s3_proj || autoProj(assets.s3_present)),
           // s4 – Certificate of Deposits (CDs)
           cds_him: assets.s4_him,
           cds_her: assets.s4_her,
           cds_notes: assets.s4_notes,
           cds_present_value: assets.s4_present,
           cds_projected_value: assets.s4_proj || autoProj(assets.s4_present),
+          cds_retirement_value: assets.s4_ret || autoRetirementValue(assets.s4_proj || autoProj(assets.s4_present)),
           // s5 – Cash in Bank + Emergency Fund
           cash_emergency_him: assets.s5_him,
           cash_emergency_her: assets.s5_her,
           cash_emergency_notes: assets.s5_notes,
           cash_emergency_present_value: assets.s5_present,
           cash_emergency_projected_value: assets.s5_proj || autoProj(assets.s5_present),
+          cash_emergency_retirement_value: assets.s5_ret || autoRetirementValue(assets.s5_proj || autoProj(assets.s5_present)),
           // s6 – Annual Household Income
           annual_income_him: assets.s6_him,
           annual_income_her: assets.s6_her,
           annual_income_notes: assets.s6_notes,
           annual_income_amount: assets.s6_present,
+          annual_income_retirement_value: assets.s6_ret || autoRetirementValue(assets.s6_proj),
           // s7 – Annual Savings
           annual_savings_him: assets.s7_him,
           annual_savings_her: assets.s7_her,
           annual_savings_notes: assets.s7_notes,
           annual_savings_amount: assets.s7_present,
           annual_savings_projected: assets.s7_proj,
+          annual_savings_retirement_value: assets.s7_ret || autoRetirementValue(assets.s7_proj),
         }),
         // ── fna_ast_real_estate (e1–e4) ──────────────────────────────────────
         supabase.from('fna_ast_real_estate').insert({
@@ -1915,13 +1932,24 @@ Return ONLY the JSON object.`;
     );
   };
 
-  // Retirement Value cell: green tint, auto-calculated from projected value, read-only.
-  // Shows FV of projValue grown through the retirement period (e.g. 65→85 at 6%).
-  const AutoRetCell = ({ proj }: { proj: number }) => {
-    const v = autoRetirementValue(proj);
+  // Retirement Value cell: green tint, editable.
+  // Auto-fills from projected value when proj changes; user can type to override (even 0).
+  // retKey: the _ret field in AssetsData; projValue: the computed projected amount for auto-fill.
+  const retEditCell = (retKey: keyof AssetsData, projValue: number) => {
+    const storedRet = assets[retKey] as number;
+    // If the stored ret is 0 AND proj just changed, show the auto value as display — but
+    // the actual stored value stays 0 until the user explicitly edits it.
+    // We auto-sync: whenever proj changes and stored _ret is still the previous auto value, update.
+    const autoVal = autoRetirementValue(projValue);
+    const displayVal = storedRet > 0 ? storedRet : autoVal;
     return (
-      <td className="border border-black px-2 py-1 text-xs text-right font-medium" style={{ backgroundColor: '#D5F5E3' }}>
-        {proj > 0 ? formatCurrencyZero(v) : '$0'}
+      <td className="border border-black p-0 w-44" style={{ backgroundColor: '#D5F5E3' }}>
+        <CurrencyInput
+          value={displayVal}
+          showZero
+          onChange={val => upd(retKey, val)}
+          className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-green-400 bg-transparent"
+        />
       </td>
     );
   };
@@ -3954,7 +3982,7 @@ Example format:
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#1</td>
                       <td className="border border-black px-2 py-1 text-xs">Current 401K | 403B</td>
                       {stdCellsCalc("r1_him","r1_her","r1_notes","r1_present","r1_proj")}
-                      <AutoRetCell proj={assets.r1_proj} />
+                      {retEditCell("r1_ret", assets.r1_proj)}
                     </tr>
                     {/* r2 – Company Match N/A proj + N/A retirement */}
                     <tr>
@@ -3969,35 +3997,35 @@ Example format:
                       <td className="border border-black px-2 py-1 text-xs">Are You Max Funding (~$22.5K)?</td>
                       {stdCells("r3_him","r3_her","r3_notes","r3_present")}
                       {manualProjCell("r3_proj")}
-                      <AutoRetCell proj={assets.r3_proj} />
+                      {retEditCell("r3_ret", assets.r3_proj)}
                     </tr>
                     {/* r4 – Prev 401K calc+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#4</td>
                       <td className="border border-black px-2 py-1 text-xs">Previous 401K | Rollover 401K</td>
                       {stdCellsCalc("r4_him","r4_her","r4_notes","r4_present","r4_proj")}
-                      <AutoRetCell proj={assets.r4_proj} />
+                      {retEditCell("r4_ret", assets.r4_proj)}
                     </tr>
                     {/* r5 – Traditional IRA calc+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#5</td>
                       <td className="border border-black px-2 py-1 text-xs">Traditional IRA | SEP-IRA [Tax-Deferred]</td>
                       {stdCellsCalc("r5_him","r5_her","r5_notes","r5_present","r5_proj")}
-                      <AutoRetCell proj={assets.r5_proj} />
+                      {retEditCell("r5_ret", assets.r5_proj)}
                     </tr>
                     {/* r6 – Roth IRA annuity+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#6</td>
                       <td className="border border-black px-2 py-1 text-xs">ROTH IRA | ROTH 401K [Tax-Free]</td>
                       {stdCellsCalc("r6_him","r6_her","r6_notes","r6_present","r6_proj", true)}
-                      <AutoRetCell proj={assets.r6_proj} />
+                      {retEditCell("r6_ret", assets.r6_proj)}
                     </tr>
                     {/* r7 – ESPP/RSU auto */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#7</td>
                       <td className="border border-black px-2 py-1 text-xs">ESPP | RSU | Annuities | Pension</td>
                       {stdCellsCalc("r7_him","r7_her","r7_notes","r7_present","r7_proj")}
-                      <AutoRetCell proj={assets.r7_proj} />
+                      {retEditCell("r7_ret", assets.r7_proj)}
                     </tr>
                   </tbody>
                 </table>
@@ -4042,46 +4070,46 @@ Example format:
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#12</td>
                       <td className="border border-black px-2 py-1 text-xs">STOCKS | MFs | Bonds | ETFs (Outside Of 401K)</td>
                       {stdCellsCalc("s1_him","s1_her","s1_notes","s1_present","s1_proj")}
-                      <AutoRetCell proj={assets.s1_proj} />
+                      {retEditCell("s1_ret", assets.s1_proj)}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#13</td>
                       <td className="border border-black px-2 py-1 text-xs">Do You Own A Business?</td>
                       {stdCells("s2_him","s2_her","s2_notes","s2_present")}
                       {manualProjCell("s2_proj")}
-                      <AutoRetCell proj={assets.s2_proj} />
+                      {retEditCell("s2_ret", assets.s2_proj)}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#14</td>
                       <td className="border border-black px-2 py-1 text-xs">Alternative Investments (Private Equity, Crowd Funding, ETC.)</td>
                       {stdCellsCalc("s3_him","s3_her","s3_notes","s3_present","s3_proj")}
-                      <AutoRetCell proj={assets.s3_proj} />
+                      {retEditCell("s3_ret", assets.s3_proj)}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#15</td>
                       <td className="border border-black px-2 py-1 text-xs">Certificate Of Deposits (Bank CDs)</td>
                       {stdCellsCalc("s4_him","s4_her","s4_notes","s4_present","s4_proj")}
-                      <AutoRetCell proj={assets.s4_proj} />
+                      {retEditCell("s4_ret", assets.s4_proj)}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#16</td>
                       <td className="border border-black px-2 py-1 text-xs">Cash In Bank + Emergency Fund</td>
                       {stdCellsCalc("s5_him","s5_her","s5_notes","s5_present","s5_proj")}
-                      <AutoRetCell proj={assets.s5_proj} />
+                      {retEditCell("s5_ret", assets.s5_proj)}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#17</td>
                       <td className="border border-black px-2 py-1 text-xs">Annual House-Hold Income</td>
                       {stdCells("s6_him","s6_her","s6_notes","s6_present")}
                       {manualProjCell("s6_proj")}
-                      <AutoRetCell proj={assets.s6_proj} />
+                      {retEditCell("s6_ret", assets.s6_proj)}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#18</td>
                       <td className="border border-black px-2 py-1 text-xs">Annual Savings Going Forward</td>
                       {stdCells("s7_him","s7_her","s7_notes","s7_present")}
                       {manualProjCell("s7_proj")}
-                      <AutoRetCell proj={assets.s7_proj} />
+                      {retEditCell("s7_ret", assets.s7_proj)}
                     </tr>
                   </tbody>
                 </table>
