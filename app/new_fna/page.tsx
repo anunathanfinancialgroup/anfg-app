@@ -1245,7 +1245,13 @@ export default function FNAPage() {
         supabase.from('fna_healthcare').delete().eq('fna_id', fnaId),
         supabase.from('fna_life_goals').delete().eq('fna_id', fnaId),
         supabase.from('fna_legacy').delete().eq('fna_id', fnaId),
+        // fna_ast_* tables — all cleared on each save so inserts below are always clean
         supabase.from('fna_ast_retirement').delete().eq('fna_id', fnaId),
+        supabase.from('fna_ast_income').delete().eq('fna_id', fnaId),
+        supabase.from('fna_ast_real_estate').delete().eq('fna_id', fnaId),
+        supabase.from('fna_ast_protection').delete().eq('fna_id', fnaId),
+        supabase.from('fna_ast_college_estate').delete().eq('fna_id', fnaId),
+        supabase.from('fna_ast_foreign').delete().eq('fna_id', fnaId),
       ]);
 
       const ins: any[] = [];
@@ -1283,17 +1289,194 @@ export default function FNAPage() {
         console.warn('Assets notes-column save failed:', notesErr.message);
       }
 
-      // Strategy 3: Also try fna_ast_retirement with minimal payload
-      try {
-        await supabase.from('fna_ast_retirement').upsert({
+      // Strategy 3: Save all assets to proper fna_ast_* tables (proper relational storage)
+      // All tables were deleted above, so these are always clean inserts.
+      // Errors are non-fatal — strategies 1+2 (localStorage + notes JSON) still guarantee recovery.
+      const astSaves = [
+        // ── fna_ast_retirement (r1–r7) ──────────────────────────────────────
+        supabase.from('fna_ast_retirement').insert({
           fna_id: fnaId,
+          // r1 – Current 401K / 403B
           current_401k_him: assets.r1_him,
           current_401k_her: assets.r1_her,
-          current_401k_notes: `__FNA_ASSETS_JSON__:${assetsJson}`,
+          current_401k_notes: assets.r1_notes,
           current_401k_present_value: assets.r1_present,
           current_401k_projected_value: assets.r1_proj || autoProj(assets.r1_present),
-        }, { onConflict: 'fna_id' });
-      } catch { /* silent — strategies 1+2 cover this */ }
+          // r2 – Company Match
+          company_match_him: assets.r2_him,
+          company_match_her: assets.r2_her,
+          company_match_notes: assets.r2_notes,
+          // r3 – Max Funding (~$22.5K)
+          max_funding_notes: assets.r3_notes,
+          max_funding_retirement_value: assets.r3_present,   // new column
+          max_funding_projected_value: assets.r3_proj,
+          // r4 – Previous 401K / Rollover
+          rollover_401k_him: assets.r4_him,
+          rollover_401k_her: assets.r4_her,
+          rollover_401k_notes: assets.r4_notes,
+          rollover_401k_present_value: assets.r4_present,
+          rollover_401k_projected_value: assets.r4_proj || autoProj(assets.r4_present),  // new column
+          // r5 – Traditional IRA / SEP-IRA
+          traditional_ira_him: assets.r5_him,
+          traditional_ira_her: assets.r5_her,
+          traditional_ira_notes: assets.r5_notes,
+          traditional_ira_present_value: assets.r5_present,
+          traditional_ira_projected_value: assets.r5_proj || autoProj(assets.r5_present), // new column
+          // r6 – Roth IRA / Roth 401K
+          roth_ira_him: assets.r6_him,
+          roth_ira_her: assets.r6_her,
+          roth_ira_notes: assets.r6_notes,
+          roth_ira_present_value: assets.r6_present,
+          roth_ira_projected_value: assets.r6_proj || autoAnnuityProj(assets.r6_present),  // new column
+          // r7 – ESPP / RSU / Annuities / Pension
+          espp_rsu_him: assets.r7_him,
+          espp_rsu_her: assets.r7_her,
+          espp_rsu_notes: assets.r7_notes,
+          espp_rsu_present_value: assets.r7_present,
+          espp_rsu_projected_value: assets.r7_proj || autoProj(assets.r7_present),          // new column
+        }),
+        // ── fna_ast_income (s1–s7) ───────────────────────────────────────────
+        supabase.from('fna_ast_income').insert({
+          fna_id: fnaId,
+          // s1 – Stocks / MFs / Bonds / ETFs
+          stocks_him: assets.s1_him,
+          stocks_her: assets.s1_her,
+          stocks_notes: assets.s1_notes,
+          stocks_present_value: assets.s1_present,
+          stocks_projected_value: assets.s1_proj || autoProj(assets.s1_present),            // new column
+          // s2 – Business
+          business_him: assets.s2_him,
+          business_her: assets.s2_her,
+          business_notes: assets.s2_notes,
+          business_present_value: assets.s2_present,
+          business_projected_value: assets.s2_proj,                                         // new column
+          // s3 – Alternative Investments
+          alternative_inv_him: assets.s3_him,
+          alternative_inv_her: assets.s3_her,
+          alternative_inv_notes: assets.s3_notes,
+          alternative_inv_present_value: assets.s3_present,
+          alternative_inv_projected_value: assets.s3_proj || autoProj(assets.s3_present),   // new column
+          // s4 – Certificate of Deposits (CDs)
+          cds_him: assets.s4_him,
+          cds_her: assets.s4_her,
+          cds_notes: assets.s4_notes,
+          cds_present_value: assets.s4_present,
+          cds_projected_value: assets.s4_proj || autoProj(assets.s4_present),
+          // s5 – Cash in Bank + Emergency Fund
+          cash_emergency_him: assets.s5_him,
+          cash_emergency_her: assets.s5_her,
+          cash_emergency_notes: assets.s5_notes,
+          cash_emergency_present_value: assets.s5_present,
+          cash_emergency_projected_value: assets.s5_proj || autoProj(assets.s5_present),
+          // s6 – Annual Household Income
+          annual_income_him: assets.s6_him,
+          annual_income_her: assets.s6_her,
+          annual_income_notes: assets.s6_notes,
+          annual_income_amount: assets.s6_present,
+          // s7 – Annual Savings
+          annual_savings_him: assets.s7_him,
+          annual_savings_her: assets.s7_her,
+          annual_savings_notes: assets.s7_notes,
+          annual_savings_amount: assets.s7_present,
+          annual_savings_projected: assets.s7_proj,
+        }),
+        // ── fna_ast_real_estate (e1–e4) ──────────────────────────────────────
+        supabase.from('fna_ast_real_estate').insert({
+          fna_id: fnaId,
+          personal_home_him: assets.e1_him,
+          personal_home_her: assets.e1_her,
+          personal_home_notes: assets.e1_notes,
+          personal_home_present_value: assets.e1_present,
+          personal_home_projected_value: assets.e1_proj,
+          rental_properties_him: assets.e2_him,
+          rental_properties_her: assets.e2_her,
+          rental_properties_notes: assets.e2_notes,
+          rental_properties_present_value: assets.e2_present,
+          rental_properties_projected_value: assets.e2_proj,
+          land_parcels_him: assets.e3_him,
+          land_parcels_her: assets.e3_her,
+          land_parcels_notes: assets.e3_notes,
+          land_parcels_present_value: assets.e3_present,
+          land_parcels_projected_value: assets.e3_proj,
+          inheritance_him: assets.e4_him,
+          inheritance_her: assets.e4_her,
+          inheritance_notes: assets.e4_notes,
+          inheritance_present_value: assets.e4_present,
+          inheritance_projected_value: assets.e4_proj,
+        }),
+        // ── fna_ast_protection (f1–f8) ───────────────────────────────────────
+        supabase.from('fna_ast_protection').insert({
+          fna_id: fnaId,
+          // f1 – Life Insurance at Work
+          life_insurance_work_him: assets.f1_him,
+          life_insurance_work_her: assets.f1_her,
+          life_insurance_work_notes: assets.f1_notes,
+          life_insurance_work_cash_value: assets.f1_present,
+          // f2 – Life Insurance Outside Work
+          life_insurance_outside_him: assets.f2_him,
+          life_insurance_outside_her: assets.f2_her,
+          life_insurance_outside_notes: assets.f2_notes,
+          life_insurance_outside_cash_value: assets.f2_present,
+          life_insurance_outside_legacy_value: assets.f2_proj,
+          // f3 – Cash Value Life Insurance
+          cash_value_insurance_him: assets.f3_him,
+          cash_value_insurance_her: assets.f3_her,
+          cash_value_insurance_notes: assets.f3_notes,
+          // f4 – Which Insurance Company
+          insurance_company_notes: assets.f4_notes,
+          // f5 – STD / LTD (Short/Long-Term Disability)
+          disability_work_him: assets.f5_him,
+          disability_work_her: assets.f5_her,
+          disability_work_notes: assets.f5_notes,
+          // f6 – Long-Term Care (Outside)
+          long_term_care_him: assets.f6_him,
+          long_term_care_her: assets.f6_her,
+          long_term_care_notes: assets.f6_notes,
+          long_term_care_present_value: assets.f3_present,   // cash-value LI present maps here
+          // f7 – HSA
+          hsa_him: assets.f7_him,
+          hsa_her: assets.f7_her,
+          hsa_notes: assets.f7_notes,
+          hsa_present_value: assets.f7_present,
+          hsa_projected_value: assets.f7_proj,
+          // f8 – Mortgage Protection
+          mortgage_protection_him: assets.f8_him,
+          mortgage_protection_her: assets.f8_her,
+          mortgage_protection_notes: assets.f8_notes,
+        }),
+        // ── fna_ast_college_estate (c1, c2) ──────────────────────────────────
+        supabase.from('fna_ast_college_estate').insert({
+          fna_id: fnaId,
+          plan_529_child1: assets.c1_c1,
+          plan_529_child2: assets.c1_c2,
+          plan_529_notes: assets.c1_notes,
+          plan_529_present_value: assets.c1_present,
+          plan_529_projected_value: assets.c1_proj,
+          will_trust_him: assets.c2_c1,
+          will_trust_her: assets.c2_c2,
+          will_trust_notes: assets.c2_notes,
+        }),
+        // ── fna_ast_foreign (x1, x2) ─────────────────────────────────────────
+        supabase.from('fna_ast_foreign').insert({
+          fna_id: fnaId,
+          real_estate_him: assets.x1_him,
+          real_estate_her: assets.x1_her,
+          real_estate_notes: assets.x1_notes,
+          real_estate_present_value: assets.x1_present,
+          real_estate_projected_value: assets.x1_proj,
+          non_real_estate_him: assets.x2_him,
+          non_real_estate_her: assets.x2_her,
+          non_real_estate_notes: assets.x2_notes,
+          non_real_estate_present_value: assets.x2_present,
+          non_real_estate_projected_value: assets.x2_proj,
+        }),
+      ];
+      const astResults = await Promise.allSettled(astSaves);
+      const astErrs = astResults
+        .filter((r): r is PromiseRejectedResult | { status: 'fulfilled'; value: { error: any } } =>
+          r.status === 'rejected' || (r as any).value?.error != null)
+        .map((r, i) => `table[${i}]: ${r.status === 'rejected' ? r.reason : (r as any).value.error?.message}`);
+      if (astErrs.length > 0) console.warn('Some fna_ast_* saves had errors (non-fatal):', astErrs);
 
       showMessage('✅ FNA saved successfully!', 'success');
       // ADDED: refresh the Summary after saving so it reflects the latest data
