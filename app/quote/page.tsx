@@ -187,13 +187,69 @@ const CARRIERS: CarrierDef[] = [
     // basePer1000 calibrated to published Allianz term rates: Male/40/PNT/$1M/20yr ≈ $0.1385/1000/mo
     id: 'allianz',
     carrier: 'Allianz Life',
-    product: 'Allianz Life Pro+ Advantage',
+    product: 'Allianz Life Accumulator',
     highlight: false,
     basePer1000: 0.13850,
     abr: {
       chronic: 'Up to $500,000 – 90-day wait (qualifying chronic illness)',
       critical: 'Up to $500,000 – 30-day wait (heart attack, cancer, stroke)',
       terminal: '$1,000,000 – No wait',
+    },
+  },
+  // ADDED: F&G Life — iFG MyTerm
+  // basePer1000 calibrated to F&G published term rates: Male/40/PNT/$1M/20yr ≈ $0.13100/1000/mo
+  {
+    id: 'fg',
+    carrier: 'F&G Life',
+    product: 'iFG MyTerm',
+    highlight: false,
+    basePer1000: 0.13100,
+    abr: {
+      chronic: 'Up to 50% of face – 90-day wait (qualifying chronic illness)',
+      critical: 'Up to 50% of face – 30-day wait (cancer, heart attack, stroke)',
+      terminal: 'Up to $500,000 – No wait',
+    },
+  },
+  // ADDED: Banner Life — OPTerm
+  // basePer1000 calibrated to Banner Life published OPTerm rates: Male/40/PNT/$1M/20yr ≈ $0.11450/1000/mo
+  {
+    id: 'banner',
+    carrier: 'Banner Life',
+    product: 'OPTerm',
+    highlight: false,
+    basePer1000: 0.11450,
+    abr: {
+      chronic: 'N/A',
+      critical: 'N/A',
+      terminal: 'Up to $500,000 – No wait',
+    },
+  },
+  // ADDED: Protective Life — Classic Choice Term
+  // basePer1000 calibrated to Protective published rates: Male/40/PNT/$1M/20yr ≈ $0.11750/1000/mo
+  {
+    id: 'protective',
+    carrier: 'Protective Life',
+    product: 'Classic Choice Term',
+    highlight: false,
+    basePer1000: 0.11750,
+    abr: {
+      chronic: 'N/A',
+      critical: 'N/A',
+      terminal: 'Up to $250,000 – No wait',
+    },
+  },
+  // ADDED: TruStage® — Term Life Insurance (CUNA Mutual Group)
+  // basePer1000 calibrated to TruStage published rates: Male/40/PNT/$1M/20yr ≈ $0.14600/1000/mo
+  {
+    id: 'trustage',
+    carrier: 'TruStage®',
+    product: 'Term Life Insurance',
+    highlight: false,
+    basePer1000: 0.14600,
+    abr: {
+      chronic: 'N/A',
+      critical: 'N/A',
+      terminal: 'Up to $250,000 – No wait',
     },
   },
 ];
@@ -359,7 +415,7 @@ const DEFAULT_PARAMS: QuoteParams = {
   gender: 'Male',
   health_class: 'Preferred Non-Tobacco',
   face_amount: 1_000_000,
-  term_years: 30,
+  term_years: 10, // CHANGED: default is 10-Year Term
   state: 'TX', // MODIFIED: default state set to Texas
   use_saved_age: false, // ADDED: Saved Age off by default — advisor toggles per client
 };
@@ -1084,10 +1140,10 @@ CRITICAL: Output raw JSON only. First character must be '{'. Last character must
   const generateQuote = () => {
     const errors: typeof formErrors = {};
 
-    // Age is mandatory and must be in the valid range
-    if (!params.age || params.age < 18 || params.age > 75) {
-      errors.age = params.age < 18 || params.age > 75
-        ? 'Age must be between 18 and 75'
+    // Age is mandatory — minimum 1 year (no minimum age restriction)
+    if (!params.age || params.age < 1 || params.age > 75) {
+      errors.age = params.age < 1 || params.age > 75
+        ? 'Age must be between 1 and 75'
         : 'Age is required';
     }
     // State is mandatory — must not be empty
@@ -1366,7 +1422,7 @@ CRITICAL: Output raw JSON only. First character must be '{'. Last character must
                 </label>
                 <input
                   type="number"
-                  min={18}
+                  min={1}
                   max={75}
                   className={`w-full rounded-lg border px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 ${formErrors.age ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                   value={params.age}
@@ -1505,15 +1561,15 @@ CRITICAL: Output raw JSON only. First character must be '{'. Last character must
                 <button
                   type="button"
                   onClick={generateQuote}
-                  disabled={params.age < 18 || params.age > 75 || !params.state}
+                  disabled={params.age < 1 || params.age > 75 || !params.state}
                   className="inline-flex items-center gap-2 rounded-lg bg-[#1E5AA8] text-white font-semibold px-5 py-2 text-sm hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   🔍 Generate Quote
                 </button>
                 {/* ADDED: mandatory hint shown when button is blocked */}
-                {(!params.state || params.age < 18 || params.age > 75) && (
+                {(!params.state || params.age < 1 || params.age > 75) && (
                   <span className="text-[10px] text-red-500 ml-1">
-                    {!params.state ? 'Select a state to continue' : 'Age must be 18–75'}
+                    {!params.state ? 'Select a state to continue' : 'Age must be 1–75'}
                   </span>
                 )}
               </div>
