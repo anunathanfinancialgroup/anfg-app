@@ -675,6 +675,14 @@ export default function FNAPage() {
     return pmt * ((Math.pow(1 + rate, yearsToRetirement) - 1) / rate) * (1 + rate);
   }, [yearsToRetirement, rate]);
 
+  /** Retirement Value: FV of projected-at-retirement value grown through the retirement period.
+   *  Formula: projValue × (1+r)^retirementYears
+   *  e.g. value projected to age 65, then further grown to age 85 at the same rate. */
+  const autoRetirementValue = useCallback((projValue: number): number => {
+    if (projValue <= 0 || data.retirementYears <= 0) return 0;
+    return projValue * Math.pow(1 + rate, data.retirementYears);
+  }, [data.retirementYears, rate]);
+
   // ── Liabilities helpers ────────────────────────────────────────────────────
   const liabilityCols: FieldDef[] = useMemo(() => [
     { key: "liability_type",  label: "Liability Type",      type: "select", options: LIABILITY_TYPES },
@@ -1308,32 +1316,32 @@ export default function FNAPage() {
           company_match_notes: assets.r2_notes,
           // r3 – Max Funding (~$22.5K)
           max_funding_notes: assets.r3_notes,
-          max_funding_retirement_value: assets.r3_present,   // new column
+          max_funding_retirement_value: autoRetirementValue(assets.r3_proj),
           max_funding_projected_value: assets.r3_proj,
           // r4 – Previous 401K / Rollover
           rollover_401k_him: assets.r4_him,
           rollover_401k_her: assets.r4_her,
           rollover_401k_notes: assets.r4_notes,
           rollover_401k_present_value: assets.r4_present,
-          rollover_401k_projected_value: assets.r4_proj || autoProj(assets.r4_present),  // new column
+          rollover_401k_retirement_value: autoRetirementValue(assets.r4_proj || autoProj(assets.r4_present)),
           // r5 – Traditional IRA / SEP-IRA
           traditional_ira_him: assets.r5_him,
           traditional_ira_her: assets.r5_her,
           traditional_ira_notes: assets.r5_notes,
           traditional_ira_present_value: assets.r5_present,
-          traditional_ira_projected_value: assets.r5_proj || autoProj(assets.r5_present), // new column
+          traditional_ira_retirement_value: autoRetirementValue(assets.r5_proj || autoProj(assets.r5_present)),
           // r6 – Roth IRA / Roth 401K
           roth_ira_him: assets.r6_him,
           roth_ira_her: assets.r6_her,
           roth_ira_notes: assets.r6_notes,
           roth_ira_present_value: assets.r6_present,
-          roth_ira_projected_value: assets.r6_proj || autoAnnuityProj(assets.r6_present),  // new column
+          roth_ira_retirement_value: autoRetirementValue(assets.r6_proj || autoAnnuityProj(assets.r6_present)),
           // r7 – ESPP / RSU / Annuities / Pension
           espp_rsu_him: assets.r7_him,
           espp_rsu_her: assets.r7_her,
           espp_rsu_notes: assets.r7_notes,
           espp_rsu_present_value: assets.r7_present,
-          espp_rsu_projected_value: assets.r7_proj || autoProj(assets.r7_present),          // new column
+          espp_rsu_retirement_value: autoRetirementValue(assets.r7_proj || autoProj(assets.r7_present)),
         }),
         // ── fna_ast_income (s1–s7) ───────────────────────────────────────────
         supabase.from('fna_ast_income').insert({
@@ -1343,19 +1351,22 @@ export default function FNAPage() {
           stocks_her: assets.s1_her,
           stocks_notes: assets.s1_notes,
           stocks_present_value: assets.s1_present,
-          stocks_projected_value: assets.s1_proj || autoProj(assets.s1_present),            // new column
+          stocks_projected_value: assets.s1_proj || autoProj(assets.s1_present),
+          stocks_retirement_value: autoRetirementValue(assets.s1_proj || autoProj(assets.s1_present)),
           // s2 – Business
           business_him: assets.s2_him,
           business_her: assets.s2_her,
           business_notes: assets.s2_notes,
           business_present_value: assets.s2_present,
-          business_projected_value: assets.s2_proj,                                         // new column
+          business_projected_value: assets.s2_proj,
+          business_retirement_value: autoRetirementValue(assets.s2_proj),
           // s3 – Alternative Investments
           alternative_inv_him: assets.s3_him,
           alternative_inv_her: assets.s3_her,
           alternative_inv_notes: assets.s3_notes,
           alternative_inv_present_value: assets.s3_present,
-          alternative_inv_projected_value: assets.s3_proj || autoProj(assets.s3_present),   // new column
+          alternative_inv_projected_value: assets.s3_proj || autoProj(assets.s3_present),
+          alternative_inv_retirement_value: autoRetirementValue(assets.s3_proj || autoProj(assets.s3_present)),
           // s4 – Certificate of Deposits (CDs)
           cds_him: assets.s4_him,
           cds_her: assets.s4_her,
@@ -1796,6 +1807,17 @@ Return ONLY the JSON object.`;
     );
   };
 
+  // Retirement Value cell: green tint, auto-calculated from projected value, read-only.
+  // Shows FV of projValue grown through the retirement period (e.g. 65→85 at 6%).
+  const AutoRetCell = ({ proj }: { proj: number }) => {
+    const v = autoRetirementValue(proj);
+    return (
+      <td className="border border-black px-2 py-1 text-xs text-right font-medium" style={{ backgroundColor: '#D5F5E3' }}>
+        {proj > 0 ? formatCurrencyZero(v) : '$0'}
+      </td>
+    );
+  };
+
   // manualProjCell – plain function (NOT JSX component) to prevent remount on re-render
   const manualProjCell = (field: keyof AssetsData) => (
     <td className="border border-black p-0">
@@ -1906,21 +1928,32 @@ Return ONLY the JSON object.`;
   );
 
   // Common asset table header (HIM | HER version)
-  const AssetTHead = ({ projLabel = "Projected Value" }: { projLabel?: string }) => (
-    <thead>
-      <tr style={{ backgroundColor: COLORS.headerBg }}>
-        <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
-        <th className="border border-black px-2 py-1 text-xs font-bold">Description</th>
-        <th className="border border-black px-2 py-1 text-xs font-bold w-12">Him</th>
-        <th className="border border-black px-2 py-1 text-xs font-bold w-12">Her</th>
-        <th className="border border-black px-2 py-1 text-xs font-bold">Notes</th>
-        <th className="border border-black px-2 py-1 text-xs font-bold w-36">Present Value</th>
-        <th className="border border-black px-2 py-1 text-xs font-bold w-44 whitespace-nowrap">
-          {projLabel} @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
-        </th>
-      </tr>
-    </thead>
-  );
+  // showRetirement=true adds an 8th column for the Retirement Value (proj grown through retirement years).
+  const AssetTHead = ({ projLabel = "Projected Value", showRetirement = false }: { projLabel?: string; showRetirement?: boolean }) => {
+    const retAge    = data.plannedRetirementAge;
+    const retEndAge = retAge + (data.retirementYears || 0);
+    const retYrs    = data.retirementYears || 0;
+    return (
+      <thead>
+        <tr style={{ backgroundColor: COLORS.headerBg }}>
+          <th className="border border-black px-2 py-1 text-xs font-bold w-10">#</th>
+          <th className="border border-black px-2 py-1 text-xs font-bold">Description</th>
+          <th className="border border-black px-2 py-1 text-xs font-bold w-12">Him</th>
+          <th className="border border-black px-2 py-1 text-xs font-bold w-12">Her</th>
+          <th className="border border-black px-2 py-1 text-xs font-bold">Notes</th>
+          <th className="border border-black px-2 py-1 text-xs font-bold w-36">Present Value</th>
+          <th className="border border-black px-2 py-1 text-xs font-bold w-44 whitespace-nowrap">
+            {projLabel} @ {retAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}
+          </th>
+          {showRetirement && (
+            <th className="border border-black px-2 py-1 text-xs font-bold w-44 whitespace-nowrap" style={{ backgroundColor: '#D5F5E3' }}>
+              Retirement Value from {retAge} to {retEndAge} ({data.calculatedInterestPercentage}%){retYrs > 0 ? ` for ${retYrs} yrs` : ''}
+            </th>
+          )}
+        </tr>
+      </thead>
+    );
+  };
 
   // ── PDF Report Generation ─────────────────────────────────────────────────
   const [reportGenerating, setReportGenerating] = useState(false);
@@ -3806,20 +3839,21 @@ Example format:
               <CardHeader emoji="🏦" title="Retirement Planning (USA)" cardKey="assetsRetirement" />
               {cardVisibility.assetsRetirement && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
-                  <AssetTHead projLabel="Projected Value" />
+                  <AssetTHead projLabel="Projected Value" showRetirement />
                   <tbody>
                     {/* r1 – 401K calc+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#1</td>
                       <td className="border border-black px-2 py-1 text-xs">Current 401K | 403B</td>
                       {stdCellsCalc("r1_him","r1_her","r1_notes","r1_present","r1_proj")}
+                      <AutoRetCell proj={assets.r1_proj} />
                     </tr>
-                    {/* r2 – Company Match N/A proj */}
+                    {/* r2 – Company Match N/A proj + N/A retirement */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#2</td>
                       <td className="border border-black px-2 py-1 text-xs">Company Match %</td>
                       {stdCells("r2_him","r2_her","r2_notes","r2_present")}
-                      <NAProjCell />
+                      <NAProjCell /><NAProjCell />
                     </tr>
                     {/* r3 – Max Funding editable proj */}
                     <tr>
@@ -3827,30 +3861,35 @@ Example format:
                       <td className="border border-black px-2 py-1 text-xs">Are You Max Funding (~$22.5K)?</td>
                       {stdCells("r3_him","r3_her","r3_notes","r3_present")}
                       {manualProjCell("r3_proj")}
+                      <AutoRetCell proj={assets.r3_proj} />
                     </tr>
                     {/* r4 – Prev 401K calc+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#4</td>
                       <td className="border border-black px-2 py-1 text-xs">Previous 401K | Rollover 401K</td>
                       {stdCellsCalc("r4_him","r4_her","r4_notes","r4_present","r4_proj")}
+                      <AutoRetCell proj={assets.r4_proj} />
                     </tr>
                     {/* r5 – Traditional IRA calc+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#5</td>
                       <td className="border border-black px-2 py-1 text-xs">Traditional IRA | SEP-IRA [Tax-Deferred]</td>
                       {stdCellsCalc("r5_him","r5_her","r5_notes","r5_present","r5_proj")}
+                      <AutoRetCell proj={assets.r5_proj} />
                     </tr>
                     {/* r6 – Roth IRA annuity+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#6</td>
                       <td className="border border-black px-2 py-1 text-xs">ROTH IRA | ROTH 401K [Tax-Free]</td>
                       {stdCellsCalc("r6_him","r6_her","r6_notes","r6_present","r6_proj", true)}
+                      <AutoRetCell proj={assets.r6_proj} />
                     </tr>
                     {/* r7 – ESPP/RSU auto */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#7</td>
                       <td className="border border-black px-2 py-1 text-xs">ESPP | RSU | Annuities | Pension</td>
                       {stdCellsCalc("r7_him","r7_her","r7_notes","r7_present","r7_proj")}
+                      <AutoRetCell proj={assets.r7_proj} />
                     </tr>
                   </tbody>
                 </table>
@@ -3889,45 +3928,52 @@ Example format:
               <CardHeader emoji="📈" title="Stocks | Business | Income (USA)" cardKey="assetsStocks" />
               {cardVisibility.assetsStocks && (
                 <table className="w-full border-2 border-black" style={{ borderCollapse:'collapse' }}>
-                  <AssetTHead projLabel="Projected Value" />
+                  <AssetTHead projLabel="Projected Value" showRetirement />
                   <tbody>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#12</td>
                       <td className="border border-black px-2 py-1 text-xs">STOCKS | MFs | Bonds | ETFs (Outside Of 401K)</td>
                       {stdCellsCalc("s1_him","s1_her","s1_notes","s1_present","s1_proj")}
+                      <AutoRetCell proj={assets.s1_proj} />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#13</td>
                       <td className="border border-black px-2 py-1 text-xs">Do You Own A Business?</td>
                       {stdCells("s2_him","s2_her","s2_notes","s2_present")}
                       {manualProjCell("s2_proj")}
+                      <AutoRetCell proj={assets.s2_proj} />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#14</td>
                       <td className="border border-black px-2 py-1 text-xs">Alternative Investments (Private Equity, Crowd Funding, ETC.)</td>
                       {stdCellsCalc("s3_him","s3_her","s3_notes","s3_present","s3_proj")}
+                      <AutoRetCell proj={assets.s3_proj} />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#15</td>
                       <td className="border border-black px-2 py-1 text-xs">Certificate Of Deposits (Bank CDs)</td>
                       {stdCellsCalc("s4_him","s4_her","s4_notes","s4_present","s4_proj")}
+                      <AutoRetCell proj={assets.s4_proj} />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#16</td>
                       <td className="border border-black px-2 py-1 text-xs">Cash In Bank + Emergency Fund</td>
                       {stdCellsCalc("s5_him","s5_her","s5_notes","s5_present","s5_proj")}
+                      <AutoRetCell proj={assets.s5_proj} />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#17</td>
                       <td className="border border-black px-2 py-1 text-xs">Annual House-Hold Income</td>
                       {stdCells("s6_him","s6_her","s6_notes","s6_present")}
                       {manualProjCell("s6_proj")}
+                      <AutoRetCell proj={assets.s6_proj} />
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#18</td>
                       <td className="border border-black px-2 py-1 text-xs">Annual Savings Going Forward</td>
                       {stdCells("s7_him","s7_her","s7_notes","s7_present")}
                       {manualProjCell("s7_proj")}
+                      <AutoRetCell proj={assets.s7_proj} />
                     </tr>
                   </tbody>
                 </table>
