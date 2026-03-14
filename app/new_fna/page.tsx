@@ -799,6 +799,29 @@ export default function FNAPage() {
     return calcEditRows;
   }, [assets, autoProj, autoAnnuityProj]);
 
+  // ── Total Retirement Value — sum of all user-editable _ret fields ──────────
+  // Uses the stored _ret value if the user entered one; otherwise auto-calculates
+  // from the projected value grown through the retirement period.
+  const totalRetirement = useMemo(() => {
+    const retVal = (ret: number, proj: number) =>
+      ret > 0 ? ret : autoRetirementValue(proj);
+    return [
+      retVal(assets.r1_ret, assets.r1_proj || autoProj(assets.r1_present)),
+      retVal(assets.r3_ret, assets.r3_proj),
+      retVal(assets.r4_ret, assets.r4_proj || autoProj(assets.r4_present)),
+      retVal(assets.r5_ret, assets.r5_proj > 0 ? assets.r5_proj : autoProj(assets.r5_present)),
+      retVal(assets.r6_ret, assets.r6_proj > 0 ? assets.r6_proj : autoAnnuityProj(assets.r6_present)),
+      retVal(assets.r7_ret, assets.r7_proj || autoProj(assets.r7_present)),
+      retVal(assets.s1_ret, assets.s1_proj || autoProj(assets.s1_present)),
+      retVal(assets.s2_ret, assets.s2_proj),
+      retVal(assets.s3_ret, assets.s3_proj || autoProj(assets.s3_present)),
+      retVal(assets.s4_ret, assets.s4_proj > 0 ? assets.s4_proj : autoProj(assets.s4_present)),
+      retVal(assets.s5_ret, assets.s5_proj || autoProj(assets.s5_present)),
+      retVal(assets.s6_ret, assets.s6_proj),
+      retVal(assets.s7_ret, assets.s7_proj),
+    ].reduce((s, v) => s + (v || 0), 0);
+  }, [assets, autoProj, autoAnnuityProj, autoRetirementValue]);
+
   // ── Auth ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     const cookie = document.cookie.split('; ').find(r => r.startsWith('canfs_auth='));
@@ -4272,6 +4295,9 @@ Example format:
                         <div className="text-right text-sm font-bold text-green-700">Present Value: {formatCurrencyZero(totalPresent)}</div>
                         <div className="text-right text-sm font-bold text-blue-700 mt-0.5">
                           Projected @ {data.plannedRetirementAge} ({data.calculatedInterestPercentage}%){yearsToRetirement > 0 ? ` for ${yearsToRetirement} yrs` : ''}: {formatCurrencyZero(totalProjected)}
+                        </div>
+                        <div className="text-right text-sm font-bold mt-0.5" style={{ color: '#1a7a40' }}>
+                          Retirement Value from {data.plannedRetirementAge} to {data.plannedRetirementAge + (data.retirementYears || 0)} ({data.calculatedInterestPercentage}%){data.retirementYears > 0 ? ` for ${data.retirementYears} yrs` : ''}: {formatCurrencyZero(totalRetirement)}
                         </div>
                       </td>
                     </tr>
