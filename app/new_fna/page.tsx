@@ -138,26 +138,26 @@ interface FNAData {
 // Full asset state — all sections from the Excel sheet
 interface AssetsData {
   // ── RETIREMENT PLANNING (USA) ───────────────────────────────────────────
-  r1_him: boolean; r1_her: boolean; r1_notes: string; r1_present: number; r1_proj: number; r1_ret: number; // 401K/403B
+  r1_him: boolean; r1_her: boolean; r1_notes: string; r1_present: number; r1_proj: number; r1_ret: number | null; // 401K/403B
   r2_him: boolean; r2_her: boolean; r2_notes: string; r2_present: number; // Company Match – N/A proj
-  r3_him: boolean; r3_her: boolean; r3_notes: string; r3_present: number; r3_proj: number; r3_ret: number; // Max Funding
-  r4_him: boolean; r4_her: boolean; r4_notes: string; r4_present: number; r4_proj: number; r4_ret: number; // Previous 401K
-  r5_him: boolean; r5_her: boolean; r5_notes: string; r5_present: number; r5_proj: number; r5_ret: number; // Traditional IRA
-  r6_him: boolean; r6_her: boolean; r6_notes: string; r6_present: number; r6_proj: number; r6_ret: number; // Roth IRA
-  r7_him: boolean; r7_her: boolean; r7_notes: string; r7_present: number; r7_proj: number; r7_ret: number; // ESPP/RSU
+  r3_him: boolean; r3_her: boolean; r3_notes: string; r3_present: number; r3_proj: number; r3_ret: number | null; // Max Funding
+  r4_him: boolean; r4_her: boolean; r4_notes: string; r4_present: number; r4_proj: number; r4_ret: number | null; // Previous 401K
+  r5_him: boolean; r5_her: boolean; r5_notes: string; r5_present: number; r5_proj: number; r5_ret: number | null; // Traditional IRA
+  r6_him: boolean; r6_her: boolean; r6_notes: string; r6_present: number; r6_proj: number; r6_ret: number | null; // Roth IRA
+  r7_him: boolean; r7_her: boolean; r7_notes: string; r7_present: number; r7_proj: number; r7_ret: number | null; // ESPP/RSU
   // ── REAL ESTATE (USA) – manual projected ───────────────────────────────
   e1_him: boolean; e1_her: boolean; e1_notes: string; e1_present: number; e1_proj: number;
   e2_him: boolean; e2_her: boolean; e2_notes: string; e2_present: number; e2_proj: number;
   e3_him: boolean; e3_her: boolean; e3_notes: string; e3_present: number; e3_proj: number;
   e4_him: boolean; e4_her: boolean; e4_notes: string; e4_present: number; e4_proj: number;
   // ── STOCKS | BUSINESS | INCOME (USA) ───────────────────────────────────
-  s1_him: boolean; s1_her: boolean; s1_notes: string; s1_present: number; s1_proj: number; s1_ret: number; // Stocks/MFs
-  s2_him: boolean; s2_her: boolean; s2_notes: string; s2_present: number; s2_proj: number; s2_ret: number; // Business
-  s3_him: boolean; s3_her: boolean; s3_notes: string; s3_present: number; s3_proj: number; s3_ret: number; // Alt Investments
-  s4_him: boolean; s4_her: boolean; s4_notes: string; s4_present: number; s4_proj: number; s4_ret: number; // CDs
-  s5_him: boolean; s5_her: boolean; s5_notes: string; s5_present: number; s5_proj: number; s5_ret: number; // Cash in Bank
-  s6_him: boolean; s6_her: boolean; s6_notes: string; s6_present: number; s6_proj: number; s6_ret: number; // Annual Income
-  s7_him: boolean; s7_her: boolean; s7_notes: string; s7_present: number; s7_proj: number; s7_ret: number; // Annual Savings
+  s1_him: boolean; s1_her: boolean; s1_notes: string; s1_present: number; s1_proj: number; s1_ret: number | null; // Stocks/MFs
+  s2_him: boolean; s2_her: boolean; s2_notes: string; s2_present: number; s2_proj: number; s2_ret: number | null; // Business
+  s3_him: boolean; s3_her: boolean; s3_notes: string; s3_present: number; s3_proj: number; s3_ret: number | null; // Alt Investments
+  s4_him: boolean; s4_her: boolean; s4_notes: string; s4_present: number; s4_proj: number; s4_ret: number | null; // CDs
+  s5_him: boolean; s5_her: boolean; s5_notes: string; s5_present: number; s5_proj: number; s5_ret: number | null; // Cash in Bank
+  s6_him: boolean; s6_her: boolean; s6_notes: string; s6_present: number; s6_proj: number; s6_ret: number | null; // Annual Income
+  s7_him: boolean; s7_her: boolean; s7_notes: string; s7_present: number; s7_proj: number; s7_ret: number | null; // Annual Savings
   // ── FAMILY PROTECTION & INSURANCE ──────────────────────────────────────
   f1_him: boolean; f1_her: boolean; f1_notes: string; f1_present: number; // Life Ins Work – N/A proj
   f2_him: boolean; f2_her: boolean; f2_notes: string; f2_present: number; f2_proj: number; // Life Ins Outside – manual
@@ -207,24 +207,24 @@ const initialData: FNAData = {
 };
 
 const initialAssets: AssetsData = {
-  r1_him:false, r1_her:false, r1_notes:"", r1_present:0, r1_proj:0, r1_ret:0,
+  r1_him:false, r1_her:false, r1_notes:"", r1_present:0, r1_proj:0, r1_ret:null,
   r2_him:false, r2_her:false, r2_notes:"", r2_present:0,
-  r3_him:false, r3_her:false, r3_notes:"", r3_present:0, r3_proj:0, r3_ret:0,
-  r4_him:false, r4_her:false, r4_notes:"", r4_present:0, r4_proj:0, r4_ret:0,
-  r5_him:false, r5_her:false, r5_notes:"", r5_present:0, r5_proj:0, r5_ret:0,
-  r6_him:false, r6_her:false, r6_notes:"", r6_present:0, r6_proj:0, r6_ret:0,
-  r7_him:false, r7_her:false, r7_notes:"", r7_present:0, r7_proj:0, r7_ret:0,
+  r3_him:false, r3_her:false, r3_notes:"", r3_present:0, r3_proj:0, r3_ret:null,
+  r4_him:false, r4_her:false, r4_notes:"", r4_present:0, r4_proj:0, r4_ret:null,
+  r5_him:false, r5_her:false, r5_notes:"", r5_present:0, r5_proj:0, r5_ret:null,
+  r6_him:false, r6_her:false, r6_notes:"", r6_present:0, r6_proj:0, r6_ret:null,
+  r7_him:false, r7_her:false, r7_notes:"", r7_present:0, r7_proj:0, r7_ret:null,
   e1_him:false, e1_her:false, e1_notes:"", e1_present:0, e1_proj:0,
   e2_him:false, e2_her:false, e2_notes:"", e2_present:0, e2_proj:0,
   e3_him:false, e3_her:false, e3_notes:"", e3_present:0, e3_proj:0,
   e4_him:false, e4_her:false, e4_notes:"", e4_present:0, e4_proj:0,
-  s1_him:false, s1_her:false, s1_notes:"", s1_present:0, s1_proj:0, s1_ret:0,
-  s2_him:false, s2_her:false, s2_notes:"", s2_present:0, s2_proj:0, s2_ret:0,
-  s3_him:false, s3_her:false, s3_notes:"", s3_present:0, s3_proj:0, s3_ret:0,
-  s4_him:false, s4_her:false, s4_notes:"", s4_present:0, s4_proj:0, s4_ret:0,
-  s5_him:false, s5_her:false, s5_notes:"", s5_present:0, s5_proj:0, s5_ret:0,
-  s6_him:false, s6_her:false, s6_notes:"", s6_present:0, s6_proj:0, s6_ret:0,
-  s7_him:false, s7_her:false, s7_notes:"", s7_present:0, s7_proj:0, s7_ret:0,
+  s1_him:false, s1_her:false, s1_notes:"", s1_present:0, s1_proj:0, s1_ret:null,
+  s2_him:false, s2_her:false, s2_notes:"", s2_present:0, s2_proj:0, s2_ret:null,
+  s3_him:false, s3_her:false, s3_notes:"", s3_present:0, s3_proj:0, s3_ret:null,
+  s4_him:false, s4_her:false, s4_notes:"", s4_present:0, s4_proj:0, s4_ret:null,
+  s5_him:false, s5_her:false, s5_notes:"", s5_present:0, s5_proj:0, s5_ret:null,
+  s6_him:false, s6_her:false, s6_notes:"", s6_present:0, s6_proj:0, s6_ret:null,
+  s7_him:false, s7_her:false, s7_notes:"", s7_present:0, s7_proj:0, s7_ret:null,
   f1_him:false, f1_her:false, f1_notes:"", f1_present:0,
   f2_him:false, f2_her:false, f2_notes:"", f2_present:0, f2_proj:0,
   f3_him:false, f3_her:false, f3_notes:"", f3_present:0, f3_proj:0,
@@ -642,6 +642,8 @@ export default function FNAPage() {
   const [summaryHealthInsurance, setSummaryHealthInsurance] = useState<string>('');
   // ADDED: Life insurance facts/recommendations section
   const [summaryLifeInsurance, setSummaryLifeInsurance] = useState<string>('');
+  // ADDED: Retirement Impact & Lifestyle section
+  const [summaryRetirement, setSummaryRetirement] = useState<string>('');
   const [summaryError, setSummaryError] = useState<string>('');
   // ADDED: tracks which clientId has had its summary generated to avoid double-fire
   const summaryClientIdRef = useRef<string>('');
@@ -803,8 +805,8 @@ export default function FNAPage() {
   // Uses the stored _ret value if the user entered one; otherwise auto-calculates
   // from the projected value grown through the retirement period.
   const totalRetirement = useMemo(() => {
-    const retVal = (ret: number, proj: number) =>
-      ret > 0 ? ret : autoRetirementValue(proj);
+    const retVal = (ret: number | null, proj: number) =>
+      ret !== null ? ret : autoRetirementValue(proj);
     return [
       retVal(assets.r1_ret, assets.r1_proj || autoProj(assets.r1_present)),
       retVal(assets.r3_ret, assets.r3_proj),
@@ -895,7 +897,7 @@ export default function FNAPage() {
     setCardVisibility(allCardsClosed);
     // ADDED: clear all summary state when a new client is selected
     setSummaryGoals(''); setSummaryAssets(''); setSummaryLiabilities('');
-    setSummaryHealthInsurance(''); setSummaryLifeInsurance(''); setSummaryError('');
+    setSummaryHealthInsurance(''); setSummaryLifeInsurance(''); setSummaryRetirement(''); setSummaryError('');
     summaryClientIdRef.current = '';
     setData({
       ...initialData,
@@ -1030,7 +1032,7 @@ export default function FNAPage() {
           loaded.r1_notes = astRet.current_401k_notes || '';
           loaded.r1_present = Number(astRet.current_401k_present_value) || 0;
           loaded.r1_proj  = Number(astRet.current_401k_projected_value) || 0;
-          loaded.r1_ret   = Number(astRet.current_401k_retirement_value) || 0;
+          loaded.r1_ret   = astRet.current_401k_retirement_value != null ? Number(astRet.current_401k_retirement_value) : null;
           // r2 – Company Match
           loaded.r2_him   = toBool(astRet.company_match_him);
           loaded.r2_her   = toBool(astRet.company_match_her);
@@ -1042,35 +1044,35 @@ export default function FNAPage() {
           loaded.r3_notes = astRet.max_funding_notes || '';
           loaded.r3_present = Number(astRet.max_funding_present_value) || 0;
           loaded.r3_proj  = Number(astRet.max_funding_projected_value) || 0;
-          loaded.r3_ret   = Number(astRet.max_funding_retirement_value) || 0;
+          loaded.r3_ret   = astRet.max_funding_retirement_value != null ? Number(astRet.max_funding_retirement_value) : null;
           // r4 – Previous 401K / Rollover
           loaded.r4_him   = toBool(astRet.rollover_401k_him);
           loaded.r4_her   = toBool(astRet.rollover_401k_her);
           loaded.r4_notes = astRet.rollover_401k_notes || '';
           loaded.r4_present = Number(astRet.rollover_401k_present_value) || 0;
           loaded.r4_proj  = Number(astRet.rollover_401k_projected_value) || 0;
-          loaded.r4_ret   = Number(astRet.rollover_401k_retirement_value) || 0;
+          loaded.r4_ret   = astRet.rollover_401k_retirement_value != null ? Number(astRet.rollover_401k_retirement_value) : null;
           // r5 – Traditional IRA / SEP-IRA
           loaded.r5_him   = toBool(astRet.traditional_ira_him);
           loaded.r5_her   = toBool(astRet.traditional_ira_her);
           loaded.r5_notes = astRet.traditional_ira_notes || '';
           loaded.r5_present = Number(astRet.traditional_ira_present_value) || 0;
           loaded.r5_proj  = Number(astRet.traditional_ira_projected_value) || 0;
-          loaded.r5_ret   = Number(astRet.traditional_ira_retirement_value) || 0;
+          loaded.r5_ret   = astRet.traditional_ira_retirement_value != null ? Number(astRet.traditional_ira_retirement_value) : null;
           // r6 – Roth IRA / Roth 401K
           loaded.r6_him   = toBool(astRet.roth_ira_him);
           loaded.r6_her   = toBool(astRet.roth_ira_her);
           loaded.r6_notes = astRet.roth_ira_notes || '';
           loaded.r6_present = Number(astRet.roth_ira_present_value) || 0;
           loaded.r6_proj  = Number(astRet.roth_ira_projected_value) || 0;
-          loaded.r6_ret   = Number(astRet.roth_ira_retirement_value) || 0;
+          loaded.r6_ret   = astRet.roth_ira_retirement_value != null ? Number(astRet.roth_ira_retirement_value) : null;
           // r7 – ESPP / RSU / Annuities / Pension
           loaded.r7_him   = toBool(astRet.espp_rsu_him);
           loaded.r7_her   = toBool(astRet.espp_rsu_her);
           loaded.r7_notes = astRet.espp_rsu_notes || '';
           loaded.r7_present = Number(astRet.espp_rsu_present_value) || 0;
           loaded.r7_proj  = Number(astRet.espp_rsu_projected_value) || 0;
-          loaded.r7_ret   = Number(astRet.espp_rsu_retirement_value) || 0;
+          loaded.r7_ret   = astRet.espp_rsu_retirement_value != null ? Number(astRet.espp_rsu_retirement_value) : null;
         }
         // s1–s7 — Stocks | Business | Income
         if (astInc) {
@@ -1079,43 +1081,43 @@ export default function FNAPage() {
           loaded.s1_notes = astInc.stocks_notes || '';
           loaded.s1_present = Number(astInc.stocks_present_value) || 0;
           loaded.s1_proj  = Number(astInc.stocks_projected_value) || 0;
-          loaded.s1_ret   = Number(astInc.stocks_retirement_value) || 0;
+          loaded.s1_ret   = astInc.stocks_retirement_value != null ? Number(astInc.stocks_retirement_value) : null;
           loaded.s2_him   = toBool(astInc.business_him);
           loaded.s2_her   = toBool(astInc.business_her);
           loaded.s2_notes = astInc.business_notes || '';
           loaded.s2_present = Number(astInc.business_present_value) || 0;
           loaded.s2_proj  = Number(astInc.business_projected_value) || 0;
-          loaded.s2_ret   = Number(astInc.business_retirement_value) || 0;
+          loaded.s2_ret   = astInc.business_retirement_value != null ? Number(astInc.business_retirement_value) : null;
           loaded.s3_him   = toBool(astInc.alternative_inv_him);
           loaded.s3_her   = toBool(astInc.alternative_inv_her);
           loaded.s3_notes = astInc.alternative_inv_notes || '';
           loaded.s3_present = Number(astInc.alternative_inv_present_value) || 0;
           loaded.s3_proj  = Number(astInc.alternative_inv_projected_value) || 0;
-          loaded.s3_ret   = Number(astInc.alternative_inv_retirement_value) || 0;
+          loaded.s3_ret   = astInc.alternative_inv_retirement_value != null ? Number(astInc.alternative_inv_retirement_value) : null;
           loaded.s4_him   = toBool(astInc.cds_him);
           loaded.s4_her   = toBool(astInc.cds_her);
           loaded.s4_notes = astInc.cds_notes || '';
           loaded.s4_present = Number(astInc.cds_present_value) || 0;
           loaded.s4_proj  = Number(astInc.cds_projected_value) || 0;
-          loaded.s4_ret   = Number(astInc.cds_retirement_value) || 0;
+          loaded.s4_ret   = astInc.cds_retirement_value != null ? Number(astInc.cds_retirement_value) : null;
           loaded.s5_him   = toBool(astInc.cash_emergency_him);
           loaded.s5_her   = toBool(astInc.cash_emergency_her);
           loaded.s5_notes = astInc.cash_emergency_notes || '';
           loaded.s5_present = Number(astInc.cash_emergency_present_value) || 0;
           loaded.s5_proj  = Number(astInc.cash_emergency_projected_value) || 0;
-          loaded.s5_ret   = Number(astInc.cash_emergency_retirement_value) || 0;
+          loaded.s5_ret   = astInc.cash_emergency_retirement_value != null ? Number(astInc.cash_emergency_retirement_value) : null;
           loaded.s6_him   = toBool(astInc.annual_income_him);
           loaded.s6_her   = toBool(astInc.annual_income_her);
           loaded.s6_notes = astInc.annual_income_notes || '';
           loaded.s6_present = Number(astInc.annual_income_amount) || 0;
           loaded.s6_proj  = Number(astInc.annual_savings_projected) || 0;
-          loaded.s6_ret   = Number(astInc.annual_income_retirement_value) || 0;
+          loaded.s6_ret   = astInc.annual_income_retirement_value != null ? Number(astInc.annual_income_retirement_value) : null;
           loaded.s7_him   = toBool(astInc.annual_savings_him);
           loaded.s7_her   = toBool(astInc.annual_savings_her);
           loaded.s7_notes = astInc.annual_savings_notes || '';
           loaded.s7_present = Number(astInc.annual_savings_amount) || 0;
           loaded.s7_proj  = Number(astInc.annual_savings_projected) || 0;
-          loaded.s7_ret   = Number(astInc.annual_savings_retirement_value) || 0;
+          loaded.s7_ret   = astInc.annual_savings_retirement_value != null ? Number(astInc.annual_savings_retirement_value) : null;
         }
         // e1–e4 — Real Estate
         if (astRE) {
@@ -1450,7 +1452,7 @@ export default function FNAPage() {
           current_401k_notes: assets.r1_notes,
           current_401k_present_value: assets.r1_present,
           current_401k_projected_value: assets.r1_proj || autoProj(assets.r1_present),
-          current_401k_retirement_value: assets.r1_ret || autoRetirementValue(assets.r1_proj || autoProj(assets.r1_present)),
+          current_401k_retirement_value: assets.r1_ret !== null ? assets.r1_ret : autoRetirementValue(assets.r1_proj || autoProj(assets.r1_present)),
           // r2 – Company Match
           company_match_him: assets.r2_him,
           company_match_her: assets.r2_her,
@@ -1461,32 +1463,32 @@ export default function FNAPage() {
           max_funding_her: assets.r3_her,
           max_funding_notes: assets.r3_notes,
           max_funding_present_value: assets.r3_present,
-          max_funding_retirement_value: assets.r3_ret || autoRetirementValue(assets.r3_proj),
+          max_funding_retirement_value: assets.r3_ret !== null ? assets.r3_ret : autoRetirementValue(assets.r3_proj),
           max_funding_projected_value: assets.r3_proj,
           // r4 – Previous 401K / Rollover
           rollover_401k_him: assets.r4_him,
           rollover_401k_her: assets.r4_her,
           rollover_401k_notes: assets.r4_notes,
           rollover_401k_present_value: assets.r4_present,
-          rollover_401k_retirement_value: assets.r4_ret || autoRetirementValue(assets.r4_proj || autoProj(assets.r4_present)),
+          rollover_401k_retirement_value: assets.r4_ret !== null ? assets.r4_ret : autoRetirementValue(assets.r4_proj || autoProj(assets.r4_present)),
           // r5 – Traditional IRA / SEP-IRA
           traditional_ira_him: assets.r5_him,
           traditional_ira_her: assets.r5_her,
           traditional_ira_notes: assets.r5_notes,
           traditional_ira_present_value: assets.r5_present,
-          traditional_ira_retirement_value: assets.r5_ret || autoRetirementValue(assets.r5_proj || autoProj(assets.r5_present)),
+          traditional_ira_retirement_value: assets.r5_ret !== null ? assets.r5_ret : autoRetirementValue(assets.r5_proj || autoProj(assets.r5_present)),
           // r6 – Roth IRA / Roth 401K
           roth_ira_him: assets.r6_him,
           roth_ira_her: assets.r6_her,
           roth_ira_notes: assets.r6_notes,
           roth_ira_present_value: assets.r6_present,
-          roth_ira_retirement_value: assets.r6_ret || autoRetirementValue(assets.r6_proj || autoAnnuityProj(assets.r6_present)),
+          roth_ira_retirement_value: assets.r6_ret !== null ? assets.r6_ret : autoRetirementValue(assets.r6_proj || autoAnnuityProj(assets.r6_present)),
           // r7 – ESPP / RSU / Annuities / Pension
           espp_rsu_him: assets.r7_him,
           espp_rsu_her: assets.r7_her,
           espp_rsu_notes: assets.r7_notes,
           espp_rsu_present_value: assets.r7_present,
-          espp_rsu_retirement_value: assets.r7_ret || autoRetirementValue(assets.r7_proj || autoProj(assets.r7_present)),
+          espp_rsu_retirement_value: assets.r7_ret !== null ? assets.r7_ret : autoRetirementValue(assets.r7_proj || autoProj(assets.r7_present)),
         }),
         // ── fna_ast_income (s1–s7) ───────────────────────────────────────────
         supabase.from('fna_ast_income').insert({
@@ -1497,48 +1499,48 @@ export default function FNAPage() {
           stocks_notes: assets.s1_notes,
           stocks_present_value: assets.s1_present,
           stocks_projected_value: assets.s1_proj || autoProj(assets.s1_present),
-          stocks_retirement_value: assets.s1_ret || autoRetirementValue(assets.s1_proj || autoProj(assets.s1_present)),
+          stocks_retirement_value: assets.s1_ret !== null ? assets.s1_ret : autoRetirementValue(assets.s1_proj || autoProj(assets.s1_present)),
           // s2 – Business
           business_him: assets.s2_him,
           business_her: assets.s2_her,
           business_notes: assets.s2_notes,
           business_present_value: assets.s2_present,
           business_projected_value: assets.s2_proj,
-          business_retirement_value: assets.s2_ret || autoRetirementValue(assets.s2_proj),
+          business_retirement_value: assets.s2_ret !== null ? assets.s2_ret : autoRetirementValue(assets.s2_proj),
           // s3 – Alternative Investments
           alternative_inv_him: assets.s3_him,
           alternative_inv_her: assets.s3_her,
           alternative_inv_notes: assets.s3_notes,
           alternative_inv_present_value: assets.s3_present,
           alternative_inv_projected_value: assets.s3_proj || autoProj(assets.s3_present),
-          alternative_inv_retirement_value: assets.s3_ret || autoRetirementValue(assets.s3_proj || autoProj(assets.s3_present)),
+          alternative_inv_retirement_value: assets.s3_ret !== null ? assets.s3_ret : autoRetirementValue(assets.s3_proj || autoProj(assets.s3_present)),
           // s4 – Certificate of Deposits (CDs)
           cds_him: assets.s4_him,
           cds_her: assets.s4_her,
           cds_notes: assets.s4_notes,
           cds_present_value: assets.s4_present,
           cds_projected_value: assets.s4_proj || autoProj(assets.s4_present),
-          cds_retirement_value: assets.s4_ret || autoRetirementValue(assets.s4_proj || autoProj(assets.s4_present)),
+          cds_retirement_value: assets.s4_ret !== null ? assets.s4_ret : autoRetirementValue(assets.s4_proj || autoProj(assets.s4_present)),
           // s5 – Cash in Bank + Emergency Fund
           cash_emergency_him: assets.s5_him,
           cash_emergency_her: assets.s5_her,
           cash_emergency_notes: assets.s5_notes,
           cash_emergency_present_value: assets.s5_present,
           cash_emergency_projected_value: assets.s5_proj || autoProj(assets.s5_present),
-          cash_emergency_retirement_value: assets.s5_ret || autoRetirementValue(assets.s5_proj || autoProj(assets.s5_present)),
+          cash_emergency_retirement_value: assets.s5_ret !== null ? assets.s5_ret : autoRetirementValue(assets.s5_proj || autoProj(assets.s5_present)),
           // s6 – Annual Household Income
           annual_income_him: assets.s6_him,
           annual_income_her: assets.s6_her,
           annual_income_notes: assets.s6_notes,
           annual_income_amount: assets.s6_present,
-          annual_income_retirement_value: assets.s6_ret || autoRetirementValue(assets.s6_proj),
+          annual_income_retirement_value: assets.s6_ret !== null ? assets.s6_ret : autoRetirementValue(assets.s6_proj),
           // s7 – Annual Savings
           annual_savings_him: assets.s7_him,
           annual_savings_her: assets.s7_her,
           annual_savings_notes: assets.s7_notes,
           annual_savings_amount: assets.s7_present,
           annual_savings_projected: assets.s7_proj,
-          annual_savings_retirement_value: assets.s7_ret || autoRetirementValue(assets.s7_proj),
+          annual_savings_retirement_value: assets.s7_ret !== null ? assets.s7_ret : autoRetirementValue(assets.s7_proj),
         }),
         // ── fna_ast_real_estate (e1–e4) ──────────────────────────────────────
         supabase.from('fna_ast_real_estate').insert({
@@ -1670,6 +1672,7 @@ export default function FNAPage() {
     setSummaryLiabilities('');
     setSummaryHealthInsurance('');
     setSummaryLifeInsurance('');
+    setSummaryRetirement('');
 
     const clientFirst = data.clientName?.split(' ')[0] || 'the client';
     const spouseFirst = data.spouseName?.split(' ')[0] || null;
@@ -1727,18 +1730,43 @@ export default function FNAPage() {
         hsa: assets.f7_present || 0, mortgageProtection: assets.f8_him || assets.f8_her,
       },
       financial: { netWorth: totalPresent - totalLiabComp, gap: Gap, projectionRate: data.calculatedInterestPercentage },
+      // ADDED: retirement value data — key new column showing growth through retirement period
+      retirementProjection: {
+        retirementAge: data.plannedRetirementAge,
+        retirementEndAge: data.plannedRetirementAge + (data.retirementYears || 0),
+        retirementYears: data.retirementYears || 0,
+        rate: data.calculatedInterestPercentage,
+        totalRetirementValue: totalRetirement,
+        monthlyRetirementIncome: data.monthlyIncomeNeeded,
+        annualRetirementIncome: data.annualRetirementIncome || 0,
+        totalRetirementIncomeNeeded: data.totalRetirementIncome || 0,
+        retirementGap: data.totalRetirementIncome - totalRetirement,
+        // Per-category retirement values (user-edited or auto-calculated)
+        categories: {
+          retirement401k:     (assets.r1_ret !== null ? assets.r1_ret : autoRetirementValue(assets.r1_proj || autoProj(assets.r1_present))),
+          maxFunding:         (assets.r3_ret !== null ? assets.r3_ret : autoRetirementValue(assets.r3_proj)),
+          rollover401k:       (assets.r4_ret !== null ? assets.r4_ret : autoRetirementValue(assets.r4_proj || autoProj(assets.r4_present))),
+          traditionalIRA:     (assets.r5_ret !== null ? assets.r5_ret : autoRetirementValue(assets.r5_proj > 0 ? assets.r5_proj : autoProj(assets.r5_present))),
+          rothIRA:            (assets.r6_ret !== null ? assets.r6_ret : autoRetirementValue(assets.r6_proj > 0 ? assets.r6_proj : autoAnnuityProj(assets.r6_present))),
+          esppRsu:            (assets.r7_ret !== null ? assets.r7_ret : autoRetirementValue(assets.r7_proj || autoProj(assets.r7_present))),
+          stocks:             (assets.s1_ret !== null ? assets.s1_ret : autoRetirementValue(assets.s1_proj || autoProj(assets.s1_present))),
+          business:           (assets.s2_ret !== null ? assets.s2_ret : autoRetirementValue(assets.s2_proj)),
+          altInvestments:     (assets.s3_ret !== null ? assets.s3_ret : autoRetirementValue(assets.s3_proj || autoProj(assets.s3_present))),
+        },
+      },
     };
 
     // ── System prompt — Life Insurance Professional tone ──────────────────
     const systemPrompt = `You are a licensed Life Insurance and Financial Planning professional with 20+ years of experience helping families achieve financial security. You speak with authority, warmth, and genuine care for the client's well-being. Your recommendations always reference specific insurance products (Term Life, Indexed Universal Life / IUL, Whole Life, Annuities, 529 Plans) where relevant. You use industry-standard language such as "death benefit," "living benefits," "cash value accumulation," "income replacement," "premium," "face amount," "underwriting," "riders," and "beneficiary." You understand that life insurance is the foundation of any sound financial plan.
 
-You must return a valid JSON object with exactly FIVE string keys — no markdown, no fences, no preamble:
+You must return a valid JSON object with exactly SIX string keys — no markdown, no fences, no preamble:
 {
   "goals": "...",
   "assets": "...",
   "liabilities": "...",
   "healthInsurance": "...",
-  "lifeInsurance": "..."
+  "lifeInsurance": "...",
+  "retirementLifestyle": "..."
 }
 
 Field requirements (each 4-6 sentences, plain text, professional Life Insurance Licensed advisor language):
@@ -1747,6 +1775,7 @@ Field requirements (each 4-6 sentences, plain text, professional Life Insurance 
 - "liabilities": Evaluate the debt picture and debt-to-asset ratio. Recommend priority payoff strategy. Explain how Mortgage Protection Insurance or a Term policy with a return-of-premium rider can eliminate debt risk for the family. Encourage debt elimination as a path to increased premium capacity.
 - "healthInsurance": Address the importance of health coverage from a licensed insurance perspective. Cover employer group coverage gaps, HSA-eligible HDHP plans, critical illness insurance, and hospital indemnity riders. Explain how a serious illness without adequate coverage liquidates retirement assets. Be specific about which coverage gaps exist for this client.
 - "lifeInsurance": This is the most important section. Generate exactly 5 compelling, data-backed FACTS about life insurance (Term and/or Permanent) tailored to this client's age, family situation, and financial profile. Each fact MUST be on its own line separated by a newline character (\n). Format each line as: "• FACT [N] — [Bold Label]: [2-3 sentence explanation with a statistic]". Example line format: "• FACT 1 — Income Replacement: 70% of families would feel the financial impact within one month of losing a breadwinner. A 20-year $500,000 Term policy for a healthy 35-year-old costs under $30/month — less than a daily coffee. Your recommended coverage is 10-12x your annual household income." Use statistics and tailor each fact to this specific client. Cover: income replacement face amount, Term vs Permanent (IUL) comparison, tax-free advantages, living benefit riders, and cost of waiting. The final line should be a call-to-action recommendation. The string value must contain newline characters (\n) between each bullet — do NOT return a flat paragraph.
+- "retirementLifestyle": This section uses the client's Retirement Value projections (the column showing asset growth THROUGH the full retirement period, not just TO retirement). Reference the totalRetirementValue and per-category values from the retirementProjection data. Paint a vivid picture of what the client's retirement lifestyle could look like given their projected retirement assets. Address: (1) monthly income sustainability — can the retirement value support their stated monthly income need over the full retirement period? (2) lifestyle impact — what kind of retirement does the number support (comfortable, modest, or at-risk)? (3) the role of Annuities and IUL in guaranteeing income so the client never outlives their money; (4) the specific risk if they retire without life insurance in force (spouse income loss, estate shrinkage); (5) a powerful closing statement about taking action today while premiums are low and health is favorable. Use the exact dollar figures from the retirementProjection data. Be specific, compelling, and motivating.
 
 Return ONLY the JSON object.`;
 
@@ -1786,6 +1815,8 @@ Return ONLY the JSON object.`;
       if (parsed.liabilities)    setSummaryLiabilities(parsed.liabilities);
       if (parsed.healthInsurance) setSummaryHealthInsurance(parsed.healthInsurance);
       if (parsed.lifeInsurance)  setSummaryLifeInsurance(parsed.lifeInsurance);
+      // ADDED: parse retirement lifestyle section
+      if (parsed.retirementLifestyle) setSummaryRetirement(parsed.retirementLifestyle);
       summaryClientIdRef.current = data.clientId;
     } catch (err: any) {
       // ── Static fallback ─────────────────────────────────────────────────
@@ -1827,6 +1858,19 @@ Return ONLY the JSON object.`;
           `• FACT 5 — The Cost of Waiting: Life insurance premiums are locked at the age and health classification at the time of application. Every year you delay increases your annual premium by 8–12% or risks an uninsurable condition due to health changes. Applying today locks in your lowest possible rate for life — delaying by just 5 years on a $500,000 policy can cost an additional $15,000–$30,000 in cumulative premiums over a 20-year term.`,
           `• RECOMMENDATION: Based on your current financial profile, I recommend scheduling a formal Life Insurance Needs Analysis to review both Term and Indexed Universal Life (IUL) options. Your advisor will determine the optimal face amount, policy structure, and rider package specific to your family's protection and wealth-building goals.`,
         ].join('\n')
+      );
+      // ADDED: static fallback for retirement lifestyle summary
+      const retEndAge = data.plannedRetirementAge + (data.retirementYears || 0);
+      const retCoverage = totalRetirement > 0 && data.annualRetirementIncome > 0
+        ? (totalRetirement / Math.max(data.annualRetirementIncome, 1)).toFixed(1) : '0';
+      setSummaryRetirement(
+        `${clientFirst}, your Retirement Value projection of ${$s(totalRetirement)} represents the estimated worth of your invested assets grown through age ${retEndAge} at ${data.calculatedInterestPercentage}% — this is the real number that defines the quality of your retirement lifestyle. ` +
+        (totalRetirement > 0 && data.annualRetirementIncome > 0
+          ? `At your stated annual income need of ${$s(data.annualRetirementIncome)}, your retirement assets could theoretically sustain approximately ${retCoverage} years of income — ${Number(retCoverage) >= (data.retirementYears || 20) ? 'covering your full planned retirement horizon, which is excellent' : `falling short of your ${data.retirementYears}-year retirement horizon, creating a critical shortfall risk`}. `
+          : '') +
+        `The hidden threat to every retirement plan is sequence-of-returns risk and longevity risk — the danger of living longer than your money lasts. An Indexed Annuity or a properly-funded IUL policy with a guaranteed income rider provides a contractually guaranteed income stream you cannot outlive, regardless of market performance. ` +
+        `Life insurance plays a critical role in protecting your retirement lifestyle: if the primary earner passes away without adequate coverage, the surviving spouse faces an immediate and permanent reduction in household income that no amount of savings can fully replace after the fact. ` +
+        `The most powerful action you can take today is locking in your insurability and premium rate — every year of delay costs 8–12% more in annual premium and increases the risk of a health event making you uninsurable. I strongly encourage you to take the first step by scheduling a comprehensive Insurance Needs Analysis and retirement income review with your advisor this week.`
       );
       summaryClientIdRef.current = data.clientId;
     } finally {
@@ -1958,13 +2002,15 @@ Return ONLY the JSON object.`;
   // Retirement Value cell: green tint, editable.
   // Auto-fills from projected value when proj changes; user can type to override (even 0).
   // retKey: the _ret field in AssetsData; projValue: the computed projected amount for auto-fill.
+  // retEditCell: green editable cell for Retirement Value column.
+  // null  = never explicitly set → show auto-calculated value (not stored)
+  // 0     = user deliberately zeroed it out → show $0
+  // n > 0 = user override → show that value
   const retEditCell = (retKey: keyof AssetsData, projValue: number) => {
-    const storedRet = assets[retKey] as number;
-    // If the stored ret is 0 AND proj just changed, show the auto value as display — but
-    // the actual stored value stays 0 until the user explicitly edits it.
-    // We auto-sync: whenever proj changes and stored _ret is still the previous auto value, update.
-    const autoVal = autoRetirementValue(projValue);
-    const displayVal = storedRet > 0 ? storedRet : autoVal;
+    const storedRet = assets[retKey] as number | null;
+    const autoVal   = autoRetirementValue(projValue);
+    // null means untouched — display auto; any explicit number (incl. 0) shows as-is
+    const displayVal = storedRet !== null ? storedRet : autoVal;
     return (
       <td className="border border-black p-0 w-44" style={{ backgroundColor: '#D5F5E3' }}>
         <CurrencyInput
@@ -3425,6 +3471,67 @@ Example format:
           });
           y = by + 6;
         }
+      }
+
+      // ── ADDED: Retirement Lifestyle Impact & Recommendation page ──────────
+      if (summaryRetirement && summaryRetirement.trim().length > 20) {
+        const retBdr: [number,number,number] = [5, 130, 84];
+        const retBg:  [number,number,number] = [230, 252, 242];
+        const retAge    = data.plannedRetirementAge;
+        const retEndAge = retAge + (data.retirementYears || 0);
+        const retYrs    = data.retirementYears || 0;
+
+        // Ensure we're on the summary page (may already be from Life Insurance section)
+        if (y < 80) {
+          doc.addPage(); y = topBar('Retirement Lifestyle Impact') + 28; pgFoot();
+        } else if (y + 120 > PH - 40) {
+          doc.addPage(); y = topBar('Retirement Lifestyle Impact') + 28; pgFoot();
+        }
+
+        // ── Retirement Value snapshot bar ───────────────────────────────────
+        const snapH = 38;
+        doc.setFillColor(20, 80, 60); doc.rect(M, y, TW, snapH, 'F');
+        doc.setFont(FONT, 'bold'); doc.setFontSize(9); doc.setTextColor(255, 255, 255);
+        doc.text('🌅 Retirement Lifestyle — Key Numbers', M + 8, y + 14);
+
+        // 4 stat columns
+        const colW = TW / 4;
+        const stats = [
+          { label: `Projected @ ${retAge}`, value: S($f(totalProjected)) },
+          { label: `Ret. Value thru ${retEndAge}`, value: S($f(totalRetirement)) },
+          { label: 'Annual Income Need', value: data.annualRetirementIncome > 0 ? S($f(data.annualRetirementIncome)) : 'N/A' },
+          { label: 'Coverage Years', value: (totalRetirement > 0 && data.annualRetirementIncome > 0) ? `${(totalRetirement / Math.max(data.annualRetirementIncome,1)).toFixed(1)} yrs / ${retYrs} needed` : 'N/A' },
+        ];
+        doc.setFont(FONT, 'normal'); doc.setFontSize(7); doc.setTextColor(200, 240, 220);
+        stats.forEach((st, i) => {
+          const sx = M + i * colW + 4;
+          doc.text(st.label, sx, y + 24);
+          doc.setFont(FONT, 'bold'); doc.setFontSize(8); doc.setTextColor(255, 255, 200);
+          doc.text(st.value, sx, y + 33);
+          doc.setFont(FONT, 'normal'); doc.setFontSize(7); doc.setTextColor(200, 240, 220);
+        });
+        doc.setTextColor(...BLACK);
+        y += snapH + 8;
+
+        // ── Paragraph body ──────────────────────────────────────────────────
+        doc.setFont(FONT, 'normal'); doc.setFontSize(8);
+        const retTextX = M + 12;
+        const retTextW = TW - 12 - 6;
+        const retLines = doc.splitTextToSize(S(summaryRetirement), retTextW);
+        const retLineH = 11;
+        const retBoxH  = retLines.length * retLineH + 28;
+        if (y + retBoxH + 12 > PH - 40) {
+          doc.addPage(); y = topBar('Retirement Lifestyle Impact (cont.)') + 28; pgFoot();
+        }
+        doc.setFillColor(...retBg); doc.rect(M, y, TW, retBoxH, 'F');
+        doc.setFillColor(...retBdr); doc.rect(M, y, 5, retBoxH, 'F');
+        doc.setFont(FONT, 'bold'); doc.setFontSize(8.5); doc.setTextColor(...retBdr);
+        doc.text(`Retirement Lifestyle Impact & Recommendation — Age ${retAge} to ${retEndAge} (${retYrs} yrs @ ${data.calculatedInterestPercentage}%)`, retTextX, y + 14);
+        doc.setFont(FONT, 'normal'); doc.setFontSize(8); doc.setTextColor(...BLACK);
+        retLines.forEach((line: string, li: number) => {
+          doc.text(line, retTextX, y + 26 + li * retLineH);
+        });
+        y += retBoxH + 10;
       }
 
       // ══════════════════════════════════════════════════════════════════════
@@ -5303,6 +5410,75 @@ Example format:
                           tax-free retirement income vehicle (IUL), and a living benefit safety net. Personalized facts and
                           recommendations based on {data.clientName || "the client"}'s profile will appear here automatically.
                         </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── ADDED: RETIREMENT LIFESTYLE IMPACT ─────────────────────── */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <h3 className="text-xs font-bold px-2 py-0.5 rounded mb-3 flex items-center gap-2" style={{ backgroundColor: '#D1FAE5' }}>
+                  🌅 Retirement Lifestyle Impact &amp; Recommendation
+                  {summaryLoading && <span className="text-green-600 font-normal animate-pulse text-xs">Generating…</span>}
+                </h3>
+                {/* Retirement Value snapshot cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                  {[
+                    {
+                      label: `Projected @ ${data.plannedRetirementAge}`,
+                      value: fmtC(totalProjected),
+                      color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200',
+                      sub: `${yearsToRetirement > 0 ? yearsToRetirement : '—'} yrs to retire`,
+                    },
+                    {
+                      label: `Retirement Value (through ${data.plannedRetirementAge + (data.retirementYears||0)})`,
+                      value: fmtC(totalRetirement),
+                      color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200',
+                      sub: `${data.retirementYears||0} yrs @ ${data.calculatedInterestPercentage}%`,
+                    },
+                    {
+                      label: 'Annual Income Need',
+                      value: data.annualRetirementIncome > 0 ? fmtC(data.annualRetirementIncome) : '—',
+                      color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200',
+                      sub: `${fmtC(data.monthlyIncomeNeeded)}/mo`,
+                    },
+                    {
+                      label: 'Retirement Coverage',
+                      value: (totalRetirement > 0 && data.annualRetirementIncome > 0)
+                        ? `${(totalRetirement / Math.max(data.annualRetirementIncome, 1)).toFixed(1)} yrs`
+                        : '—',
+                      color: (totalRetirement > 0 && data.annualRetirementIncome > 0 && (totalRetirement / Math.max(data.annualRetirementIncome, 1)) >= (data.retirementYears || 20))
+                        ? 'text-green-700' : 'text-amber-700',
+                      bg: (totalRetirement > 0 && data.annualRetirementIncome > 0 && (totalRetirement / Math.max(data.annualRetirementIncome, 1)) >= (data.retirementYears || 20))
+                        ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200',
+                      sub: `Need: ${data.retirementYears||0} yrs`,
+                    },
+                  ].map(({ label, value, color, bg, sub }) => (
+                    <div key={label} className={`rounded-lg p-2 border text-center ${bg}`}>
+                      <div className="text-xs text-gray-500 mb-0.5 leading-tight">{label}</div>
+                      <div className={`font-bold text-sm ${color}`}>{value}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">{sub}</div>
+                    </div>
+                  ))}
+                </div>
+                {summaryRetirement ? (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg border-l-4" style={{ borderLeftColor: '#059669' }}>
+                    <p className="text-xs text-gray-700 leading-relaxed">{summaryRetirement}</p>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-lg border border-dashed border-emerald-300 bg-emerald-50 text-xs text-emerald-800">
+                    <div className="flex items-start gap-2">
+                      <span className="text-base flex-shrink-0">🌅</span>
+                      <div>
+                        <p className="font-semibold mb-1">Retirement Lifestyle Analysis</p>
+                        <p className="text-gray-600 leading-relaxed">
+                          This section will analyze the Retirement Value column — showing how your assets grow
+                          <strong> through</strong> retirement (not just <em>to</em> it) — and translate those numbers
+                          into a concrete picture of your retirement lifestyle, income sustainability, and the critical
+                          role life insurance plays in protecting it all.
+                        </p>
+                        <p className="text-gray-500 mt-1 italic">Auto-generates when summary loads for {data.clientName || 'the selected client'}.</p>
                       </div>
                     </div>
                   </div>
