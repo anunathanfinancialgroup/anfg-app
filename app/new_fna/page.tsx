@@ -3550,19 +3550,27 @@ Example format:
         //          breaks latin-1 font encoding and adds gaps between every letter).
         y += 16; // line space before section
 
-        const snapH = 42; // slightly taller to accommodate icon + title
+        // CHANGED: icon stacked above title (icon row → line space → title row → stats)
+        // Layout (all offsets from y — top of bar):
+        //   y +  7 : icon top (14px tall)
+        //   y + 21 : icon bottom  [line space gap ~5pt]
+        //   y + 28 : title "Retirement Lifestyle - Key Numbers"
+        //   y + 40 : stat labels
+        //   y + 50 : stat values
+        //   snapH  : 58
+        const snapH = 58;
         doc.setFillColor(20, 80, 60); doc.rect(M, y, TW, snapH, 'F');
 
-        // Gold icon rectangle (sun/star visual metaphor — no emoji needed)
-        doc.setFillColor(255, 195, 40); doc.rect(M + 8, y + 8, 16, 16, 'F');
-        doc.setFillColor(20, 80, 60);   doc.rect(M + 11, y + 11, 10, 10, 'F');
-        doc.setFillColor(255, 195, 40); doc.rect(M + 13, y + 13, 6, 6, 'F');
+        // Gold icon row — small nested-square icon at top-left
+        doc.setFillColor(255, 195, 40); doc.rect(M + 8, y + 7,  14, 14, 'F');
+        doc.setFillColor(20,  80,  60); doc.rect(M + 11, y + 10, 8,  8,  'F');
+        doc.setFillColor(255, 195, 40); doc.rect(M + 13, y + 12, 4,  4,  'F');
 
-        // Title — clean latin-1, no emoji, no em dash (use plain hyphen)
+        // Title row — below icon with ~7pt line space
         doc.setFont(FONT, 'bold'); doc.setFontSize(10); doc.setTextColor(255, 255, 255);
-        doc.text('Retirement Lifestyle - Key Numbers', M + 32, y + 18);
+        doc.text('Retirement Lifestyle - Key Numbers', M + 8, y + 28);
 
-        // 4 stat columns
+        // 4 stat columns — below title
         const colW = TW / 4;
         const stats = [
           { label: `Projected @ ${retAge}`, value: S($f(totalProjected)) },
@@ -3573,13 +3581,13 @@ Example format:
         doc.setFont(FONT, 'normal'); doc.setFontSize(7); doc.setTextColor(200, 240, 220);
         stats.forEach((st, i) => {
           const sx = M + i * colW + 4;
-          doc.text(st.label, sx, y + 26); // shifted down 2pt for taller box
+          doc.text(st.label, sx, y + 40);
           doc.setFont(FONT, 'bold'); doc.setFontSize(8); doc.setTextColor(255, 255, 200);
-          doc.text(st.value, sx, y + 36);
+          doc.text(st.value, sx, y + 50);
           doc.setFont(FONT, 'normal'); doc.setFontSize(7); doc.setTextColor(200, 240, 220);
         });
         doc.setTextColor(...BLACK);
-        y += snapH + 16; // ADDED: extra line space after Key Numbers bar
+        y += snapH + 16; // line space after Key Numbers bar
 
         // ── Paragraph body ──────────────────────────────────────────────────
         doc.setFont(FONT, 'normal'); doc.setFontSize(8);
