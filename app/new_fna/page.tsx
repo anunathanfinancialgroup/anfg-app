@@ -5216,9 +5216,173 @@ Example format:
                   💰 Assets — Summary
                   {summaryLoading && <span className="text-blue-500 font-normal animate-pulse text-xs">Generating…</span>}
                 </h3>
+
+                {/* ── ADDED: Asset Growth Chart ─────────────────────────────────
+                     Shows Present / Projected / Retirement Value as grouped horizontal
+                     bars for every asset row where ALL THREE values are > 0.
+                     Constraint: only rendered when all three columns are non-zero. */}
+                {(() => {
+                  const retAge    = data.plannedRetirementAge;
+                  const retEndAge = retAge + (data.retirementYears || 0);
+                  const rate      = data.calculatedInterestPercentage;
+
+                  // Helper — resolve retirement value the same way totalRetirement does
+                  const rVal = (ret: number | null, proj: number) =>
+                    ret !== null ? ret : autoRetirementValue(proj);
+
+                  // Build row data — label, present, projected, retirement
+                  // Only include rows where all three > 0 (per constraint)
+                  const chartRows = [
+                    { label: 'Current 401K/403B',      present: assets.r1_present, proj: assets.r1_proj || autoProj(assets.r1_present),                                     ret: rVal(assets.r1_ret, assets.r1_proj || autoProj(assets.r1_present)) },
+                    { label: 'Max Funding (~$22.5K)',   present: assets.r3_present, proj: assets.r3_proj,                                                                     ret: rVal(assets.r3_ret, assets.r3_proj) },
+                    { label: 'Rollover 401K',           present: assets.r4_present, proj: assets.r4_proj || autoProj(assets.r4_present),                                     ret: rVal(assets.r4_ret, assets.r4_proj || autoProj(assets.r4_present)) },
+                    { label: 'Traditional IRA',         present: assets.r5_present, proj: assets.r5_proj > 0 ? assets.r5_proj : autoProj(assets.r5_present),                 ret: rVal(assets.r5_ret, assets.r5_proj > 0 ? assets.r5_proj : autoProj(assets.r5_present)) },
+                    { label: 'Roth IRA / 401K',         present: assets.r6_present, proj: assets.r6_proj > 0 ? assets.r6_proj : autoAnnuityProj(assets.r6_present),          ret: rVal(assets.r6_ret, assets.r6_proj > 0 ? assets.r6_proj : autoAnnuityProj(assets.r6_present)) },
+                    { label: 'ESPP / RSU / Pension',    present: assets.r7_present, proj: assets.r7_proj || autoProj(assets.r7_present),                                     ret: rVal(assets.r7_ret, assets.r7_proj || autoProj(assets.r7_present)) },
+                    { label: 'Stocks / MFs / ETFs',     present: assets.s1_present, proj: assets.s1_proj || autoProj(assets.s1_present),                                     ret: rVal(assets.s1_ret, assets.s1_proj || autoProj(assets.s1_present)) },
+                    { label: 'Business',                present: assets.s2_present, proj: assets.s2_proj,                                                                     ret: rVal(assets.s2_ret, assets.s2_proj) },
+                    { label: 'Alt. Investments',        present: assets.s3_present, proj: assets.s3_proj || autoProj(assets.s3_present),                                     ret: rVal(assets.s3_ret, assets.s3_proj || autoProj(assets.s3_present)) },
+                    { label: 'CDs (Bank)',              present: assets.s4_present, proj: assets.s4_proj > 0 ? assets.s4_proj : autoProj(assets.s4_present),                 ret: rVal(assets.s4_ret, assets.s4_proj > 0 ? assets.s4_proj : autoProj(assets.s4_present)) },
+                    { label: 'Cash / Emergency Fund',   present: assets.s5_present, proj: assets.s5_proj || autoProj(assets.s5_present),                                     ret: rVal(assets.s5_ret, assets.s5_proj || autoProj(assets.s5_present)) },
+                    { label: 'Annual Income',           present: assets.s6_present, proj: assets.s6_proj,                                                                     ret: rVal(assets.s6_ret, assets.s6_proj) },
+                    { label: 'Annual Savings',          present: assets.s7_present, proj: assets.s7_proj,                                                                     ret: rVal(assets.s7_ret, assets.s7_proj) },
+                    { label: 'Personal Home',           present: assets.e1_present, proj: assets.e1_proj,                                                                     ret: autoRetirementValue(assets.e1_proj) },
+                    { label: 'Rental Properties',      present: assets.e2_present, proj: assets.e2_proj,                                                                     ret: autoRetirementValue(assets.e2_proj) },
+                    { label: 'Land Parcels',            present: assets.e3_present, proj: assets.e3_proj,                                                                     ret: autoRetirementValue(assets.e3_proj) },
+                    { label: 'HSA',                    present: assets.f7_present, proj: assets.f7_proj || autoProj(assets.f7_present),                                     ret: autoRetirementValue(assets.f7_proj || autoProj(assets.f7_present)) },
+                    { label: '529 College Plan',        present: assets.c1_present, proj: assets.c1_proj || autoProj(assets.c1_present),                                     ret: autoRetirementValue(assets.c1_proj || autoProj(assets.c1_present)) },
+                    { label: 'Foreign Real Estate',     present: assets.x1_present, proj: assets.x1_proj,                                                                     ret: autoRetirementValue(assets.x1_proj) },
+                    { label: 'Foreign Non-RE',         present: assets.x2_present, proj: assets.x2_proj,                                                                     ret: autoRetirementValue(assets.x2_proj) },
+                  ].filter(r => r.present > 0 && r.proj > 0 && r.ret > 0);
+
+                  if (chartRows.length === 0) return null;
+
+                  // Chart dimensions
+                  const maxVal   = Math.max(...chartRows.flatMap(r => [r.present, r.proj, r.ret]));
+                  const LABEL_W  = 130;  // px — left label area
+                  const BAR_AREA = 440;  // px — bar drawing area
+                  const ROW_H    = 36;   // px per asset row (3 bars × 8px + gaps)
+                  const BAR_H    = 9;    // px per individual bar
+                  const GAP      = 2;    // px between bars in same group
+                  const svgW     = LABEL_W + BAR_AREA + 90; // +90 for value labels
+                  const svgH     = chartRows.length * ROW_H + 60; // +60 header
+
+                  const barW = (v: number) => maxVal > 0 ? Math.max(2, (v / maxVal) * BAR_AREA) : 0;
+                  const fmt  = (v: number) => v >= 1_000_000
+                    ? `$${(v / 1_000_000).toFixed(1)}M`
+                    : v >= 1_000 ? `$${(v / 1_000).toFixed(0)}K` : fmtC(v);
+
+                  const COLORS_CHART = {
+                    present: '#3B82F6',   // blue
+                    proj:    '#10B981',   // green
+                    ret:     '#8B5CF6',   // purple
+                  };
+
+                  return (
+                    <div className="mb-4">
+                      <div className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-2">
+                        📊 Asset Growth Chart
+                        <span className="font-normal text-gray-500">
+                          — rows shown only when Present, Projected & Retirement Value are all &gt; 0
+                        </span>
+                      </div>
+                      {/* Legend */}
+                      <div className="flex gap-4 mb-3 flex-wrap">
+                        {[
+                          { color: COLORS_CHART.present, label: 'Present Value' },
+                          { color: COLORS_CHART.proj,    label: `Projected @ ${retAge} (${rate}%)` },
+                          { color: COLORS_CHART.ret,     label: `Retirement Value ${retAge}→${retEndAge}` },
+                        ].map(({ color, label }) => (
+                          <div key={label} className="flex items-center gap-1.5 text-xs text-gray-600">
+                            <span className="inline-block rounded-sm" style={{ width: 12, height: 9, backgroundColor: color }} />
+                            {label}
+                          </div>
+                        ))}
+                      </div>
+                      {/* SVG chart */}
+                      <div className="overflow-x-auto">
+                        <svg width={svgW} height={svgH} style={{ fontFamily: 'inherit' }}>
+                          {/* Column header line */}
+                          <line x1={LABEL_W} y1={32} x2={LABEL_W + BAR_AREA} y2={32} stroke="#E5E7EB" strokeWidth="1" />
+
+                          {chartRows.map((row, i) => {
+                            const y0 = 40 + i * ROW_H;
+                            const bW = { present: barW(row.present), proj: barW(row.proj), ret: barW(row.ret) };
+                            const maxRowVal = Math.max(row.present, row.proj, row.ret);
+                            return (
+                              <g key={i}>
+                                {/* Zebra background */}
+                                <rect x={0} y={y0 - 2} width={svgW} height={ROW_H}
+                                  fill={i % 2 === 0 ? '#F9FAFB' : '#FFFFFF'} />
+                                {/* Row label */}
+                                <text x={LABEL_W - 6} y={y0 + (ROW_H / 2)}
+                                  textAnchor="end" dominantBaseline="middle"
+                                  fontSize="9" fill="#374151">{row.label}</text>
+
+                                {/* Present bar */}
+                                <rect x={LABEL_W} y={y0 + 1} width={bW.present} height={BAR_H}
+                                  fill={COLORS_CHART.present} rx="2" />
+                                {/* Projected bar */}
+                                <rect x={LABEL_W} y={y0 + 1 + BAR_H + GAP} width={bW.proj} height={BAR_H}
+                                  fill={COLORS_CHART.proj} rx="2" />
+                                {/* Retirement bar */}
+                                <rect x={LABEL_W} y={y0 + 1 + (BAR_H + GAP) * 2} width={bW.ret} height={BAR_H}
+                                  fill={COLORS_CHART.ret} rx="2" />
+
+                                {/* Value labels — show on the largest bar; others inline if space */}
+                                <text x={LABEL_W + Math.max(bW.present, bW.proj, bW.ret) + 4}
+                                  y={y0 + (ROW_H / 2)} dominantBaseline="middle"
+                                  fontSize="8" fill="#6B7280">{fmt(maxRowVal)}</text>
+                              </g>
+                            );
+                          })}
+
+                          {/* X-axis ticks — 0, 25%, 50%, 75%, 100% */}
+                          {[0, 0.25, 0.5, 0.75, 1].map(pct => {
+                            const x = LABEL_W + pct * BAR_AREA;
+                            return (
+                              <g key={pct}>
+                                <line x1={x} y1={36} x2={x} y2={40 + chartRows.length * ROW_H}
+                                  stroke="#E5E7EB" strokeWidth="1" strokeDasharray="3,3" />
+                                <text x={x} y={28} textAnchor="middle" fontSize="8" fill="#9CA3AF">
+                                  {fmt(maxVal * pct)}
+                                </text>
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      </div>
+
+                      {/* Summary totals row below chart */}
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        {[
+                          { label: 'Total Present',      value: chartRows.reduce((s, r) => s + r.present, 0), color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200' },
+                          { label: `Total @ ${retAge}`,  value: chartRows.reduce((s, r) => s + r.proj,    0), color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
+                          { label: `Total thru ${retEndAge}`, value: chartRows.reduce((s, r) => s + r.ret, 0), color: 'text-purple-700',  bg: 'bg-purple-50 border-purple-200' },
+                        ].map(({ label, value, color, bg }) => (
+                          <div key={label} className={`rounded-lg p-2 border text-center ${bg}`}>
+                            <div className="text-xs text-gray-500 mb-0.5">{label}</div>
+                            <div className={`font-bold text-xs ${color}`}>{fmtC(value)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {summaryAssets ? (
                   <div className="p-3 bg-green-50 border border-green-100 rounded-lg">
+                    {/* ADDED: also show retirement value context below AI summary text */}
                     <p className="text-xs text-gray-700 leading-relaxed">{summaryAssets}</p>
+                    {totalRetirement > 0 && (
+                      <div className="mt-2 pt-2 border-t border-green-200 text-xs text-green-800">
+                        <span className="font-semibold">📈 Retirement Value ({data.plannedRetirementAge}→{data.plannedRetirementAge + (data.retirementYears || 0)}): </span>
+                        <span className="font-bold">{fmtC(totalRetirement)}</span>
+                        <span className="text-green-600 ml-1">
+                          — growth of {totalPresent > 0 ? `${((totalRetirement / totalPresent - 1) * 100).toFixed(0)}%` : 'N/A'} from present value over {yearsToRetirement + (data.retirementYears || 0)} total years at {data.calculatedInterestPercentage}%
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
