@@ -3550,27 +3550,26 @@ Example format:
         //          breaks latin-1 font encoding and adds gaps between every letter).
         y += 16; // line space before section
 
-        // CHANGED: icon stacked above title (icon row → line space → title row → stats)
         // Layout (all offsets from y — top of bar):
-        //   y +  7 : icon top (14px tall)
-        //   y + 21 : icon bottom  [line space gap ~5pt]
-        //   y + 28 : title "Retirement Lifestyle - Key Numbers"
-        //   y + 40 : stat labels
-        //   y + 50 : stat values
-        //   snapH  : 58
-        const snapH = 58;
+        //   y +  7 : icon top (14px tall), title inline to the right of icon
+        //   y + 17 : title "Retirement Lifestyle - Key Numbers" baseline (right of icon)
+        //   y + 21 : icon bottom  [two line spaces gap ~24pt]
+        //   y + 45 : stat labels
+        //   y + 55 : stat values
+        //   snapH  : 66
+        const snapH = 66;
         doc.setFillColor(20, 80, 60); doc.rect(M, y, TW, snapH, 'F');
 
-        // Gold icon row — small nested-square icon at top-left
+        // Gold icon — small nested-square icon at left
         doc.setFillColor(255, 195, 40); doc.rect(M + 8, y + 7,  14, 14, 'F');
         doc.setFillColor(20,  80,  60); doc.rect(M + 11, y + 10, 8,  8,  'F');
         doc.setFillColor(255, 195, 40); doc.rect(M + 13, y + 12, 4,  4,  'F');
 
-        // Title row — below icon with ~7pt line space
+        // Title — inline after icon (same row, baseline centred on icon)
         doc.setFont(FONT, 'bold'); doc.setFontSize(10); doc.setTextColor(255, 255, 255);
-        doc.text('Retirement Lifestyle - Key Numbers', M + 8, y + 28);
+        doc.text('Retirement Lifestyle - Key Numbers', M + 28, y + 17);
 
-        // 4 stat columns — below title
+        // 4 stat columns — two line spaces (~24pt) below title baseline
         const colW = TW / 4;
         const stats = [
           { label: `Projected @ ${retAge}`, value: S($f(totalProjected)) },
@@ -3581,9 +3580,9 @@ Example format:
         doc.setFont(FONT, 'normal'); doc.setFontSize(7); doc.setTextColor(200, 240, 220);
         stats.forEach((st, i) => {
           const sx = M + i * colW + 4;
-          doc.text(st.label, sx, y + 40);
+          doc.text(st.label, sx, y + 45);
           doc.setFont(FONT, 'bold'); doc.setFontSize(8); doc.setTextColor(255, 255, 200);
-          doc.text(st.value, sx, y + 50);
+          doc.text(st.value, sx, y + 55);
           doc.setFont(FONT, 'normal'); doc.setFontSize(7); doc.setTextColor(200, 240, 220);
         });
         doc.setTextColor(...BLACK);
