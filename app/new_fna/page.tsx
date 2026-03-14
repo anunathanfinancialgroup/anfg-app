@@ -2024,10 +2024,16 @@ Return ONLY the JSON object.`;
   };
 
   // manualProjCell – plain function (NOT JSX component) to prevent remount on re-render
-  const manualProjCell = (field: keyof AssetsData) => (
+  // ADDED: optional retKey 2nd param — tabbing out of this proj cell also calculates
+  //        and stores the Retirement Value into retKey, matching stdCellsCalc behaviour.
+  const manualProjCell = (field: keyof AssetsData, retKey?: keyof AssetsData) => (
     <td className="border border-black p-0">
       <CurrencyInput value={assets[field] as number} showZero
-        onChange={val => upd(field, val)}
+        onChange={val => setAssets(prev => ({
+          ...prev,
+          [field]: val,
+          ...(retKey ? { [retKey]: autoRetirementValue(val) } : {}),
+        }))}
         className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
     </td>
   );
@@ -2058,10 +2064,15 @@ Return ONLY the JSON object.`;
   // stdCellsCalc – called as a function (not JSX component) to avoid remount issues.
   // Auto-calculates projected from present on blur; projected cell stays editable.
   // annuity=true uses FV-of-annuity-due formula (for ROTH IRA annual contributions).
+  // ADDED: retKey (7th, optional) — when provided, tabbing out of the Projected Value cell
+  //        automatically computes and stores autoRetirementValue(proj) into _ret, giving the
+  //        user a pre-filled value they can then edit (including setting to zero).
+  //        Also fires when present blurs and recalculates proj, keeping all three in sync.
   const stdCellsCalc = (
     himKey: keyof AssetsData, herKey: keyof AssetsData,
     notesKey: keyof AssetsData, presentKey: keyof AssetsData, projKey: keyof AssetsData,
-    annuity = false
+    annuity = false,
+    retKey?: keyof AssetsData
   ) => {
     const calcAndSet = (val: number) => {
       let proj = 0;
@@ -2072,7 +2083,14 @@ Return ONLY the JSON object.`;
           proj = Math.round(val * Math.pow(1 + rate, yearsToRetirement) * 100) / 100;
         }
       }
-      setAssets(prev => ({ ...prev, [presentKey]: val, [projKey]: proj }));
+      // ADDED: when retKey is provided, also store the retirement value so the cell
+      // shows a concrete editable number rather than staying null/auto-display.
+      setAssets(prev => ({
+        ...prev,
+        [presentKey]: val,
+        [projKey]: proj,
+        ...(retKey ? { [retKey]: autoRetirementValue(proj) } : {}),
+      }));
     };
     return (
       <>
@@ -2089,8 +2107,14 @@ Return ONLY the JSON object.`;
           <CurrencyInput value={assets[presentKey] as number} showZero onChange={calcAndSet}
             className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300" />
         </td>
+        {/* ADDED: proj cell onChange also stores retirement value when retKey is provided */}
         <td className="border border-black p-0 w-44" style={{ backgroundColor: '#EBF5FB' }}>
-          <CurrencyInput value={assets[projKey] as number} showZero onChange={val => upd(projKey, val)}
+          <CurrencyInput value={assets[projKey] as number} showZero
+            onChange={val => setAssets(prev => ({
+              ...prev,
+              [projKey]: val,
+              ...(retKey ? { [retKey]: autoRetirementValue(val) } : {}),
+            }))}
             className="w-full px-2 py-1 text-xs text-right border-0 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-transparent" />
         </td>
       </>
@@ -3489,10 +3513,22 @@ Example format:
         }
 
         // ── Retirement Value snapshot bar ───────────────────────────────────
-        const snapH = 38;
+        // CHANGED: add line space before section; replace emoji with drawn icon
+        //          so jsPDF does not corrupt character spacing (emoji = multi-byte UTF,
+        //          breaks latin-1 font encoding and adds gaps between every letter).
+        y += 16; // line space before section
+
+        const snapH = 42; // slightly taller to accommodate icon + title
         doc.setFillColor(20, 80, 60); doc.rect(M, y, TW, snapH, 'F');
-        doc.setFont(FONT, 'bold'); doc.setFontSize(9); doc.setTextColor(255, 255, 255);
-        doc.text('🌅 Retirement Lifestyle — Key Numbers', M + 8, y + 14);
+
+        // Gold icon rectangle (sun/star visual metaphor — no emoji needed)
+        doc.setFillColor(255, 195, 40); doc.rect(M + 8, y + 8, 16, 16, 'F');
+        doc.setFillColor(20, 80, 60);   doc.rect(M + 11, y + 11, 10, 10, 'F');
+        doc.setFillColor(255, 195, 40); doc.rect(M + 13, y + 13, 6, 6, 'F');
+
+        // Title — clean latin-1, no emoji, no em dash (use plain hyphen)
+        doc.setFont(FONT, 'bold'); doc.setFontSize(10); doc.setTextColor(255, 255, 255);
+        doc.text('Retirement Lifestyle - Key Numbers', M + 32, y + 18);
 
         // 4 stat columns
         const colW = TW / 4;
@@ -3505,9 +3541,9 @@ Example format:
         doc.setFont(FONT, 'normal'); doc.setFontSize(7); doc.setTextColor(200, 240, 220);
         stats.forEach((st, i) => {
           const sx = M + i * colW + 4;
-          doc.text(st.label, sx, y + 24);
+          doc.text(st.label, sx, y + 26); // shifted down 2pt for taller box
           doc.setFont(FONT, 'bold'); doc.setFontSize(8); doc.setTextColor(255, 255, 200);
-          doc.text(st.value, sx, y + 33);
+          doc.text(st.value, sx, y + 36);
           doc.setFont(FONT, 'normal'); doc.setFontSize(7); doc.setTextColor(200, 240, 220);
         });
         doc.setTextColor(...BLACK);
@@ -4111,7 +4147,7 @@ Example format:
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#1</td>
                       <td className="border border-black px-2 py-1 text-xs">Current 401K | 403B</td>
-                      {stdCellsCalc("r1_him","r1_her","r1_notes","r1_present","r1_proj")}
+                      {stdCellsCalc("r1_him","r1_her","r1_notes","r1_present","r1_proj", false, "r1_ret")}
                       {retEditCell("r1_ret", assets.r1_proj)}
                     </tr>
                     {/* r2 – Company Match N/A proj + N/A retirement */}
@@ -4126,35 +4162,35 @@ Example format:
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#3</td>
                       <td className="border border-black px-2 py-1 text-xs">Are You Max Funding (~$22.5K)?</td>
                       {stdCells("r3_him","r3_her","r3_notes","r3_present")}
-                      {manualProjCell("r3_proj")}
+                      {manualProjCell("r3_proj", "r3_ret")}
                       {retEditCell("r3_ret", assets.r3_proj)}
                     </tr>
                     {/* r4 – Prev 401K calc+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#4</td>
                       <td className="border border-black px-2 py-1 text-xs">Previous 401K | Rollover 401K</td>
-                      {stdCellsCalc("r4_him","r4_her","r4_notes","r4_present","r4_proj")}
+                      {stdCellsCalc("r4_him","r4_her","r4_notes","r4_present","r4_proj", false, "r4_ret")}
                       {retEditCell("r4_ret", assets.r4_proj)}
                     </tr>
                     {/* r5 – Traditional IRA calc+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#5</td>
                       <td className="border border-black px-2 py-1 text-xs">Traditional IRA | SEP-IRA [Tax-Deferred]</td>
-                      {stdCellsCalc("r5_him","r5_her","r5_notes","r5_present","r5_proj")}
+                      {stdCellsCalc("r5_him","r5_her","r5_notes","r5_present","r5_proj", false, "r5_ret")}
                       {retEditCell("r5_ret", assets.r5_proj)}
                     </tr>
                     {/* r6 – Roth IRA annuity+edit */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#6</td>
                       <td className="border border-black px-2 py-1 text-xs">ROTH IRA | ROTH 401K [Tax-Free]</td>
-                      {stdCellsCalc("r6_him","r6_her","r6_notes","r6_present","r6_proj", true)}
+                      {stdCellsCalc("r6_him","r6_her","r6_notes","r6_present","r6_proj", true, "r6_ret")}
                       {retEditCell("r6_ret", assets.r6_proj)}
                     </tr>
                     {/* r7 – ESPP/RSU auto */}
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#7</td>
                       <td className="border border-black px-2 py-1 text-xs">ESPP | RSU | Annuities | Pension</td>
-                      {stdCellsCalc("r7_him","r7_her","r7_notes","r7_present","r7_proj")}
+                      {stdCellsCalc("r7_him","r7_her","r7_notes","r7_present","r7_proj", false, "r7_ret")}
                       {retEditCell("r7_ret", assets.r7_proj)}
                     </tr>
                   </tbody>
@@ -4199,46 +4235,46 @@ Example format:
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#12</td>
                       <td className="border border-black px-2 py-1 text-xs">STOCKS | MFs | Bonds | ETFs (Outside Of 401K)</td>
-                      {stdCellsCalc("s1_him","s1_her","s1_notes","s1_present","s1_proj")}
+                      {stdCellsCalc("s1_him","s1_her","s1_notes","s1_present","s1_proj", false, "s1_ret")}
                       {retEditCell("s1_ret", assets.s1_proj)}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#13</td>
                       <td className="border border-black px-2 py-1 text-xs">Do You Own A Business?</td>
                       {stdCells("s2_him","s2_her","s2_notes","s2_present")}
-                      {manualProjCell("s2_proj")}
+                      {manualProjCell("s2_proj", "s2_ret")}
                       {retEditCell("s2_ret", assets.s2_proj)}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#14</td>
                       <td className="border border-black px-2 py-1 text-xs">Alternative Investments (Private Equity, Crowd Funding, ETC.)</td>
-                      {stdCellsCalc("s3_him","s3_her","s3_notes","s3_present","s3_proj")}
+                      {stdCellsCalc("s3_him","s3_her","s3_notes","s3_present","s3_proj", false, "s3_ret")}
                       {retEditCell("s3_ret", assets.s3_proj)}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#15</td>
                       <td className="border border-black px-2 py-1 text-xs">Certificate Of Deposits (Bank CDs)</td>
-                      {stdCellsCalc("s4_him","s4_her","s4_notes","s4_present","s4_proj")}
+                      {stdCellsCalc("s4_him","s4_her","s4_notes","s4_present","s4_proj", false, "s4_ret")}
                       {retEditCell("s4_ret", assets.s4_proj)}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#16</td>
                       <td className="border border-black px-2 py-1 text-xs">Cash In Bank + Emergency Fund</td>
-                      {stdCellsCalc("s5_him","s5_her","s5_notes","s5_present","s5_proj")}
+                      {stdCellsCalc("s5_him","s5_her","s5_notes","s5_present","s5_proj", false, "s5_ret")}
                       {retEditCell("s5_ret", assets.s5_proj)}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#17</td>
                       <td className="border border-black px-2 py-1 text-xs">Annual House-Hold Income</td>
                       {stdCells("s6_him","s6_her","s6_notes","s6_present")}
-                      {manualProjCell("s6_proj")}
+                      {manualProjCell("s6_proj", "s6_ret")}
                       {retEditCell("s6_ret", assets.s6_proj)}
                     </tr>
                     <tr>
                       <td className="border border-black px-2 py-1 text-xs text-center font-semibold">#18</td>
                       <td className="border border-black px-2 py-1 text-xs">Annual Savings Going Forward</td>
                       {stdCells("s7_him","s7_her","s7_notes","s7_present")}
-                      {manualProjCell("s7_proj")}
+                      {manualProjCell("s7_proj", "s7_ret")}
                       {retEditCell("s7_ret", assets.s7_proj)}
                     </tr>
                   </tbody>
@@ -5218,9 +5254,10 @@ Example format:
                 </h3>
 
                 {/* ── ADDED: Asset Growth Chart ─────────────────────────────────
-                     Shows Present / Projected / Retirement Value as grouped horizontal
-                     bars for every asset row where ALL THREE values are > 0.
-                     Constraint: only rendered when all three columns are non-zero. */}
+                     Shows Present / Projected / Retirement Value as grouped horizontal bars.
+                     CHANGED: Only Retirement Planning (USA) and Stocks|Business|Income rows.
+                     Filter: show row when present > 0 (no longer requires all three > 0).
+                     Bars for proj or ret are simply not drawn if their value is 0. */}
                 {(() => {
                   const retAge    = data.plannedRetirementAge;
                   const retEndAge = retAge + (data.retirementYears || 0);
@@ -5230,138 +5267,166 @@ Example format:
                   const rVal = (ret: number | null, proj: number) =>
                     ret !== null ? ret : autoRetirementValue(proj);
 
-                  // Build row data — label, present, projected, retirement
-                  // Only include rows where all three > 0 (per constraint)
-                  const chartRows = [
-                    { label: 'Current 401K/403B',      present: assets.r1_present, proj: assets.r1_proj || autoProj(assets.r1_present),                                     ret: rVal(assets.r1_ret, assets.r1_proj || autoProj(assets.r1_present)) },
-                    { label: 'Max Funding (~$22.5K)',   present: assets.r3_present, proj: assets.r3_proj,                                                                     ret: rVal(assets.r3_ret, assets.r3_proj) },
-                    { label: 'Rollover 401K',           present: assets.r4_present, proj: assets.r4_proj || autoProj(assets.r4_present),                                     ret: rVal(assets.r4_ret, assets.r4_proj || autoProj(assets.r4_present)) },
-                    { label: 'Traditional IRA',         present: assets.r5_present, proj: assets.r5_proj > 0 ? assets.r5_proj : autoProj(assets.r5_present),                 ret: rVal(assets.r5_ret, assets.r5_proj > 0 ? assets.r5_proj : autoProj(assets.r5_present)) },
-                    { label: 'Roth IRA / 401K',         present: assets.r6_present, proj: assets.r6_proj > 0 ? assets.r6_proj : autoAnnuityProj(assets.r6_present),          ret: rVal(assets.r6_ret, assets.r6_proj > 0 ? assets.r6_proj : autoAnnuityProj(assets.r6_present)) },
-                    { label: 'ESPP / RSU / Pension',    present: assets.r7_present, proj: assets.r7_proj || autoProj(assets.r7_present),                                     ret: rVal(assets.r7_ret, assets.r7_proj || autoProj(assets.r7_present)) },
-                    { label: 'Stocks / MFs / ETFs',     present: assets.s1_present, proj: assets.s1_proj || autoProj(assets.s1_present),                                     ret: rVal(assets.s1_ret, assets.s1_proj || autoProj(assets.s1_present)) },
-                    { label: 'Business',                present: assets.s2_present, proj: assets.s2_proj,                                                                     ret: rVal(assets.s2_ret, assets.s2_proj) },
-                    { label: 'Alt. Investments',        present: assets.s3_present, proj: assets.s3_proj || autoProj(assets.s3_present),                                     ret: rVal(assets.s3_ret, assets.s3_proj || autoProj(assets.s3_present)) },
-                    { label: 'CDs (Bank)',              present: assets.s4_present, proj: assets.s4_proj > 0 ? assets.s4_proj : autoProj(assets.s4_present),                 ret: rVal(assets.s4_ret, assets.s4_proj > 0 ? assets.s4_proj : autoProj(assets.s4_present)) },
-                    { label: 'Cash / Emergency Fund',   present: assets.s5_present, proj: assets.s5_proj || autoProj(assets.s5_present),                                     ret: rVal(assets.s5_ret, assets.s5_proj || autoProj(assets.s5_present)) },
-                    { label: 'Annual Income',           present: assets.s6_present, proj: assets.s6_proj,                                                                     ret: rVal(assets.s6_ret, assets.s6_proj) },
-                    { label: 'Annual Savings',          present: assets.s7_present, proj: assets.s7_proj,                                                                     ret: rVal(assets.s7_ret, assets.s7_proj) },
-                    { label: 'Personal Home',           present: assets.e1_present, proj: assets.e1_proj,                                                                     ret: autoRetirementValue(assets.e1_proj) },
-                    { label: 'Rental Properties',      present: assets.e2_present, proj: assets.e2_proj,                                                                     ret: autoRetirementValue(assets.e2_proj) },
-                    { label: 'Land Parcels',            present: assets.e3_present, proj: assets.e3_proj,                                                                     ret: autoRetirementValue(assets.e3_proj) },
-                    { label: 'HSA',                    present: assets.f7_present, proj: assets.f7_proj || autoProj(assets.f7_present),                                     ret: autoRetirementValue(assets.f7_proj || autoProj(assets.f7_present)) },
-                    { label: '529 College Plan',        present: assets.c1_present, proj: assets.c1_proj || autoProj(assets.c1_present),                                     ret: autoRetirementValue(assets.c1_proj || autoProj(assets.c1_present)) },
-                    { label: 'Foreign Real Estate',     present: assets.x1_present, proj: assets.x1_proj,                                                                     ret: autoRetirementValue(assets.x1_proj) },
-                    { label: 'Foreign Non-RE',         present: assets.x2_present, proj: assets.x2_proj,                                                                     ret: autoRetirementValue(assets.x2_proj) },
-                  ].filter(r => r.present > 0 && r.proj > 0 && r.ret > 0);
+                  // ── Retirement Planning (USA) rows — r1, r3–r7 ────────────────
+                  // Only rows where present > 0; proj/ret shown only if > 0.
+                  const retirementRows = [
+                    { label: 'Current 401K / 403B',          present: assets.r1_present, proj: assets.r1_proj || autoProj(assets.r1_present),                                    ret: rVal(assets.r1_ret, assets.r1_proj || autoProj(assets.r1_present)) },
+                    { label: 'Max Funding (~$22.5K)',         present: assets.r3_present, proj: assets.r3_proj,                                                                    ret: rVal(assets.r3_ret, assets.r3_proj) },
+                    { label: 'Previous 401K / Rollover',     present: assets.r4_present, proj: assets.r4_proj || autoProj(assets.r4_present),                                    ret: rVal(assets.r4_ret, assets.r4_proj || autoProj(assets.r4_present)) },
+                    { label: 'Traditional IRA / SEP-IRA',    present: assets.r5_present, proj: assets.r5_proj > 0 ? assets.r5_proj : autoProj(assets.r5_present),                ret: rVal(assets.r5_ret, assets.r5_proj > 0 ? assets.r5_proj : autoProj(assets.r5_present)) },
+                    { label: 'Roth IRA / Roth 401K',         present: assets.r6_present, proj: assets.r6_proj > 0 ? assets.r6_proj : autoAnnuityProj(assets.r6_present),         ret: rVal(assets.r6_ret, assets.r6_proj > 0 ? assets.r6_proj : autoAnnuityProj(assets.r6_present)) },
+                    { label: 'ESPP / RSU / Annuities',       present: assets.r7_present, proj: assets.r7_proj || autoProj(assets.r7_present),                                    ret: rVal(assets.r7_ret, assets.r7_proj || autoProj(assets.r7_present)) },
+                  ].filter(r => r.present > 0);
 
-                  if (chartRows.length === 0) return null;
+                  // ── Stocks | Business | Income (USA) rows — s1–s7 ─────────────
+                  const stocksRows = [
+                    { label: 'Stocks / MFs / Bonds / ETFs',  present: assets.s1_present, proj: assets.s1_proj || autoProj(assets.s1_present),                                   ret: rVal(assets.s1_ret, assets.s1_proj || autoProj(assets.s1_present)) },
+                    { label: 'Business Ownership',           present: assets.s2_present, proj: assets.s2_proj,                                                                   ret: rVal(assets.s2_ret, assets.s2_proj) },
+                    { label: 'Alternative Investments',      present: assets.s3_present, proj: assets.s3_proj || autoProj(assets.s3_present),                                    ret: rVal(assets.s3_ret, assets.s3_proj || autoProj(assets.s3_present)) },
+                    { label: 'CDs (Bank Deposits)',          present: assets.s4_present, proj: assets.s4_proj > 0 ? assets.s4_proj : autoProj(assets.s4_present),                ret: rVal(assets.s4_ret, assets.s4_proj > 0 ? assets.s4_proj : autoProj(assets.s4_present)) },
+                    { label: 'Cash / Emergency Fund',        present: assets.s5_present, proj: assets.s5_proj || autoProj(assets.s5_present),                                    ret: rVal(assets.s5_ret, assets.s5_proj || autoProj(assets.s5_present)) },
+                    { label: 'Annual Household Income',      present: assets.s6_present, proj: assets.s6_proj,                                                                   ret: rVal(assets.s6_ret, assets.s6_proj) },
+                    { label: 'Annual Savings',               present: assets.s7_present, proj: assets.s7_proj,                                                                   ret: rVal(assets.s7_ret, assets.s7_proj) },
+                  ].filter(r => r.present > 0);
+
+                  // Combine both groups — add group separator entries (dividers)
+                  type ChartRow = { label: string; present: number; proj: number; ret: number; divider?: boolean; groupLabel?: string };
+                  const allRows: ChartRow[] = [];
+                  if (retirementRows.length > 0) {
+                    allRows.push({ label: '', present: 0, proj: 0, ret: 0, divider: true, groupLabel: '🏦 Retirement Planning (USA)' });
+                    retirementRows.forEach(r => allRows.push(r));
+                  }
+                  if (stocksRows.length > 0) {
+                    allRows.push({ label: '', present: 0, proj: 0, ret: 0, divider: true, groupLabel: '📈 Stocks | Business | Income (USA)' });
+                    stocksRows.forEach(r => allRows.push(r));
+                  }
+
+                  const dataRows = allRows.filter(r => !r.divider);
+                  if (dataRows.length === 0) return null;
 
                   // Chart dimensions
-                  const maxVal   = Math.max(...chartRows.flatMap(r => [r.present, r.proj, r.ret]));
-                  const LABEL_W  = 130;  // px — left label area
-                  const BAR_AREA = 440;  // px — bar drawing area
-                  const ROW_H    = 36;   // px per asset row (3 bars × 8px + gaps)
+                  const maxVal   = Math.max(...dataRows.flatMap(r => [r.present, r.proj, r.ret]), 1);
+                  const LABEL_W  = 150;  // px — left label area (wider for full names)
+                  const BAR_AREA = 420;  // px — bar drawing area
+                  const ROW_H    = 36;   // px per data row (3 bars × 9px + gaps)
+                  const DIV_H    = 20;   // px per group-divider row
                   const BAR_H    = 9;    // px per individual bar
                   const GAP      = 2;    // px between bars in same group
-                  const svgW     = LABEL_W + BAR_AREA + 90; // +90 for value labels
-                  const svgH     = chartRows.length * ROW_H + 60; // +60 header
+                  const svgW     = LABEL_W + BAR_AREA + 95; // +95 for value labels
+                  const totalH   = allRows.reduce((s, r) => s + (r.divider ? DIV_H : ROW_H), 0);
+                  const svgH     = totalH + 56; // +56 for top axis area
 
-                  const barW = (v: number) => maxVal > 0 ? Math.max(2, (v / maxVal) * BAR_AREA) : 0;
+                  // CHANGED: barW returns 0 for zero values — no ghost bar drawn
+                  const barW = (v: number) => (maxVal > 0 && v > 0) ? Math.max(3, (v / maxVal) * BAR_AREA) : 0;
                   const fmt  = (v: number) => v >= 1_000_000
                     ? `$${(v / 1_000_000).toFixed(1)}M`
-                    : v >= 1_000 ? `$${(v / 1_000).toFixed(0)}K` : fmtC(v);
+                    : v >= 1_000 ? `$${(v / 1_000).toFixed(0)}K` : `$${v.toFixed(0)}`;
 
                   const COLORS_CHART = {
                     present: '#3B82F6',   // blue
-                    proj:    '#10B981',   // green
+                    proj:    '#10B981',   // emerald
                     ret:     '#8B5CF6',   // purple
+                    divBg:   '#F1F5F9',   // divider bg
+                    divText: '#1E40AF',   // divider text
                   };
+
+                  // Build SVG rows with running y position
+                  let svgRowY = 48; // start below axis labels
+                  const svgElements: React.ReactNode[] = [];
+                  allRows.forEach((row, i) => {
+                    const y0 = svgRowY;
+                    if (row.divider) {
+                      // Group separator band
+                      svgElements.push(
+                        <g key={`div-${i}`}>
+                          <rect x={0} y={y0} width={svgW} height={DIV_H} fill={COLORS_CHART.divBg} />
+                          <text x={8} y={y0 + DIV_H * 0.68} fontSize="9" fontWeight="bold" fill={COLORS_CHART.divText}>
+                            {row.groupLabel}
+                          </text>
+                        </g>
+                      );
+                      svgRowY += DIV_H;
+                    } else {
+                      const bW = { present: barW(row.present), proj: barW(row.proj), ret: barW(row.ret) };
+                      const maxRowVal = Math.max(row.present, row.proj, row.ret);
+                      const rowIndex  = dataRows.indexOf(row);
+                      svgElements.push(
+                        <g key={`row-${i}`}>
+                          {/* Zebra */}
+                          <rect x={0} y={y0} width={svgW} height={ROW_H}
+                            fill={rowIndex % 2 === 0 ? '#FAFAFA' : '#FFFFFF'} />
+                          {/* Label */}
+                          <text x={LABEL_W - 6} y={y0 + ROW_H / 2}
+                            textAnchor="end" dominantBaseline="middle"
+                            fontSize="9" fill="#374151">{row.label}</text>
+                          {/* Present bar (blue) — only if > 0 */}
+                          {bW.present > 0 && <rect x={LABEL_W} y={y0 + 2} width={bW.present} height={BAR_H} fill={COLORS_CHART.present} rx="2" />}
+                          {/* Projected bar (green) — only if > 0 */}
+                          {bW.proj > 0    && <rect x={LABEL_W} y={y0 + 2 + BAR_H + GAP} width={bW.proj} height={BAR_H} fill={COLORS_CHART.proj} rx="2" />}
+                          {/* Retirement bar (purple) — only if > 0 */}
+                          {bW.ret > 0     && <rect x={LABEL_W} y={y0 + 2 + (BAR_H + GAP) * 2} width={bW.ret} height={BAR_H} fill={COLORS_CHART.ret} rx="2" />}
+                          {/* Max value label */}
+                          {maxRowVal > 0 && (
+                            <text x={LABEL_W + Math.max(bW.present, bW.proj, bW.ret) + 4}
+                              y={y0 + ROW_H / 2} dominantBaseline="middle"
+                              fontSize="8" fill="#6B7280">{fmt(maxRowVal)}</text>
+                          )}
+                        </g>
+                      );
+                      svgRowY += ROW_H;
+                    }
+                  });
 
                   return (
                     <div className="mb-4">
-                      <div className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-2">
+                      <div className="text-xs font-bold text-gray-700 mb-2">
                         📊 Asset Growth Chart
-                        <span className="font-normal text-gray-500">
-                          — rows shown only when Present, Projected & Retirement Value are all &gt; 0
+                        <span className="font-normal text-gray-500 ml-1">
+                          — Retirement Planning &amp; Stocks / Income rows (shown when Present Value &gt; 0)
                         </span>
                       </div>
                       {/* Legend */}
-                      <div className="flex gap-4 mb-3 flex-wrap">
+                      <div className="flex gap-5 mb-3 flex-wrap">
                         {[
                           { color: COLORS_CHART.present, label: 'Present Value' },
                           { color: COLORS_CHART.proj,    label: `Projected @ ${retAge} (${rate}%)` },
-                          { color: COLORS_CHART.ret,     label: `Retirement Value ${retAge}→${retEndAge}` },
+                          { color: COLORS_CHART.ret,     label: `Retirement Value ${retAge}→${retEndAge} (${rate}%)` },
                         ].map(({ color, label }) => (
                           <div key={label} className="flex items-center gap-1.5 text-xs text-gray-600">
-                            <span className="inline-block rounded-sm" style={{ width: 12, height: 9, backgroundColor: color }} />
+                            <span className="inline-block rounded-sm flex-shrink-0" style={{ width: 12, height: 9, backgroundColor: color }} />
                             {label}
                           </div>
                         ))}
                       </div>
-                      {/* SVG chart */}
+                      {/* SVG chart — scrollable horizontally on small screens */}
                       <div className="overflow-x-auto">
-                        <svg width={svgW} height={svgH} style={{ fontFamily: 'inherit' }}>
-                          {/* Column header line */}
-                          <line x1={LABEL_W} y1={32} x2={LABEL_W + BAR_AREA} y2={32} stroke="#E5E7EB" strokeWidth="1" />
-
-                          {chartRows.map((row, i) => {
-                            const y0 = 40 + i * ROW_H;
-                            const bW = { present: barW(row.present), proj: barW(row.proj), ret: barW(row.ret) };
-                            const maxRowVal = Math.max(row.present, row.proj, row.ret);
-                            return (
-                              <g key={i}>
-                                {/* Zebra background */}
-                                <rect x={0} y={y0 - 2} width={svgW} height={ROW_H}
-                                  fill={i % 2 === 0 ? '#F9FAFB' : '#FFFFFF'} />
-                                {/* Row label */}
-                                <text x={LABEL_W - 6} y={y0 + (ROW_H / 2)}
-                                  textAnchor="end" dominantBaseline="middle"
-                                  fontSize="9" fill="#374151">{row.label}</text>
-
-                                {/* Present bar */}
-                                <rect x={LABEL_W} y={y0 + 1} width={bW.present} height={BAR_H}
-                                  fill={COLORS_CHART.present} rx="2" />
-                                {/* Projected bar */}
-                                <rect x={LABEL_W} y={y0 + 1 + BAR_H + GAP} width={bW.proj} height={BAR_H}
-                                  fill={COLORS_CHART.proj} rx="2" />
-                                {/* Retirement bar */}
-                                <rect x={LABEL_W} y={y0 + 1 + (BAR_H + GAP) * 2} width={bW.ret} height={BAR_H}
-                                  fill={COLORS_CHART.ret} rx="2" />
-
-                                {/* Value labels — show on the largest bar; others inline if space */}
-                                <text x={LABEL_W + Math.max(bW.present, bW.proj, bW.ret) + 4}
-                                  y={y0 + (ROW_H / 2)} dominantBaseline="middle"
-                                  fontSize="8" fill="#6B7280">{fmt(maxRowVal)}</text>
-                              </g>
-                            );
-                          })}
-
-                          {/* X-axis ticks — 0, 25%, 50%, 75%, 100% */}
+                        <svg width={svgW} height={svgH} style={{ fontFamily: 'inherit', display: 'block' }}>
+                          {/* X-axis grid + labels */}
                           {[0, 0.25, 0.5, 0.75, 1].map(pct => {
                             const x = LABEL_W + pct * BAR_AREA;
                             return (
                               <g key={pct}>
-                                <line x1={x} y1={36} x2={x} y2={40 + chartRows.length * ROW_H}
+                                <line x1={x} y1={44} x2={x} y2={svgH - 4}
                                   stroke="#E5E7EB" strokeWidth="1" strokeDasharray="3,3" />
-                                <text x={x} y={28} textAnchor="middle" fontSize="8" fill="#9CA3AF">
+                                <text x={x} y={36} textAnchor="middle" fontSize="8" fill="#9CA3AF">
                                   {fmt(maxVal * pct)}
                                 </text>
                               </g>
                             );
                           })}
+                          {/* All rows (data + dividers) */}
+                          {svgElements}
                         </svg>
                       </div>
-
-                      {/* Summary totals row below chart */}
+                      {/* Totals summary */}
                       <div className="mt-3 grid grid-cols-3 gap-2">
                         {[
-                          { label: 'Total Present',      value: chartRows.reduce((s, r) => s + r.present, 0), color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200' },
-                          { label: `Total @ ${retAge}`,  value: chartRows.reduce((s, r) => s + r.proj,    0), color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
-                          { label: `Total thru ${retEndAge}`, value: chartRows.reduce((s, r) => s + r.ret, 0), color: 'text-purple-700',  bg: 'bg-purple-50 border-purple-200' },
+                          { label: 'Total Present',           value: dataRows.reduce((s, r) => s + r.present, 0), color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200' },
+                          { label: `Total Projected @ ${retAge}`, value: dataRows.reduce((s, r) => s + r.proj,    0), color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
+                          { label: `Total Ret. thru ${retEndAge}`, value: dataRows.reduce((s, r) => s + r.ret,  0), color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200' },
                         ].map(({ label, value, color, bg }) => (
                           <div key={label} className={`rounded-lg p-2 border text-center ${bg}`}>
-                            <div className="text-xs text-gray-500 mb-0.5">{label}</div>
+                            <div className="text-xs text-gray-500 mb-0.5 leading-tight">{label}</div>
                             <div className={`font-bold text-xs ${color}`}>{fmtC(value)}</div>
                           </div>
                         ))}
