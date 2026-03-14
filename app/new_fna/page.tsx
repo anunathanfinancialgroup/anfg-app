@@ -897,7 +897,7 @@ export default function FNAPage() {
     try {
       const { data: rec, error: re } = await supabase
         .from('fna_records')
-        .select('fna_id, analysis_date, spouse_name, dob, notes, planned_retirement_age, calculated_interest_percentage, updated_at, fna_have_will, fna_spouse_include_fls')
+        .select('fna_id, analysis_date, spouse_name, dob, notes, planned_retirement_age, calculated_interest_percentage, updated_at, fna_have_will, fna_spouse_include_fls, spouse_dob, long_term_care, ltc_manual, ytr_override, ytr_manual, retirement_years_override, retirement_years_manual')
         .eq('client_id', clientId).order('created_at', { ascending: false }).limit(1).maybeSingle();
       if (re) throw re;
       if (!rec) {
@@ -914,7 +914,12 @@ export default function FNAPage() {
       const [
         { data: college }, { data: wedding }, { data: retirement },
         { data: healthcare }, { data: lifeGoals }, { data: legacy },
-        { data: astRet }
+        { data: astRet },
+        { data: astInc },
+        { data: astRE },
+        { data: astProt },
+        { data: astCollege },
+        { data: astForeign },
       ] = await Promise.all([
         supabase.from('fna_college').select('*').eq('fna_id', fnaId),
         supabase.from('fna_wedding').select('*').eq('fna_id', fnaId),
@@ -923,6 +928,11 @@ export default function FNAPage() {
         supabase.from('fna_life_goals').select('*').eq('fna_id', fnaId).maybeSingle(),
         supabase.from('fna_legacy').select('*').eq('fna_id', fnaId).maybeSingle(),
         supabase.from('fna_ast_retirement').select('*').eq('fna_id', fnaId).maybeSingle(),
+        supabase.from('fna_ast_income').select('*').eq('fna_id', fnaId).maybeSingle(),
+        supabase.from('fna_ast_real_estate').select('*').eq('fna_id', fnaId).maybeSingle(),
+        supabase.from('fna_ast_protection').select('*').eq('fna_id', fnaId).maybeSingle(),
+        supabase.from('fna_ast_college_estate').select('*').eq('fna_id', fnaId).maybeSingle(),
+        supabase.from('fna_ast_foreign').select('*').eq('fna_id', fnaId).maybeSingle(),
       ]);
 
       const c1c = college?.find((x: any) => x.child_number === 1);
@@ -935,8 +945,7 @@ export default function FNAPage() {
         spouseName: rec.spouse_name || prev.spouseName,
         analysisDate: rec.analysis_date || prev.analysisDate,
         dob: rec.dob || '',
-        // FIX: Do NOT set notes to raw rec.notes here — if it's the __ASSETS__ wrapper it would
-        // show JSON in the textarea until the wrapper parse runs. Set empty for now; overwritten below.
+        // notes will be set properly in the METADATA LOAD section below
         notes: '',
         plannedRetirementAge: rec.planned_retirement_age || 65,
         calculatedInterestPercentage: rec.calculated_interest_percentage || 6,
@@ -956,66 +965,212 @@ export default function FNAPage() {
         familySupport: legacy?.family_support || 0,
       }));
 
-      // ── ASSETS LOAD ──────────────────────────────────────────────────────
-      // Priority 1: fna_records.notes __ASSETS__: JSON (most reliable DB path)
-      let assetsLoaded = false;
+      // ── METADATA LOAD — proper columns from fna_records ────────────────
+      // Notes is plain text (no more __ASSETS__ blob)
       const recNotes: string = rec.notes || '';
+      // Backward-compat: if old record still has __ASSETS__ wrapper, strip it and extract note
       if (recNotes.startsWith('__ASSETS__:')) {
         try {
-          const wrapper = JSON.parse(recNotes.slice('__ASSETS__:'.length));
-          if (wrapper._assets) {
-            setAssets({ ...initialAssets, ...wrapper._assets });
-            assetsLoaded = true;
-          }
-          // Restore user note field if it was embedded
-          if (wrapper._fna_note !== undefined) {
-            setData(prev => ({ ...prev, notes: wrapper._fna_note }));
-          }
-          // Restore Spouse DOB
-          if (wrapper._spouseDob !== undefined) {
-            setData(prev => ({ ...prev, spouseDob: wrapper._spouseDob || '' }));
-          }
-          // FIX: Restore haveWill and spouseIncludeFls from wrapper (reliable fallback)
-          // The wrapper is the source of truth — DB columns may have type issues
-          if (wrapper._haveWill !== undefined || wrapper._spouseIncludeFls !== undefined) {
-            setData(prev => ({
-              ...prev,
-              haveWill: wrapper._haveWill !== undefined ? toBool(wrapper._haveWill) : prev.haveWill,
-              spouseIncludeFls: wrapper._spouseIncludeFls !== undefined ? toBool(wrapper._spouseIncludeFls) : prev.spouseIncludeFls,
-            }));
-          }
-          // Restore manually-edited #6/#7 values
-          if (wrapper._ytrManual && wrapper._ytr !== undefined) {
-            ytrManualRef.current = true;
-            setData(prev => ({ ...prev, yearsToRetirement: wrapper._ytr }));
-          }
-          if (wrapper._rYearsManual && wrapper._rYears !== undefined) {
-            rYearsManualRef.current = true;
-            setData(prev => ({ ...prev, retirementYears: wrapper._rYears }));
-          }
-          // Restore manually-edited #13 Long-Term Care
-          if (wrapper._ltcManual && wrapper._ltc !== undefined) {
-            ltcManualRef.current = true;
-            setData(prev => ({ ...prev, longTermCare: wrapper._ltc }));
-          }
-        } catch {}
+          const oldWrapper = JSON.parse(recNotes.slice('__ASSETS__:'.length));
+          setData(prev => ({ ...prev, notes: oldWrapper._fna_note || '' }));
+        } catch { setData(prev => ({ ...prev, notes: '' })); }
       } else {
-        // FIX: Notes is plain text (not __ASSETS__ wrapper) — set it as the user note
         setData(prev => ({ ...prev, notes: recNotes }));
       }
 
-      // Priority 2: fna_ast_retirement current_401k_notes JSON
-      if (!assetsLoaded && astRet) {
-        const notesVal: string = astRet.current_401k_notes || '';
-        if (notesVal.startsWith('__FNA_ASSETS_JSON__:')) {
+      // Restore spouse DOB
+      if (rec.spouse_dob) setData(prev => ({ ...prev, spouseDob: rec.spouse_dob }));
+
+      // Restore manual override values from dedicated fna_records columns
+      if (rec.ytr_manual && rec.ytr_override != null) {
+        ytrManualRef.current = true;
+        setData(prev => ({ ...prev, yearsToRetirement: rec.ytr_override }));
+      }
+      if (rec.retirement_years_manual && rec.retirement_years_override != null) {
+        rYearsManualRef.current = true;
+        setData(prev => ({ ...prev, retirementYears: rec.retirement_years_override }));
+      }
+      if (rec.ltc_manual && rec.long_term_care != null) {
+        ltcManualRef.current = true;
+        setData(prev => ({ ...prev, longTermCare: rec.long_term_care }));
+      }
+
+      // ── ASSETS LOAD — from proper fna_ast_* tables ───────────────────────
+      // Priority 1: fna_ast_* tables (proper relational storage — source of truth)
+      let assetsLoaded = false;
+      if (astRet || astInc || astRE || astProt || astCollege || astForeign) {
+        const loaded: Partial<AssetsData> = {};
+        // r1 – Current 401K / 403B
+        if (astRet) {
+          loaded.r1_him   = toBool(astRet.current_401k_him);
+          loaded.r1_her   = toBool(astRet.current_401k_her);
+          loaded.r1_notes = astRet.current_401k_notes || '';
+          loaded.r1_present = Number(astRet.current_401k_present_value) || 0;
+          loaded.r1_proj  = Number(astRet.current_401k_projected_value) || 0;
+          // r2 – Company Match
+          loaded.r2_him   = toBool(astRet.company_match_him);
+          loaded.r2_her   = toBool(astRet.company_match_her);
+          loaded.r2_notes = astRet.company_match_notes || '';
+          loaded.r2_present = Number(astRet.company_match_present_value) || 0;
+          // r3 – Max Funding
+          loaded.r3_him   = toBool(astRet.max_funding_him);
+          loaded.r3_her   = toBool(astRet.max_funding_her);
+          loaded.r3_notes = astRet.max_funding_notes || '';
+          loaded.r3_present = Number(astRet.max_funding_present_value) || 0;
+          loaded.r3_proj  = Number(astRet.max_funding_projected_value) || 0;
+          // r4 – Previous 401K / Rollover
+          loaded.r4_him   = toBool(astRet.rollover_401k_him);
+          loaded.r4_her   = toBool(astRet.rollover_401k_her);
+          loaded.r4_notes = astRet.rollover_401k_notes || '';
+          loaded.r4_present = Number(astRet.rollover_401k_present_value) || 0;
+          loaded.r4_proj  = Number(astRet.rollover_401k_projected_value) || 0;
+          // r5 – Traditional IRA / SEP-IRA
+          loaded.r5_him   = toBool(astRet.traditional_ira_him);
+          loaded.r5_her   = toBool(astRet.traditional_ira_her);
+          loaded.r5_notes = astRet.traditional_ira_notes || '';
+          loaded.r5_present = Number(astRet.traditional_ira_present_value) || 0;
+          loaded.r5_proj  = Number(astRet.traditional_ira_projected_value) || 0;
+          // r6 – Roth IRA / Roth 401K
+          loaded.r6_him   = toBool(astRet.roth_ira_him);
+          loaded.r6_her   = toBool(astRet.roth_ira_her);
+          loaded.r6_notes = astRet.roth_ira_notes || '';
+          loaded.r6_present = Number(astRet.roth_ira_present_value) || 0;
+          loaded.r6_proj  = Number(astRet.roth_ira_projected_value) || 0;
+          // r7 – ESPP / RSU / Annuities / Pension
+          loaded.r7_him   = toBool(astRet.espp_rsu_him);
+          loaded.r7_her   = toBool(astRet.espp_rsu_her);
+          loaded.r7_notes = astRet.espp_rsu_notes || '';
+          loaded.r7_present = Number(astRet.espp_rsu_present_value) || 0;
+          loaded.r7_proj  = Number(astRet.espp_rsu_projected_value) || 0;
+        }
+        // s1–s7 — Stocks | Business | Income
+        if (astInc) {
+          loaded.s1_him   = toBool(astInc.stocks_him);
+          loaded.s1_her   = toBool(astInc.stocks_her);
+          loaded.s1_notes = astInc.stocks_notes || '';
+          loaded.s1_present = Number(astInc.stocks_present_value) || 0;
+          loaded.s1_proj  = Number(astInc.stocks_projected_value) || 0;
+          loaded.s2_him   = toBool(astInc.business_him);
+          loaded.s2_her   = toBool(astInc.business_her);
+          loaded.s2_notes = astInc.business_notes || '';
+          loaded.s2_present = Number(astInc.business_present_value) || 0;
+          loaded.s2_proj  = Number(astInc.business_projected_value) || 0;
+          loaded.s3_him   = toBool(astInc.alternative_inv_him);
+          loaded.s3_her   = toBool(astInc.alternative_inv_her);
+          loaded.s3_notes = astInc.alternative_inv_notes || '';
+          loaded.s3_present = Number(astInc.alternative_inv_present_value) || 0;
+          loaded.s3_proj  = Number(astInc.alternative_inv_projected_value) || 0;
+          loaded.s4_him   = toBool(astInc.cds_him);
+          loaded.s4_her   = toBool(astInc.cds_her);
+          loaded.s4_notes = astInc.cds_notes || '';
+          loaded.s4_present = Number(astInc.cds_present_value) || 0;
+          loaded.s4_proj  = Number(astInc.cds_projected_value) || 0;
+          loaded.s5_him   = toBool(astInc.cash_emergency_him);
+          loaded.s5_her   = toBool(astInc.cash_emergency_her);
+          loaded.s5_notes = astInc.cash_emergency_notes || '';
+          loaded.s5_present = Number(astInc.cash_emergency_present_value) || 0;
+          loaded.s5_proj  = Number(astInc.cash_emergency_projected_value) || 0;
+          loaded.s6_him   = toBool(astInc.annual_income_him);
+          loaded.s6_her   = toBool(astInc.annual_income_her);
+          loaded.s6_notes = astInc.annual_income_notes || '';
+          loaded.s6_present = Number(astInc.annual_income_amount) || 0;
+          loaded.s6_proj  = Number(astInc.annual_savings_projected) || 0;
+          loaded.s7_him   = toBool(astInc.annual_savings_him);
+          loaded.s7_her   = toBool(astInc.annual_savings_her);
+          loaded.s7_notes = astInc.annual_savings_notes || '';
+          loaded.s7_present = Number(astInc.annual_savings_amount) || 0;
+          loaded.s7_proj  = Number(astInc.annual_savings_projected) || 0;
+        }
+        // e1–e4 — Real Estate
+        if (astRE) {
+          loaded.e1_him   = toBool(astRE.personal_home_him);
+          loaded.e1_her   = toBool(astRE.personal_home_her);
+          loaded.e1_notes = astRE.personal_home_notes || '';
+          loaded.e1_present = Number(astRE.personal_home_present_value) || 0;
+          loaded.e1_proj  = Number(astRE.personal_home_projected_value) || 0;
+          loaded.e2_him   = toBool(astRE.rental_properties_him);
+          loaded.e2_her   = toBool(astRE.rental_properties_her);
+          loaded.e2_notes = astRE.rental_properties_notes || '';
+          loaded.e2_present = Number(astRE.rental_properties_present_value) || 0;
+          loaded.e2_proj  = Number(astRE.rental_properties_projected_value) || 0;
+          loaded.e3_him   = toBool(astRE.land_parcels_him);
+          loaded.e3_her   = toBool(astRE.land_parcels_her);
+          loaded.e3_notes = astRE.land_parcels_notes || '';
+          loaded.e3_present = Number(astRE.land_parcels_present_value) || 0;
+          loaded.e3_proj  = Number(astRE.land_parcels_projected_value) || 0;
+          loaded.e4_him   = toBool(astRE.inheritance_him);
+          loaded.e4_her   = toBool(astRE.inheritance_her);
+          loaded.e4_notes = astRE.inheritance_notes || '';
+          loaded.e4_present = Number(astRE.inheritance_present_value) || 0;
+          loaded.e4_proj  = Number(astRE.inheritance_projected_value) || 0;
+        }
+        // f1–f8 — Family Protection & Insurance
+        if (astProt) {
+          loaded.f1_him   = toBool(astProt.life_insurance_work_him);
+          loaded.f1_her   = toBool(astProt.life_insurance_work_her);
+          loaded.f1_notes = astProt.life_insurance_work_notes || '';
+          loaded.f1_present = Number(astProt.life_insurance_work_cash_value) || 0;
+          loaded.f2_him   = toBool(astProt.life_insurance_outside_him);
+          loaded.f2_her   = toBool(astProt.life_insurance_outside_her);
+          loaded.f2_notes = astProt.life_insurance_outside_notes || '';
+          loaded.f2_present = Number(astProt.life_insurance_outside_cash_value) || 0;
+          loaded.f2_proj  = Number(astProt.life_insurance_outside_legacy_value) || 0;
+          loaded.f3_him   = toBool(astProt.cash_value_insurance_him);
+          loaded.f3_her   = toBool(astProt.cash_value_insurance_her);
+          loaded.f3_notes = astProt.cash_value_insurance_notes || '';
+          loaded.f3_present = Number(astProt.long_term_care_present_value) || 0;
+          loaded.f4_notes = astProt.insurance_company_notes || '';
+          loaded.f5_him   = toBool(astProt.disability_work_him);
+          loaded.f5_her   = toBool(astProt.disability_work_her);
+          loaded.f5_notes = astProt.disability_work_notes || '';
+          loaded.f6_him   = toBool(astProt.long_term_care_him);
+          loaded.f6_her   = toBool(astProt.long_term_care_her);
+          loaded.f6_notes = astProt.long_term_care_notes || '';
+          loaded.f7_him   = toBool(astProt.hsa_him);
+          loaded.f7_her   = toBool(astProt.hsa_her);
+          loaded.f7_notes = astProt.hsa_notes || '';
+          loaded.f7_present = Number(astProt.hsa_present_value) || 0;
+          loaded.f7_proj  = Number(astProt.hsa_projected_value) || 0;
+          loaded.f8_him   = toBool(astProt.mortgage_protection_him);
+          loaded.f8_her   = toBool(astProt.mortgage_protection_her);
+          loaded.f8_notes = astProt.mortgage_protection_notes || '';
+        }
+        // c1, c2 — College / Estate Planning
+        if (astCollege) {
+          loaded.c1_c1    = toBool(astCollege.plan_529_child1);
+          loaded.c1_c2    = toBool(astCollege.plan_529_child2);
+          loaded.c1_notes = astCollege.plan_529_notes || '';
+          loaded.c1_present = Number(astCollege.plan_529_present_value) || 0;
+          loaded.c1_proj  = Number(astCollege.plan_529_projected_value) || 0;
+          loaded.c2_c1    = toBool(astCollege.will_trust_him);
+          loaded.c2_c2    = toBool(astCollege.will_trust_her);
+          loaded.c2_notes = astCollege.will_trust_notes || '';
+        }
+        // x1, x2 — Foreign Assets
+        if (astForeign) {
+          loaded.x1_him   = toBool(astForeign.real_estate_him);
+          loaded.x1_her   = toBool(astForeign.real_estate_her);
+          loaded.x1_notes = astForeign.real_estate_notes || '';
+          loaded.x1_present = Number(astForeign.real_estate_present_value) || 0;
+          loaded.x1_proj  = Number(astForeign.real_estate_projected_value) || 0;
+          loaded.x2_him   = toBool(astForeign.non_real_estate_him);
+          loaded.x2_her   = toBool(astForeign.non_real_estate_her);
+          loaded.x2_notes = astForeign.non_real_estate_notes || '';
+          loaded.x2_present = Number(astForeign.non_real_estate_present_value) || 0;
+          loaded.x2_proj  = Number(astForeign.non_real_estate_projected_value) || 0;
+        }
+        setAssets({ ...initialAssets, ...loaded });
+        assetsLoaded = true;
+      }
+
+      // Priority 2: backward-compat — old JSON blob in notes (for records saved before this migration)
+      if (!assetsLoaded) {
+        const rawNotes: string = rec.notes || '';
+        if (rawNotes.startsWith('__ASSETS__:')) {
           try {
-            const parsed = JSON.parse(notesVal.slice('__FNA_ASSETS_JSON__:'.length));
-            setAssets({ ...initialAssets, ...parsed });
-            assetsLoaded = true;
+            const wrapper = JSON.parse(rawNotes.slice('__ASSETS__:'.length));
+            if (wrapper._assets) { setAssets({ ...initialAssets, ...wrapper._assets }); assetsLoaded = true; }
           } catch {}
-        } else if ((astRet as any).assets_data) {
-          setAssets({ ...initialAssets, ...(astRet as any).assets_data });
-          assetsLoaded = true;
         }
       }
 
@@ -1023,10 +1178,7 @@ export default function FNAPage() {
       if (!assetsLoaded) {
         try {
           const local = localStorage.getItem(`fna_assets_${clientId}`);
-          if (local) {
-            setAssets({ ...initialAssets, ...JSON.parse(local) });
-            assetsLoaded = true;
-          }
+          if (local) { setAssets({ ...initialAssets, ...JSON.parse(local) }); assetsLoaded = true; }
         } catch {}
       }
       // Load liabilities for this fna_id
@@ -1094,8 +1246,7 @@ export default function FNAPage() {
   ]);
 
   // ── CHANGE: Save Client Information card fields only to fna_records ─────────
-  // FIX: This function now preserves the __ASSETS__: wrapper in the notes column
-  //      and stores haveWill/spouseIncludeFls inside the wrapper as reliable backup
+  // Saves client info fields to fna_records with notes as plain text and spouse_dob as proper column
   const handleSaveClientInfo = async () => {
     if (!data.clientId) {
       setClientInfoMessage("Please select a client first");
@@ -1109,60 +1260,18 @@ export default function FNAPage() {
       const willValue = data.haveWill === true;
       const flsValue = data.spouseIncludeFls === true;
 
-      // FIX: Build the __ASSETS__: wrapper for notes — preserves existing asset data
-      let notesForDb: string;
       let fnaId = data.fnaId;
 
       if (fnaId) {
-        // UPDATE path — read existing notes to preserve __ASSETS__: wrapper
-        const { data: existingRec } = await supabase
-          .from('fna_records')
-          .select('notes')
-          .eq('fna_id', fnaId)
-          .maybeSingle();
-
-        const existingNotes: string = existingRec?.notes || '';
-
-        if (existingNotes.startsWith('__ASSETS__:')) {
-          // FIX: Preserve existing wrapper, just update the fields that changed
-          try {
-            const wrapper = JSON.parse(existingNotes.slice('__ASSETS__:'.length));
-            wrapper._fna_note = data.notes;
-            wrapper._spouseDob = data.spouseDob;
-            wrapper._haveWill = willValue;
-            wrapper._spouseIncludeFls = flsValue;
-            notesForDb = `__ASSETS__:${JSON.stringify(wrapper)}`;
-          } catch {
-            // Parse failed — rebuild wrapper from current state
-            const wrapper = {
-              _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob,
-              _haveWill: willValue, _spouseIncludeFls: flsValue,
-              _ytr: data.yearsToRetirement, _rYears: data.retirementYears,
-              _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current,
-              _ltc: data.longTermCare, _ltcManual: ltcManualRef.current,
-            };
-            notesForDb = `__ASSETS__:${JSON.stringify(wrapper)}`;
-          }
-        } else {
-          // No wrapper yet — create one with current assets
-          const wrapper = {
-            _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob,
-            _haveWill: willValue, _spouseIncludeFls: flsValue,
-            _ytr: data.yearsToRetirement, _rYears: data.retirementYears,
-            _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current,
-            _ltc: data.longTermCare, _ltcManual: ltcManualRef.current,
-          };
-          notesForDb = `__ASSETS__:${JSON.stringify(wrapper)}`;
-        }
-
-        // FIX: Update with preserved wrapper — will/FLS saved both in columns AND wrapper
+        // UPDATE path — plain notes + proper metadata columns
         const { error: ue } = await supabase
           .from('fna_records')
           .update({
             analysis_date: data.analysisDate,
             spouse_name: data.spouseName,
             dob: data.dob || null,
-            notes: notesForDb,
+            notes: data.notes || null,
+            spouse_dob: data.spouseDob || null,
             planned_retirement_age: data.plannedRetirementAge,
             calculated_interest_percentage: data.calculatedInterestPercentage,
             fna_have_will: willValue,
@@ -1172,16 +1281,7 @@ export default function FNAPage() {
           .eq('fna_id', fnaId);
         if (ue) throw ue;
       } else {
-        // INSERT path — new record
-        const wrapper = {
-          _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob,
-          _haveWill: willValue, _spouseIncludeFls: flsValue,
-          _ytr: data.yearsToRetirement, _rYears: data.retirementYears,
-          _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current,
-          _ltc: data.longTermCare, _ltcManual: ltcManualRef.current,
-        };
-        notesForDb = `__ASSETS__:${JSON.stringify(wrapper)}`;
-
+        // INSERT path — create new fna_records row
         const { data: fr, error: fe } = await supabase
           .from('fna_records')
           .insert([{
@@ -1189,7 +1289,8 @@ export default function FNAPage() {
             analysis_date: data.analysisDate,
             spouse_name: data.spouseName,
             dob: data.dob || null,
-            notes: notesForDb,
+            notes: data.notes || null,
+            spouse_dob: data.spouseDob || null,
             planned_retirement_age: data.plannedRetirementAge,
             calculated_interest_percentage: data.calculatedInterestPercentage,
             fna_have_will: willValue,
@@ -1223,9 +1324,9 @@ export default function FNAPage() {
         const { data: fr, error: fe } = await supabase.from('fna_records').insert([{
           client_id: data.clientId, analysis_date: data.analysisDate,
           spouse_name: data.spouseName, dob: data.dob || null, notes: data.notes || null,
+          spouse_dob: data.spouseDob || null,
           planned_retirement_age: data.plannedRetirementAge,
           calculated_interest_percentage: data.calculatedInterestPercentage,
-          // FIX: Explicit boolean coercion
           fna_have_will: data.haveWill === true,
           fna_spouse_include_fls: data.spouseIncludeFls === true,
         }]).select().single();
@@ -1281,23 +1382,26 @@ export default function FNAPage() {
       if (errs.length > 0) throw new Error(`Failed to save ${errs.length} goal record(s)`);
 
       // ── ASSETS SAVE ──────────────────────────────────────────────────────
-      // Strategy 1: localStorage – always works, same-browser recovery
-      const assetsJson = JSON.stringify(assets);
-      try { localStorage.setItem(`fna_assets_${data.clientId}`, assetsJson); } catch {}
+      // localStorage backup — lightweight in-browser recovery (always succeeds)
+      try { localStorage.setItem(`fna_assets_${data.clientId}`, JSON.stringify(assets)); } catch {}
 
-      // Strategy 2: Save to fna_records.notes as __ASSETS__:{json}
-      // Embeds user note + full assets in one field (guaranteed text column, no schema risk)
-      // FIX: Also store haveWill + spouseIncludeFls in wrapper for reliable persistence
-      const notesPayload = JSON.stringify({ _fna_note: data.notes, _assets: assets, _spouseDob: data.spouseDob, _haveWill: data.haveWill === true, _spouseIncludeFls: data.spouseIncludeFls === true, _ytr: data.yearsToRetirement, _rYears: data.retirementYears, _ytrManual: ytrManualRef.current, _rYearsManual: rYearsManualRef.current, _ltc: data.longTermCare, _ltcManual: ltcManualRef.current });
-      const notesWithAssets = `__ASSETS__:${notesPayload}`;
+      // Save notes as plain text + metadata as proper fna_records columns (no more JSON blob)
       const { error: notesErr } = await supabase.from('fna_records')
-        .update({ notes: notesWithAssets, updated_at: new Date().toISOString() })
+        .update({
+          notes: data.notes || null,
+          spouse_dob: data.spouseDob || null,
+          long_term_care: data.longTermCare,
+          ltc_manual: ltcManualRef.current,
+          ytr_override: ytrManualRef.current ? data.yearsToRetirement : null,
+          ytr_manual: ytrManualRef.current,
+          retirement_years_override: rYearsManualRef.current ? data.retirementYears : null,
+          retirement_years_manual: rYearsManualRef.current,
+          updated_at: new Date().toISOString(),
+        })
         .eq('fna_id', fnaId!);
-      if (notesErr) {
-        console.warn('Assets notes-column save failed:', notesErr.message);
-      }
+      if (notesErr) console.warn('fna_records metadata update failed:', notesErr.message);
 
-      // Strategy 3: Save all assets to proper fna_ast_* tables (proper relational storage)
+      // Save all assets to proper fna_ast_* tables (relational — source of truth)
       // All tables were deleted above, so these are always clean inserts.
       // Errors are non-fatal — strategies 1+2 (localStorage + notes JSON) still guarantee recovery.
       const astSaves = [
@@ -1310,12 +1414,17 @@ export default function FNAPage() {
           current_401k_notes: assets.r1_notes,
           current_401k_present_value: assets.r1_present,
           current_401k_projected_value: assets.r1_proj || autoProj(assets.r1_present),
+          current_401k_retirement_value: autoRetirementValue(assets.r1_proj || autoProj(assets.r1_present)),
           // r2 – Company Match
           company_match_him: assets.r2_him,
           company_match_her: assets.r2_her,
           company_match_notes: assets.r2_notes,
+          company_match_present_value: assets.r2_present,
           // r3 – Max Funding (~$22.5K)
+          max_funding_him: assets.r3_him,
+          max_funding_her: assets.r3_her,
           max_funding_notes: assets.r3_notes,
+          max_funding_present_value: assets.r3_present,
           max_funding_retirement_value: autoRetirementValue(assets.r3_proj),
           max_funding_projected_value: assets.r3_proj,
           // r4 – Previous 401K / Rollover
